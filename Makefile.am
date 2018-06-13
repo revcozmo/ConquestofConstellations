@@ -1,9 +1,27 @@
 ## Process this file with automake to produce Makefile.in
 
-aimodule_LTLIBRARIES = fc_ai_stub.la
+if AI_MOD_STATIC_THREADED
+noinst_LTLIBRARIES = libthreadedai.la
+else
+aimodule_LTLIBRARIES = fc_ai_threaded.la
+endif
 
-AM_CPPFLAGS = -I$(top_srcdir)/utility -I$(top_srcdir)/common
+AM_CPPFLAGS = -I$(top_srcdir)/utility -I$(top_srcdir)/common \
+-I$(top_srcdir)/common/aicore -I$(top_srcdir)/server/advisors \
+-I$(top_srcdir)/ai/default
 
-fc_ai_stub_la_SOURCES = stubai.c
+da_sources = \
+	taicity.c		\
+	taicity.h		\
+	taimsg.c		\
+	taimsg.h		\
+	taiplayer.c		\
+	taiplayer.h		\
+	threadedai.c
 
-fc_ai_stub_la_LDFLAGS = -module
+if AI_MOD_STATIC_THREADED
+libthreadedai_la_SOURCES = $(da_sources)
+else
+fc_ai_threaded_la_SOURCES = $(da_sources)
+fc_ai_threaded_la_LDFLAGS = -module
+endif

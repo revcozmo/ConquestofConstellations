@@ -78,7 +78,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-subdir = ai/stub
+subdir = ai/threaded
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/bootstrap/depcomp
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -145,17 +145,31 @@ am__uninstall_files_from_dir = { \
          $(am__cd) "$$dir" && rm -f $$files; }; \
   }
 am__installdirs = "$(DESTDIR)$(aimoduledir)"
-LTLIBRARIES = $(aimodule_LTLIBRARIES)
-fc_ai_stub_la_LIBADD =
-am_fc_ai_stub_la_OBJECTS = stubai.lo
-fc_ai_stub_la_OBJECTS = $(am_fc_ai_stub_la_OBJECTS)
+LTLIBRARIES = $(aimodule_LTLIBRARIES) $(noinst_LTLIBRARIES)
+fc_ai_threaded_la_LIBADD =
+am__fc_ai_threaded_la_SOURCES_DIST = taicity.c taicity.h taimsg.c \
+	taimsg.h taiplayer.c taiplayer.h threadedai.c
+am__objects_1 = taicity.lo taimsg.lo taiplayer.lo threadedai.lo
+@AI_MOD_STATIC_THREADED_FALSE@am_fc_ai_threaded_la_OBJECTS =  \
+@AI_MOD_STATIC_THREADED_FALSE@	$(am__objects_1)
+fc_ai_threaded_la_OBJECTS = $(am_fc_ai_threaded_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
 am__v_lt_1 = 
-fc_ai_stub_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
-	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
-	$(fc_ai_stub_la_LDFLAGS) $(LDFLAGS) -o $@
+fc_ai_threaded_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
+	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
+	$(AM_CFLAGS) $(CFLAGS) $(fc_ai_threaded_la_LDFLAGS) $(LDFLAGS) \
+	-o $@
+@AI_MOD_STATIC_THREADED_FALSE@am_fc_ai_threaded_la_rpath = -rpath \
+@AI_MOD_STATIC_THREADED_FALSE@	$(aimoduledir)
+libthreadedai_la_LIBADD =
+am__libthreadedai_la_SOURCES_DIST = taicity.c taicity.h taimsg.c \
+	taimsg.h taiplayer.c taiplayer.h threadedai.c
+@AI_MOD_STATIC_THREADED_TRUE@am_libthreadedai_la_OBJECTS =  \
+@AI_MOD_STATIC_THREADED_TRUE@	$(am__objects_1)
+libthreadedai_la_OBJECTS = $(am_libthreadedai_la_OBJECTS)
+@AI_MOD_STATIC_THREADED_TRUE@am_libthreadedai_la_rpath =
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -190,8 +204,9 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(fc_ai_stub_la_SOURCES)
-DIST_SOURCES = $(fc_ai_stub_la_SOURCES)
+SOURCES = $(fc_ai_threaded_la_SOURCES) $(libthreadedai_la_SOURCES)
+DIST_SOURCES = $(am__fc_ai_threaded_la_SOURCES_DIST) \
+	$(am__libthreadedai_la_SOURCES_DIST)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -572,10 +587,24 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-aimodule_LTLIBRARIES = fc_ai_stub.la
-AM_CPPFLAGS = -I$(top_srcdir)/utility -I$(top_srcdir)/common
-fc_ai_stub_la_SOURCES = stubai.c
-fc_ai_stub_la_LDFLAGS = -module
+@AI_MOD_STATIC_THREADED_TRUE@noinst_LTLIBRARIES = libthreadedai.la
+@AI_MOD_STATIC_THREADED_FALSE@aimodule_LTLIBRARIES = fc_ai_threaded.la
+AM_CPPFLAGS = -I$(top_srcdir)/utility -I$(top_srcdir)/common \
+-I$(top_srcdir)/common/aicore -I$(top_srcdir)/server/advisors \
+-I$(top_srcdir)/ai/default
+
+da_sources = \
+	taicity.c		\
+	taicity.h		\
+	taimsg.c		\
+	taimsg.h		\
+	taiplayer.c		\
+	taiplayer.h		\
+	threadedai.c
+
+@AI_MOD_STATIC_THREADED_TRUE@libthreadedai_la_SOURCES = $(da_sources)
+@AI_MOD_STATIC_THREADED_FALSE@fc_ai_threaded_la_SOURCES = $(da_sources)
+@AI_MOD_STATIC_THREADED_FALSE@fc_ai_threaded_la_LDFLAGS = -module
 all: all-am
 
 .SUFFIXES:
@@ -589,9 +618,9 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu ai/stub/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu ai/threaded/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu ai/stub/Makefile
+	  $(AUTOMAKE) --gnu ai/threaded/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
@@ -646,8 +675,22 @@ clean-aimoduleLTLIBRARIES:
 	  rm -f $${locs}; \
 	}
 
-fc_ai_stub.la: $(fc_ai_stub_la_OBJECTS) $(fc_ai_stub_la_DEPENDENCIES) $(EXTRA_fc_ai_stub_la_DEPENDENCIES) 
-	$(AM_V_CCLD)$(fc_ai_stub_la_LINK) -rpath $(aimoduledir) $(fc_ai_stub_la_OBJECTS) $(fc_ai_stub_la_LIBADD) $(LIBS)
+clean-noinstLTLIBRARIES:
+	-test -z "$(noinst_LTLIBRARIES)" || rm -f $(noinst_LTLIBRARIES)
+	@list='$(noinst_LTLIBRARIES)'; \
+	locs=`for p in $$list; do echo $$p; done | \
+	      sed 's|^[^/]*$$|.|; s|/[^/]*$$||; s|$$|/so_locations|' | \
+	      sort -u`; \
+	test -z "$$locs" || { \
+	  echo rm -f $${locs}; \
+	  rm -f $${locs}; \
+	}
+
+fc_ai_threaded.la: $(fc_ai_threaded_la_OBJECTS) $(fc_ai_threaded_la_DEPENDENCIES) $(EXTRA_fc_ai_threaded_la_DEPENDENCIES) 
+	$(AM_V_CCLD)$(fc_ai_threaded_la_LINK) $(am_fc_ai_threaded_la_rpath) $(fc_ai_threaded_la_OBJECTS) $(fc_ai_threaded_la_LIBADD) $(LIBS)
+
+libthreadedai.la: $(libthreadedai_la_OBJECTS) $(libthreadedai_la_DEPENDENCIES) $(EXTRA_libthreadedai_la_DEPENDENCIES) 
+	$(AM_V_CCLD)$(LINK) $(am_libthreadedai_la_rpath) $(libthreadedai_la_OBJECTS) $(libthreadedai_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -655,7 +698,10 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stubai.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/taicity.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/taimsg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/taiplayer.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/threadedai.Plo@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -806,7 +852,7 @@ maintainer-clean-generic:
 clean: clean-am
 
 clean-am: clean-aimoduleLTLIBRARIES clean-generic clean-libtool \
-	mostlyclean-am
+	clean-noinstLTLIBRARIES mostlyclean-am
 
 distclean: distclean-am
 	-rm -rf ./$(DEPDIR)
@@ -878,10 +924,10 @@ uninstall-am: uninstall-aimoduleLTLIBRARIES
 
 .PHONY: CTAGS GTAGS TAGS all all-am check check-am clean \
 	clean-aimoduleLTLIBRARIES clean-generic clean-libtool \
-	cscopelist-am ctags ctags-am distclean distclean-compile \
-	distclean-generic distclean-libtool distclean-tags distdir dvi \
-	dvi-am html html-am info info-am install \
-	install-aimoduleLTLIBRARIES install-am install-data \
+	clean-noinstLTLIBRARIES cscopelist-am ctags ctags-am distclean \
+	distclean-compile distclean-generic distclean-libtool \
+	distclean-tags distdir dvi dvi-am html html-am info info-am \
+	install install-aimoduleLTLIBRARIES install-am install-data \
 	install-data-am install-dvi install-dvi-am install-exec \
 	install-exec-am install-html install-html-am install-info \
 	install-info-am install-man install-pdf install-pdf-am \
