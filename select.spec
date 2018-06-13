@@ -6,20 +6,21 @@ options = "+Freeciv-2.5-spec"
 [info]
 
 artists = "
+; software by
     Jason Dorje Short <jdorje@freeciv.org>
-    Eleazar / J. W. Bjerk <www.jwbjerk.com>
-    qwm
+; adapted to hex2t
+    Daniel Markstedt <himasaram@spray.se>
 "
 
 [file]
-gfx = "amplio2/select-alpha"
+gfx = "hex2t/select"
 
 [grid_main]
 
 x_top_left = 0
 y_top_left = 0
-dx = 96
-dy = 48
+dx = 40
+dy = 58
 pixel_border = 0
 
 tiles = { "row", "column", "tag"
