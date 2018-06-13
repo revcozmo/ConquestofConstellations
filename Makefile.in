@@ -77,7 +77,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-subdir = data/civ2civ3
+subdir = data/classic
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/dependencies/m4/mkstemp.m4 \
@@ -165,7 +165,7 @@ am__installdirs = "$(DESTDIR)$(pkgdatadir)"
 DATA = $(pkgdata_DATA)
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
-pkgdatadir = $(datadir)/$(PACKAGE)/civ2civ3
+pkgdatadir = $(datadir)/$(PACKAGE)/classic
 ACLOCAL = @ACLOCAL@
 AMTAR = @AMTAR@
 AM_DEFAULT_VERBOSITY = @AM_DEFAULT_VERBOSITY@
@@ -522,15 +522,15 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 pkgdata_DATA = \
-	buildings.ruleset \
-	cities.ruleset	\
-	effects.ruleset	\
-	script.lua	\
-	game.ruleset	\
-	governments.ruleset \
-	nations.ruleset	\
-	techs.ruleset	\
-	terrain.ruleset	\
+	buildings.ruleset	\
+	cities.ruleset		\
+	effects.ruleset		\
+	game.ruleset		\
+	governments.ruleset	\
+	nations.ruleset		\
+	script.lua		\
+	techs.ruleset		\
+	terrain.ruleset		\
 	units.ruleset
 
 EXTRA_DIST = $(pkgdata_DATA)
@@ -546,9 +546,9 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu data/civ2civ3/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu data/classic/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu data/civ2civ3/Makefile
+	  $(AUTOMAKE) --gnu data/classic/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \

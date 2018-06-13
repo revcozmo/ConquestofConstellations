@@ -11,7 +11,7 @@
 ; than minor changes.
 
 [datafile]
-description="Civ2Civ3 tile_type data for Freeciv"
+description="Classic tile_type data for Freeciv"
 options="+Freeciv-2.5-ruleset"
 
 [control]
@@ -44,10 +44,10 @@ min_start_native_area = 0
 
 ; How many fragments each movement point has.
 ; For example road movement costs are relative to this.
-move_fragments = 6
+move_fragments = 3
 
 ; How many move_fragments IgTer unit movement costs
-igter_cost = 2
+igter_cost = 1
 
 ; There is no resources in the middle of the oceans, only near coast
 ocean_resources = FALSE
@@ -225,7 +225,7 @@ identifier           = "+"
 class                = "Oceanic"
 movement_cost        = 1
 defense_bonus        = 0
-food                 = 2
+food                 = 1
 shield               = 0
 trade                = 2
 resources            = "resource_fish"
@@ -240,7 +240,7 @@ irrigation_time      = 0
 mining_result        = "no"
 mining_shield_incr   = 0
 mining_time          = 0
-transform_result     = "terrain_grassland"
+transform_result     = "terrain_swamp"
 transform_time       = 36
 clean_pollution_time = 3
 clean_fallout_time   = 3
@@ -285,12 +285,12 @@ transform_result     = "terrain_swamp"
 transform_time       = 36
 clean_pollution_time = 3
 clean_fallout_time   = 3
-warmer_wetter_result = "terrain_deep_ocean"
-warmer_drier_result  = "no"
-cooler_wetter_result = "no"
+warmer_wetter_result = "no"
+warmer_drier_result  = "terrain_swamp"
+cooler_wetter_result = "terrain_glacier"
 cooler_drier_result  = "terrain_glacier"
 native_to            = "Sea", "Air", "Missile", "Helicopter", "Trireme"
-flags                = "NoCities", "UnsafeCoast"
+flags                = "NoCities", "NoPollution", "UnsafeCoast"
 property_ocean_depth = 32
 color.r              = 0
 color.g              = 46
@@ -365,15 +365,15 @@ irrigation_time      = 0
 mining_result        = "yes"
 mining_shield_incr   = 1
 mining_time          = 10
-transform_result     = "terrain_lake"
-transform_time       = 36
+transform_result     = "terrain_tundra"
+transform_time       = 24
 clean_pollution_time = 3
 clean_fallout_time   = 3
-warmer_wetter_result = "terrain_lake"
+warmer_wetter_result = "terrain_tundra"
 warmer_drier_result  = "terrain_tundra"
 cooler_wetter_result = "no"
 cooler_drier_result  = "no"
-native_to            = "Land", "Small Land", "Big Land", "Air", "Missile", "Helicopter"
+native_to            = "Land", "Air", "Missile", "Helicopter"
 flags                = "NoBarbs", "NoCities", "CanHaveRiver"
 property_frozen      = 100
 color.r              = 232
@@ -412,11 +412,11 @@ transform_result     = "terrain_plains"
 transform_time       = 24
 clean_pollution_time = 3
 clean_fallout_time   = 3
-warmer_wetter_result = "terrain_swamp"
+warmer_wetter_result = "terrain_grassland"
 warmer_drier_result  = "no"
-cooler_wetter_result = "terrain_tundra"
-cooler_drier_result  = "no"
-native_to            = "Land", "Small Land", "Big Land", "Air", "Missile", "Helicopter"
+cooler_wetter_result = "terrain_plains"
+cooler_drier_result  = "terrain_tundra"
+native_to            = "Land", "Air", "Missile", "Helicopter"
 flags                = "CanHaveRiver"
 property_dry         = 100
 property_tropical    = 50
@@ -427,10 +427,6 @@ color.b              = 106
 helptext             = _("\
 Deserts are regions of extreme dryness, making agriculture and\
  trade very difficult.\
-"), _("\
-Rivers bring fertile soil to deserts; on a desert river not already\
- benefiting from an oasis, building irrigation will yield two extra food\
- resources rather than the usual one.\
 ")
 
 [terrain_forest]
@@ -440,7 +436,7 @@ graphic_alt          = "-"
 identifier           = "f"
 class                = "Land"
 movement_cost        = 2
-defense_bonus        = 20
+defense_bonus        = 50
 food                 = 1
 shield               = 2
 trade                = 0
@@ -452,20 +448,20 @@ base_time            = 1
 road_time            = 4
 irrigation_result    = "terrain_plains"
 irrigation_food_incr = 0
-irrigation_time      = 10
-mining_result        = "terrain_grassland"
+irrigation_time      = 5
+mining_result        = "terrain_swamp"
 mining_shield_incr   = 0
 mining_time          = 15
-transform_result     = "terrain_hills"
+transform_result     = "terrain_grassland"
 transform_time       = 24
 clean_pollution_time = 3
 clean_fallout_time   = 3
 warmer_wetter_result = "terrain_jungle"
-warmer_drier_result  = "no"
-cooler_wetter_result = "no"
-cooler_drier_result  = "no"
-native_to            = "Land", "Small Land", "Big Land", "Air", "Missile", "Helicopter"
-flags                = "Starter", "CanHaveRiver", "NoPollution"
+warmer_drier_result  = "terrain_plains"
+cooler_wetter_result = "terrain_swamp"
+cooler_drier_result  = "terrain_tundra"
+native_to            = "Land", "Air", "Missile", "Helicopter"
+flags                = "Starter", "CanHaveRiver"
 property_cold        = 20
 property_wet         = 20
 property_foliage     = 50
@@ -500,16 +496,16 @@ irrigation_food_incr = 1
 irrigation_time      = 5
 mining_result        = "terrain_forest"
 mining_shield_incr   = 0
-mining_time          = 15
+mining_time          = 10
 transform_result     = "terrain_hills"
 transform_time       = 24
 clean_pollution_time = 3
 clean_fallout_time   = 3
-warmer_wetter_result = "terrain_swamp"
+warmer_wetter_result = "terrain_lake"
 warmer_drier_result  = "terrain_desert"
-cooler_wetter_result = "terrain_tundra"
+cooler_wetter_result = "terrain_glacier"
 cooler_drier_result  = "terrain_tundra"
-native_to            = "Land", "Small Land", "Big Land", "Air", "Missile", "Helicopter"
+native_to            = "Land", "Air", "Missile", "Helicopter"
 flags                = "Starter", "CanHaveRiver"
 property_green       = 50
 property_temperate   = 50
@@ -527,9 +523,9 @@ graphic_alt          = "-"
 identifier           = "h"
 class                = "Land"
 movement_cost        = 2
-defense_bonus        = 50
+defense_bonus        = 100
 food                 = 1
-shield               = 1
+shield               = 0
 trade                = 0
 resources            = "resource_coal", "resource_wine"
 road_food_incr_pct   = 0
@@ -541,7 +537,7 @@ irrigation_result    = "yes"
 irrigation_food_incr = 1
 irrigation_time      = 10
 mining_result        = "yes"
-mining_shield_incr   = 2
+mining_shield_incr   = 3
 mining_time          = 10
 transform_result     = "terrain_plains"
 transform_time       = 24
@@ -551,7 +547,7 @@ warmer_wetter_result = "no"
 warmer_drier_result  = "no"
 cooler_wetter_result = "no"
 cooler_drier_result  = "no"
-native_to            = "Land", "Small Land", "Big Land", "Air", "Missile", "Helicopter"
+native_to            = "Land", "Air", "Missile", "Helicopter"
 flags                = "Starter", "CanHaveRiver"
 property_green       = 50
 property_mountainous = 30
@@ -561,9 +557,6 @@ color.b              = 5
 helptext             = _("\
 In addition to being amenable to agriculture, Hills are frequently\
  rich in resources.\
-"), _("\
-Cities built in hills are at risk of earthquakes, which can interrupt\
- a city's current project.\
 ")
 
 [terrain_jungle]
@@ -573,9 +566,9 @@ graphic_alt          = "-"
 identifier           = "j"
 class                = "Land"
 movement_cost        = 2
-defense_bonus        = 20
+defense_bonus        = 50
 food                 = 1
-shield               = 1
+shield               = 0
 trade                = 0
 resources            = "resource_gems", "resource_fruit"
 road_food_incr_pct   = 0
@@ -583,22 +576,22 @@ road_shield_incr_pct = 0
 road_trade_incr_pct  = 0
 base_time            = 1
 road_time            = 4
-irrigation_result    = "terrain_swamp"
+irrigation_result    = "terrain_grassland"
 irrigation_food_incr = 0
-irrigation_time      = 10
-mining_result        = "no"
+irrigation_time      = 15
+mining_result        = "terrain_forest"
 mining_shield_incr   = 0
-mining_time          = 0
+mining_time          = 15
 transform_result     = "terrain_plains"
 transform_time       = 24
 clean_pollution_time = 3
 clean_fallout_time   = 3
-warmer_wetter_result = "no"
-warmer_drier_result  = "no"
-cooler_wetter_result = "no"
-cooler_drier_result  = "terrain_forest"
-native_to            = "Land", "Small Land", "Air", "Missile", "Helicopter"
-flags                = "CanHaveRiver", "NoPollution"
+warmer_wetter_result = "terrain_lake"
+warmer_drier_result  = "terrain_desert"
+cooler_wetter_result = "terrain_swamp"
+cooler_drier_result  = "terrain_tundra"
+native_to            = "Land", "Air", "Missile", "Helicopter"
+flags                = "CanHaveRiver"
 property_foliage     = 50
 property_tropical    = 50
 property_wet         = 50
@@ -607,8 +600,7 @@ color.g              = 156
 color.b              = 38
 helptext             = _("\
 Jungles are densely overgrown, making agriculture somewhat\
- problematic. Big Land units may not move into jungle without\
- a road.\
+ problematic.\
 ")
 
 [terrain_mountains]
@@ -618,7 +610,7 @@ graphic_alt          = "-"
 identifier           = "m"
 class                = "Land"
 movement_cost        = 3
-defense_bonus        = 100
+defense_bonus        = 200
 food                 = 0
 shield               = 1
 trade                = 0
@@ -634,16 +626,16 @@ irrigation_time      = 0
 mining_result        = "yes"
 mining_shield_incr   = 1
 mining_time          = 10
-transform_result     = "no"
-transform_time       = 0
+transform_result     = "terrain_hills"
+transform_time       = 24
 clean_pollution_time = 3
 clean_fallout_time   = 3
 warmer_wetter_result = "no"
 warmer_drier_result  = "no"
 cooler_wetter_result = "no"
 cooler_drier_result  = "no"
-native_to            = "Land", "Small Land", "Air", "Missile", "Helicopter"
-flags                = "NoCities", "CanHaveRiver"
+native_to            = "Land", "Air", "Missile", "Helicopter"
+flags                = "CanHaveRiver"
 property_mountainous = 70
 color.r              = 129
 color.g              = 127
@@ -651,11 +643,6 @@ color.b              = 118
 helptext             = _("\
 Mountains are regions of extreme altitude, making agriculture and\
  trade very difficult.\
-"), _("\
-Land units that move into mountains can see an extra space, but a\
- fast land unit ending its turn in mountains without a road will start\
- its next turn with one fewer movement point. Big Land units may not\
- move into mountains without a road.\
 ")
 
 [terrain_plains]
@@ -680,16 +667,16 @@ irrigation_food_incr = 1
 irrigation_time      = 5
 mining_result        = "terrain_forest"
 mining_shield_incr   = 0
-mining_time          = 10
+mining_time          = 15
 transform_result     = "terrain_grassland"
 transform_time       = 24
 clean_pollution_time = 3
 clean_fallout_time   = 3
-warmer_wetter_result = "terrain_swamp"
+warmer_wetter_result = "terrain_lake"
 warmer_drier_result  = "terrain_desert"
-cooler_wetter_result = "terrain_tundra"
-cooler_drier_result  = "terrain_desert"
-native_to            = "Land", "Small Land", "Big Land", "Air", "Missile", "Helicopter"
+cooler_wetter_result = "terrain_glacier"
+cooler_drier_result  = "terrain_tundra"
+native_to            = "Land", "Air", "Missile", "Helicopter"
 flags                = "Starter", "CanHaveRiver"
 property_green       = 50
 property_temperate   = 50
@@ -708,7 +695,7 @@ graphic_alt          = "-"
 identifier           = "s"
 class                = "Land"
 movement_cost        = 2
-defense_bonus        = 20
+defense_bonus        = 50
 food                 = 1
 shield               = 0
 trade                = 0
@@ -718,21 +705,21 @@ road_shield_incr_pct = 0
 road_trade_incr_pct  = 0
 base_time            = 1
 road_time            = 4
-irrigation_result    = "yes"
-irrigation_food_incr = 1
-irrigation_time      = 5
-mining_result        = "no"
+irrigation_result    = "terrain_grassland"
+irrigation_food_incr = 0
+irrigation_time      = 15
+mining_result        = "terrain_forest"
 mining_shield_incr   = 0
-mining_time          = 0
-transform_result     = "terrain_grassland"
-transform_time       = 24
+mining_time          = 15
+transform_result     = "terrain_lake"
+transform_time       = 36
 clean_pollution_time = 3
 clean_fallout_time   = 3
-warmer_wetter_result = "no"
+warmer_wetter_result = "terrain_lake"
 warmer_drier_result  = "terrain_desert"
-cooler_wetter_result = "no"
+cooler_wetter_result = "terrain_glacier"
 cooler_drier_result  = "terrain_tundra"
-native_to            = "Land", "Small Land", "Air", "Missile", "Helicopter"
+native_to            = "Land", "Air", "Missile", "Helicopter"
 flags                = "CanHaveRiver"
 property_wet         = 100
 property_tropical    = 10
@@ -743,8 +730,7 @@ color.g              = 85
 color.b              = 97
 helptext             = _("\
 Swamps suffer from an over-abundance of water, making agriculture\
- somewhat problematic. Big Land units may not move in swamps without\
- a road.\
+ somewhat problematic.\
 ")
 
 [terrain_tundra]
@@ -761,25 +747,25 @@ trade                = 0
 resources            = "resource_game", "resource_furs"
 road_food_incr_pct   = 0
 road_shield_incr_pct = 0
-road_trade_incr_pct  = 100
+road_trade_incr_pct  = 0
 base_time            = 1
 road_time            = 2
-irrigation_result    = "no"
-irrigation_food_incr = 0
-irrigation_time      = 0
-mining_result        = "yes"
-mining_shield_incr   = 1
-mining_time          = 5
-transform_result     = "terrain_plains"
+irrigation_result    = "yes"
+irrigation_food_incr = 1
+irrigation_time      = 5
+mining_result        = "no"
+mining_shield_incr   = 0
+mining_time          = 0
+transform_result     = "terrain_desert"
 transform_time       = 24
 clean_pollution_time = 3
 clean_fallout_time   = 3
-warmer_wetter_result = "no"
+warmer_wetter_result = "terrain_lake"
 warmer_drier_result  = "terrain_desert"
 cooler_wetter_result = "terrain_glacier"
 cooler_drier_result  = "no"
-native_to            = "Land", "Small Land", "Big Land", "Air", "Missile", "Helicopter"
-flags                = "NoBarbs", "CanHaveRiver"
+native_to            = "Land", "Air", "Missile", "Helicopter"
+flags                = "Starter", "NoBarbs", "CanHaveRiver"
 property_cold        = 50
 color.r              = 188
 color.g              = 188
@@ -958,7 +944,7 @@ name        = _("Spice")
 graphic     = "ts.spice"
 graphic_alt = "-"
 identifier  = "t"
-food        = 1
+food        = 2
 trade       = 4
 # swamp-only.
 
@@ -1052,21 +1038,19 @@ reqs           =
       "Tech", "Construction", "Player", FALSE
       "TerrainClass", "Land", "Local", FALSE
       "UnitFlag", "Settlers", "Local", FALSE
-      "UnitClass", "Sea", "Local", TRUE
       "CityTile", "Center", "Local", TRUE
-      "Road", "River", "Local", TRUE
     }
 gui_type       = "Fortress"
 build_time     = 3
-border_sq      = -1
-conflicts      = "Airbase"
-native_to      = "Land", "Small Land", "Big Land"
-flags          = "NoAggressive", "NoStackDeath", "DiplomatDefense", "NativeTile"
+defense_bonus  = 100
+border_sq      = 5
+native_to      = "Land"
+flags          = "NoAggressive", "NoStackDeath", "DiplomatDefense"
 helptext       = _("\
-Units in a fortress receive double defense against land units and boats. \
-Any kind of land unit remaining in a fortress for a whole turn without \
-moving recovers a quarter of its hit points. With Astronomy, fortresses gain \
-watchtowers from which units can see further afield.\
+Fortresses improve defense for land units. Among other effects, a land \
+unit remaining in a fortress for a whole turn without moving recovers \
+a quarter of its hit points. With Invention, fortresses gain watchtowers \
+from which land units can see further afield.\
 ")
 
 [base_airbase]
@@ -1081,20 +1065,14 @@ reqs           =
       "TerrainClass", "Land", "Local", FALSE
       "UnitFlag", "Airbase", "Local", FALSE
       "CityTile", "Center", "Local", TRUE
-      "Road", "River", "Local", TRUE
     }
 gui_type       = "Airbase"
 build_time     = 3
-border_sq      = -1
-conflicts      = "Fortress"
 native_to      = "Air", "Helicopter", "Missile"
-flags          = "NoAggressive", "NoStackDeath", "ParadropFrom"
+flags          = "NoStackDeath", "ParadropFrom"
 helptext       = _("\
-Airbases allow your air units to land and refuel. Units in an airbase \
-receive double defense against enemy air units. \
-An air unit remaining in an airbase for a whole turn without moving \
-recovers a quarter of its hit points. \
-Air units in an airbase may be attacked by land units.\
+Airbases allow your air units to land and refuel. Air units in an \
+airbase may be attacked by land units.\
 ")
 
 [base_buoy]
@@ -1116,9 +1094,6 @@ border_sq      = 0
 vision_main_sq = 5
 helptext       = _("\
 Buoys may be built in the ocean (by units on a sea-going vessel).\
-"), _("\
-As well as granting vision, a buoy in deep ocean yields a shield \
-resource to cities with an Offshore Platform.\
 ")
 
 [base_ruins]
@@ -1227,12 +1202,11 @@ graphic_alt    = "-"
 activity_gfx   = "unit.road"
 act_gfx_alt    = "-"
 reqs           =
-    { "type", "name", "range", "negated"
-      "UnitFlag", "Settlers", "Local", FALSE
-      "UnitClass", "Sea", "Local", TRUE
-      "TerrainClass", "Land", "Local", FALSE
+    { "type", "name", "range"
+      "UnitFlag", "Settlers", "Local"
+      "TerrainClass", "Land", "Local"
     }
-move_cost      = 2
+move_cost      = 1
 build_time     = 0
 food_incr      = 0
 shield_incr    = 0
@@ -1241,17 +1215,12 @@ food_bonus     = 0
 shield_bonus   = 0
 trade_bonus    = 0
 compat_special = "Road"
-native_to      = "Land", "Small Land", "Big Land", "Merchant"
+native_to      = "Land"
 hidden_by      = "Railroad"
-flags          = "RequiresBridge", "NativeTile", "AutoOnCityCenter"
+flags          = "RequiresBridge", "AutoOnCityCenter"
 helptext       = _("\
-Roads allow your land units to move more quickly, allow wheeled\
- Big Land units such as Chariots and Catapults to travel through\
- otherwise difficult terrain (Mountains, Jungle, and Swamp), and\
- Merchant units (Caravans and Freight) can only travel on roads,\
- railroads, rivers or ships.\
-"), _("\
-On some terrains, roads also provide a trade bonus.\
+Roads allow your land units to move more quickly, and on some terrain,\
+ also provide a trade bonus.\
 "), _("\
 Building roads on river tiles requires knowledge of Bridge Building.\
  City center tiles automatically get roads (unless they are on a river\
@@ -1265,14 +1234,13 @@ graphic_alt    = "-"
 activity_gfx   = "unit.rail"
 act_gfx_alt    = "unit.road"
 reqs           =
-    { "type", "name", "range", "negated"
-      "Tech", "Railroad", "Player", FALSE
-      "Road", "Road", "Local", FALSE
-      "UnitFlag", "Settlers", "Local", FALSE
-      "UnitClass", "Sea", "Local", TRUE
-      "TerrainClass", "Land", "Local", FALSE
+    { "type", "name", "range"
+      "Tech", "Railroad", "Player"
+      "Road", "Road", "Local"
+      "UnitFlag", "Settlers", "Local"
+      "TerrainClass", "Land", "Local"
     }
-move_cost      = 1
+move_cost      = 0
 build_time     = 3
 food_incr      = 0
 shield_incr    = 0
@@ -1281,12 +1249,12 @@ food_bonus     = 0
 shield_bonus   = 50
 trade_bonus    = 0
 compat_special = "Railroad"
-native_to      = "Land", "Small Land", "Big Land", "Merchant"
-flags          = "RequiresBridge", "NativeTile", "AutoOnCityCenter"
+native_to      = "Land"
+flags          = "RequiresBridge", "AutoOnCityCenter"
 helptext       = _("\
 Once you learn the Railroad technology, you may upgrade your roads\
- to railroads. Units travel considerably faster along railroads than\
- along roads.\
+ to railroads. Units expend no movement points when moving along a\
+ railroad; you may ride a railroad indefinitely. (As may your enemies!)\
 "), _("\
 A railroad also increases any shield resources produced by a tile.\
  A tile whose road is upgraded to a railroad retains any trade bonus\
@@ -1304,28 +1272,27 @@ activity_gfx   = "unit.rail"
 act_gfx_alt    = "unit.road"
 buildable      = FALSE
 pillageable    = FALSE
-defense_bonus  = 25
-move_cost      = 2
+defense_bonus  = 50
+move_cost      = 1
 move_mode      = "Cardinal"
-trade_incr_const = 1
+food_incr_const   = 0
+shield_incr_const = 0
+trade_incr_const  = 1
+food_incr         = 0
+shield_incr       = 0
+trade_incr        = 0
+food_bonus        = 0
+shield_bonus      = 0
+trade_bonus       = 0
 compat_special = "River"
-native_to      = "Land", "Small Land", "Merchant", "Trireme"
-flags          = "River", "PreventsOtherRoads", "NativeTile", "Natural"
-; /* xgettext:no-c-format */
+native_to      = "Land"
+flags          = "River", "PreventsOtherRoads", "UnrestrictedInfra", "Natural"
 helptext       = _("\
-Any land terrain type may have a River on it. A River adds 1\
- trade to the resources produced by that tile. It also increases a\
- tile's defense factor by 25%.\
-"), _("\
-Land units may move along rivers for faster travel (but not diagonally),\
- and Merchant units (Caravans and Freight) may require rivers to travel\
- along in the absence of roads. Triremes may also travel up rivers\
- (although later boats cannot).\
+Any land terrain type may have a River on it.  A River adds 1\
+ trade to the resources produced by that tile.  It also increases a tile's\
+ defense factor by 50%.  Finally, land units may move along a River (but\
+ not diagonally) for fast travel.\
 "), _("\
 Roads and railroads can only be built on River tiles if your\
- civilization has learned Bridge Building technology. Fortresses and\
- Airbases cannot be built on River tiles.\
-"), _("\
-Cities built on or next to rivers incur a small risk of flooding,\
- which will destroy stored food.\
+ civilization has learned Bridge Building technology.\
 ")

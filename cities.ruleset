@@ -8,7 +8,7 @@
 ; use your new customized file.
 
 [datafile]
-description="Civ2Civ3 cities data for Freeciv"
+description="Classic cities data for Freeciv"
 options="+Freeciv-2.5-ruleset"
 
 ; /* <-- avoid gettext warnings
@@ -52,8 +52,7 @@ reqs		=
 ; Nothing
     }
 helptext        = _("\
-Each entertainer produces two luxury points for their city per turn, \
-increasing to three once any player has built Shakespeare's Theater. \
+Each entertainer produces two luxury points for their city per turn. \
 See the section on Happiness for the effects of luxury points.\
 ")
 
@@ -66,9 +65,8 @@ reqs		=
 ; Nothing
     }
 helptext        = _("\
-Each scientist adds two points to your empire's research output \
-per turn, increasing to three once any player has built Darwin's \
-Voyage.\
+Each scientist adds three points to your empire's research output \
+per turn.\
 ")
 
 [specialist_taxman]
@@ -80,9 +78,8 @@ reqs		=
 ; Nothing
     }
 helptext        = _("\
-Each tax collector produces two extra gold for your treasury \
-per turn, increasing to three once any player has built \
-A.Smith's Trading Co.\
+Each tax collector produces three extra gold for your treasury \
+per turn.\
 ")
 
 [parameters]
@@ -102,7 +99,7 @@ pop_report_zeroes = 4           ; Population in reports in tens of thousands
 [citizen]
 nationality   = TRUE            ; account for the nationality of the citizens
 convert_speed = 50              ; base probability 50/1000 -> once every 20 turns
-partisans_pct = 75              ; percentage of own nationality to inspire partisans
+partisans_pct = 0               ; percentage of own nationality to inspire partisans
                                 ; if 0, original city owner information is used instead
 
 ; /* <-- avoid gettext warnings
