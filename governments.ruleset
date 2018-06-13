@@ -1,3 +1,5 @@
+; This is the experimental ruleset. See doc/README.ruleset_experimental
+; for a detailed description.
 
 ; Modifying this file:
 ; You should not modify this file except to make bugfixes or
@@ -11,7 +13,7 @@
 ; than minor changes.
 
 [datafile]
-description="Classic governments data for Freeciv (as Civ2, minus fundamentalism)"
+description="Experimental governments data for Freeciv"
 options="+Freeciv-2.5-ruleset"
 
 [governments]
@@ -72,6 +74,8 @@ Anarchy is simply the absence of any recognizable government.\
 "), _("\
 Anarchy offers slightly less corruption than Despotism,\
  but slightly more unhappiness.\
+"), _("\
+Under Anarchy, technology cannot be lost due to lack of upkeep.\
 ")
 
 ;------------------------------------------------------------------------

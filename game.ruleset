@@ -1,3 +1,6 @@
+; This is the experimental ruleset. See doc/README.ruleset_experimental
+; for a detailed description.
+
 ; Modifying this file:
 ; You should not modify this file except to make bugfixes or
 ; for other "maintenance".  If you want to make custom changes,
@@ -10,16 +13,19 @@
 ; than minor changes.
 
 [datafile]
-description="Classic game rules for Freeciv"
+description="Experimental game rules for Freeciv"
 options="+Freeciv-2.5-ruleset"
 
 [about]
 ; Ruleset name
-name = _("Classic ruleset")
+name = _("Experimental ruleset")
 
 ; Description of the ruleset
 description = _("\
-You are playing with classic Freeciv rules for single player games.\
+You are playing with the experimental ruleset. This showcases new or \
+unusual features available in Freeciv without regard for strict game \
+balancing or playability. A description of the differences from the \
+classic ruleset can be found in README.ruleset_experimental.\
 ")
 
 [options]
@@ -51,10 +57,10 @@ min_city_center_shield  = 1
 min_city_center_trade   = 0
 
 ; Square of initial city radius
-init_city_radius_sq     = 5
+init_city_radius_sq     = 2
 
 ; Square of initially visible radius (true distance).
-init_vis_radius_sq	= 5
+init_vis_radius_sq      = 5
 
 ; The type of collateral contamination produced by a nuclear attack.
 ;   "Pollution" - Pollution (same as industrial/population-generated).
@@ -90,7 +96,7 @@ civil_war_enabled        = TRUE
 gameloss_style           = ""
 
 ; Whether units may safely paradrop to transport on non-native terrain
-paradrop_to_transport    = FALSE
+paradrop_to_transport    = TRUE
 
 ; Method of paying unit and improvement gold upkeep
 ; 0 - The player`s total gold must be non-negative after paying upkeep
@@ -109,7 +115,7 @@ paradrop_to_transport    = FALSE
 ;     gold, alternatively a random buildings from a random cities is sold
 ;     and a random units with gold upkeep is disbanded till the treasury is
 ;     balanced.
-gold_upkeep_style = 0
+gold_upkeep_style = 1
 
 ; Method of calculating technology costs
 ;   0 - Civ (I|II) style. Every new tech add researchcost to cost of next tech.
@@ -140,9 +146,7 @@ tech_leakage = 0
 
 [illness]
 ; Whether plagues (illness) are possible
-; There are some latent building effects in effects.ruleset which affect
-; health, if you enable plague here.
-illness_on = FALSE
+illness_on = TRUE
 
 ; the base factor for illness (of percent)
 illness_base_factor = 25
@@ -199,7 +203,7 @@ size_effect    = 1
 ; "Basic"  - upkeep is calculated as:
 ;     <Cost of technology> / tech_upkeep_divider - tech_upkeep_free
 ; "Cities" - upkeep is calculated like "Basic", but multiplied by number of cities
-tech_upkeep_style = "None"
+tech_upkeep_style = "Basic"
 
 ; upkeep cost is divided by this value
 tech_upkeep_divider = 2000
@@ -246,24 +250,10 @@ name           = _("Earthquake")
 frequency      = 10
 effects        = "DestroyBuilding"
 
-[disaster_pestilence]
-name           = _("Pestilence")
-frequency      = 10
-effects        = "ReducePopulation"
-
 [disaster_fire]
 name           = _("Fire")
 frequency      = 10
 effects        = "DestroyBuilding"
-
-[disaster_nuclear_accident]
-name           = _("Nuclear Accident")
-reqs           =
-    { "type", "name", "range"
-      "Building", "Nuclear Plant", "City"
-    }
-frequency      = 10
-effects        = "ReducePopulation", "Fallout"
 
 ;
 ; Trade settings
@@ -345,7 +335,7 @@ colorlist =
 ; etc...
 
 [settings]
-; freeciv game settings for the classic ruleset
+; freeciv game settings for the experimental ruleset
 ;
 ; set =
 ;     { "name", "value", "lock"
@@ -353,3 +343,20 @@ colorlist =
 ;       "int_set", 123, FALSE
 ;       "str_set", "test", FALSE
 ;     }
+set =
+    { "name", "value", "lock"
+      "migration", TRUE, TRUE
+      "mgr_turninterval", 3, FALSE
+      "mgr_foodneeded", TRUE, FALSE
+      "mgr_distance", 3, FALSE
+      "mgr_nationchance", 75, FALSE
+      "mgr_worldchance", 25, FALSE
+      "foggedborders", TRUE, FALSE
+      "techlost_recv", 5, FALSE
+      "techlost_donor", 3, FALSE
+      "ec_turns", 9, FALSE
+      "ec_max_size", 100, FALSE
+      "ec_chat", TRUE, FALSE
+      "ec_info", TRUE, FALSE
+      "techlossforgiveness", 15, FALSE
+    }

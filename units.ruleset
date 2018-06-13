@@ -1,3 +1,6 @@
+; This is the experimental ruleset. See doc/README.ruleset_experimental
+; for a detailed description.
+
 ; Modifying this file:
 ; You should not modify this file except to make bugfixes or
 ; for other "maintenance".  If you want to make custom changes,
@@ -15,7 +18,7 @@
 ; then the first unit with this role will be chosen.
 
 [datafile]
-description="Classic unit_type data for Freeciv"
+description="Experimental unit data for Freeciv"
 options="+Freeciv-2.5-ruleset"
 
 [control]
@@ -132,6 +135,17 @@ flags         = "Missile", "Unreachable", "DoesntOccupyTile"
 [unitclass_land]
 ; /* TRANS: Unit class: used adjectivally */
 name          = _("?unitclass:Land")
+min_speed     = 1
+hp_loss_pct   = 0
+flags         = "TerrainSpeed", "DamageSlows", "CanOccupyCity", "BuildAnywhere",
+                "CollectRansom", "ZOC", "CanFortify", "CanPillage",
+                "TerrainDefense", "KillCitizen"
+
+[unitclass_land_big]
+; /* TRANS: "Big Land" is a unit class, like Land or Sea. Big Land units */
+; /* TRANS: cannot move into rough terrain. Unit class names are used */
+; /* TRANS: adjectivally. */
+name          = _("?unitclass:Big Land")
 min_speed     = 1
 hp_loss_pct   = 0
 flags         = "TerrainSpeed", "DamageSlows", "CanOccupyCity", "BuildAnywhere",
@@ -447,12 +461,17 @@ uk_shield     = 1
 uk_food       = 0
 uk_gold       = 0
 flags         = "Settlers", "NonMil", "Airbase"
-; No veteran levels (level name is never displayed)
-veteran_names = _("green")
-veteran_raise_chance = 0
-veteran_work_raise_chance = 0
-veteran_power_fact = 100
-veteran_move_bonus = 0
+veteran_names             =
+; /* TRANS: Worker veteran level */
+  _("?worker_level:apprentice"),
+; /* TRANS: Worker veteran level */
+  _("?worker_level:journeyman"),
+; /* TRANS: Worker veteran level */
+  _("?worker_level:master")
+veteran_raise_chance      = 0, 0, 0
+veteran_work_raise_chance = 2, 1, 0
+veteran_power_fact        = 100, 125, 150
+veteran_move_bonus        = 0, 0, 0
 roles         = "Settlers"
 helptext      = _("\
 Workers have the ability to improve terrain tiles.\
@@ -509,12 +528,17 @@ uk_shield     = 1
 uk_food       = 0
 uk_gold       = 0
 flags         = "Settlers", "NonMil", "Transform", "Airbase"
-; No veteran levels (level name is never displayed)
-veteran_names = _("green")
-veteran_raise_chance = 0
-veteran_work_raise_chance = 0
-veteran_power_fact = 100
-veteran_move_bonus = 0
+veteran_names             =
+; /* TRANS: Worker veteran level */
+  _("?worker_level:apprentice"),
+; /* TRANS: Worker veteran level */
+  _("?worker_level:journeyman"),
+; /* TRANS: Worker veteran level */
+  _("?worker_level:master")
+veteran_raise_chance      = 0, 0, 0
+veteran_work_raise_chance = 2, 1, 0
+veteran_power_fact        = 100, 125, 150
+veteran_move_bonus        = 0, 0, 0
 roles         = "Settlers"
 helptext      = _("\
 Engineers are similar to Workers, but they work twice as fast and\
@@ -766,7 +790,7 @@ A number of Partisans are granted free when an enemy conquers your\
  city -- they automatically assume defensive positions in the\
  surrounding countryside -- but only under these conditions:\n\
  - Guerilla Warfare must be known by at least one player.\n\
- - You must be the player who originally built the city.\n\
+ - At least three quarters of the citizens must have your nationality.\n\
  - You must know about Communism and Gunpowder.\n\
  - You must run either a Democracy or a Communist government.\
 ")
@@ -796,7 +820,7 @@ uk_happy      = 1
 uk_shield     = 1
 uk_food       = 0
 uk_gold       = 0
-flags         = "IgTer"
+flags         = "IgTer", "Shield2Gold"
 roles         = "DefendGood"
 helptext      = _("\
 Alpine Troops are highly mobile units as well as\
@@ -828,7 +852,7 @@ uk_happy      = 1
 uk_shield     = 1
 uk_food       = 0
 uk_gold       = 0
-flags         = ""
+flags         = "Shield2Gold"
 roles         = "DefendGood", "FirstBuild"
 helptext      = _("\
 Riflemen are World War-era infantry, very good\
@@ -860,7 +884,7 @@ uk_happy      = 1
 uk_shield     = 1
 uk_food       = 0
 uk_gold       = 0
-flags         = "Marines"
+flags         = "Marines", "Shield2Gold"
 roles         = "DefendOk", "BarbarianSeaTech"
 helptext      = _("\
 Marines are infantry who are experts at marine warfare.\
@@ -891,15 +915,15 @@ uk_happy      = 1
 uk_shield     = 1
 uk_food       = 0
 uk_gold       = 0
-flags         = "Paratroopers"
+flags         = "Paratroopers", "Shield2Gold"
 roles         = "DefendOk"
 helptext      = _("\
 Paratroopers are experts at airborne attacks. \
 From a friendly city or airbase, Paratroopers who have not expended any \
-movement points can paradrop directly to any tile in range, and be \
-immediately ready to act there. (Beware dropping into unseen territory, \
-as Paratroopers landing on a tile occupied by enemy units are easy \
-targets!)\
+movement points can paradrop directly to any tile in range (even onto \
+ships), and be immediately ready to act there. (Beware dropping into \
+unseen territory, as Paratroopers landing on a tile occupied by enemy \
+units are easy targets!)\
 ")
 paratroopers_range = 10
 paratroopers_mr_req = 1
@@ -907,7 +931,7 @@ paratroopers_mr_sub = 0
 
 [unit_mech_inf]
 name          = _("Mech. Inf.")
-class         = "Land"
+class         = "Big Land"
 tech_req      = "Labor Union"
 obsolete_by   = "None"
 graphic       = "u.mech_inf"
@@ -924,13 +948,14 @@ hitpoints     = 30
 firepower     = 1
 move_rate     = 3
 vision_radius_sq = 2
-transport_cap = 0
+transport_cap = 3
 fuel          = 0
 uk_happy      = 1
 uk_shield     = 1
 uk_food       = 0
 uk_gold       = 0
-flags         = ""
+cargo         = "Missile"
+flags         = "Shield2Gold"
 roles         = "DefendGood"
 helptext      = _("\
 The Mechanized Infantry has the strongest defensive strength\
@@ -1092,7 +1117,7 @@ uk_happy      = 1
 uk_shield     = 1
 uk_food       = 0
 uk_gold       = 0
-flags         = ""
+flags         = "Shield2Gold"
 roles         = "AttackFast", "Hunter"
 helptext      = _("\
 Cavalry are mounted and highly trained soldiers.\
@@ -1100,7 +1125,7 @@ Cavalry are mounted and highly trained soldiers.\
 
 [unit_armor]
 name          = _("Armor")
-class         = "Land"
+class         = "Big Land"
 tech_req      = "Mobile Warfare"
 obsolete_by   = "None"
 graphic       = "u.armor"
@@ -1123,7 +1148,7 @@ uk_happy      = 1
 uk_shield     = 1
 uk_food       = 0
 uk_gold       = 0
-flags         = ""
+flags         = "Shield2Gold"
 roles         = "AttackFast", "Hunter"
 helptext      = _("\
 Armors are motorized war wagons that are faster,\
@@ -1133,7 +1158,7 @@ Armors are motorized war wagons that are faster,\
 
 [unit_catapult]
 name          = _("Catapult")
-class         = "Land"
+class         = "Big Land"
 tech_req      = "Mathematics"
 obsolete_by   = "Cannon"
 graphic       = "u.catapult"
@@ -1166,7 +1191,7 @@ Catapults are large rock-throwing machines of war.\
 
 [unit_cannon]
 name          = _("Cannon")
-class         = "Land"
+class         = "Big Land"
 tech_req      = "Metallurgy"
 obsolete_by   = "Artillery"
 graphic       = "u.cannon"
@@ -1200,7 +1225,7 @@ Cannons are large firearms that can fire heavy\
 
 [unit_artillery]
 name          = _("Artillery")
-class         = "Land"
+class         = "Big Land"
 tech_req      = "Machine Tools"
 obsolete_by   = "Howitzer"
 graphic       = "u.artillery"
@@ -1223,7 +1248,7 @@ uk_happy      = 1
 uk_shield     = 1
 uk_food       = 0
 uk_gold       = 0
-flags         = ""
+flags         = "Shield2Gold"
 roles         = "AttackStrong"
 helptext      = _("\
 The artillery is an upgraded cannon. It is a very\
@@ -1233,7 +1258,7 @@ The artillery is an upgraded cannon. It is a very\
 
 [unit_howitzer]
 name          = _("Howitzer")
-class         = "Land"
+class         = "Big Land"
 tech_req      = "Robotics"
 obsolete_by   = "None"
 graphic       = "u.howitzer"
@@ -1256,7 +1281,7 @@ uk_happy      = 1
 uk_shield     = 1
 uk_food       = 0
 uk_gold       = 0
-flags         = "IgWall"
+flags         = "IgWall", "Shield2Gold"
 roles         = "AttackStrong"
 helptext      = _("\
 Howitzers are upgraded artillery with improved\
@@ -1294,7 +1319,7 @@ bonuses       =
      "Helicopter", "DefenseDivider", 1
      "Helicopter", "Firepower1", 1
    }
-flags         = "AirAttacker"
+flags         = "AirAttacker", "Shield2Gold"
 roles         = ""
 helptext      = _("\
 Fighters are your first airborne units. They can\
@@ -1329,7 +1354,7 @@ uk_happy      = 1
 uk_shield     = 1
 uk_food       = 0
 uk_gold       = 0
-flags         = "FieldUnit", "OneAttack", "AirAttacker"
+flags         = "FieldUnit", "OneAttack", "AirAttacker", "Shield2Gold"
 roles         = ""
 helptext      = _("\
 Bombers are specialized airborne units that may\
@@ -1363,7 +1388,7 @@ uk_happy      = 1
 uk_shield     = 1
 uk_food       = 0
 uk_gold       = 0
-flags         = "FieldUnit", "OneAttack", "Helicopter", "AirAttacker"
+flags         = "FieldUnit", "OneAttack", "Helicopter", "AirAttacker", "Shield2Gold"
 roles         = ""
 helptext      = _("\
 The Helicopter is a very powerful unit, as it can both fly and\
@@ -1404,7 +1429,7 @@ bonuses       =
      "Helicopter", "DefenseDivider", 1
      "Helicopter", "Firepower1", 1
    }
-flags         = "Partial_Invis", "AirAttacker"
+flags         = "Partial_Invis", "AirAttacker", "Shield2Gold"
 roles         = ""
 helptext      = _("\
 An improved Fighter, with improved attack and a higher movement\
@@ -1436,7 +1461,7 @@ uk_happy      = 1
 uk_shield     = 1
 uk_food       = 0
 uk_gold       = 0
-flags         = "Partial_Invis", "FieldUnit", "OneAttack", "AirAttacker"
+flags         = "Partial_Invis", "FieldUnit", "OneAttack", "AirAttacker", "Shield2Gold"
 roles         = ""
 helptext      = _("\
 An improved Bomber, with improved attack and a higher movement\
@@ -1475,7 +1500,8 @@ roles         = "Ferryboat"
 helptext      = _("\
 The Trireme is your first boat unit. It can act\
  as a transport ship and has rudimentary offensive\
- capabilities, but may not enter deep ocean tiles.\
+ capabilities, and unlike later boats can travel on\
+ rivers, but it may not enter deep ocean tiles.\
 ")
 
 [unit_caravel]
@@ -1536,7 +1562,7 @@ uk_happy      = 1
 uk_shield     = 1
 uk_food       = 0
 uk_gold       = 0
-cargo         = "Land"
+cargo         = "Land", "Big Land"
 flags         = "BadCityDefender"
 roles         = "Ferryboat", "BarbarianBoat"
 helptext      = _("\
@@ -1604,7 +1630,7 @@ uk_happy      = 1
 uk_shield     = 1
 uk_food       = 0
 uk_gold       = 0
-flags         = "BadCityDefender"
+flags         = "BadCityDefender", "Shield2Gold"
 roles         = "Hunter"
 helptext      = _("\
 The Ironclad is an armored ship that is\
@@ -1637,7 +1663,7 @@ uk_happy      = 1
 uk_shield     = 1
 uk_food       = 0
 uk_gold       = 0
-flags         = "BadCityDefender"
+flags         = "BadCityDefender", "Shield2Gold"
 roles         = "Hunter"
 helptext      = _("\
 An improved Ironclad, with better move rate and vision.\
@@ -1671,7 +1697,7 @@ uk_happy      = 1
 uk_shield     = 1
 uk_food       = 0
 uk_gold       = 0
-flags         = "BadCityDefender"
+flags         = "BadCityDefender", "Shield2Gold"
 roles         = "DefendGood"
 helptext      = _("\
 The Cruiser is a strong offensive boat unit.\
@@ -1706,7 +1732,7 @@ bonuses       =
    { "flag", "type", "value"
      "AirAttacker", "DefenseMultiplier", 4
    }
-flags         = "BadCityDefender"
+flags         = "BadCityDefender", "Shield2Gold"
 roles         = "DefendGood"
 helptext      = _("\
 The AEGIS Cruiser is equipped with an advanced\
@@ -1739,7 +1765,7 @@ uk_happy      = 1
 uk_shield     = 1
 uk_food       = 0
 uk_gold       = 0
-flags         = "BadCityDefender"
+flags         = "BadCityDefender", "Shield2Gold"
 roles         = ""
 helptext      = _("\
 The Battleship is the supreme naval unit with\
@@ -1773,7 +1799,7 @@ uk_food       = 0
 uk_gold       = 0
 cargo         = "Missile"
 flags         = "Partial_Invis", "BadCityDefender",
-	        "Only_Native_Attack"
+	        "Only_Native_Attack", "Shield2Gold"
 roles         = "Hunter"
 helptext      = _("\
 Traveling under the surface of the ocean, Submarines have\
@@ -1807,7 +1833,7 @@ uk_shield     = 1
 uk_food       = 0
 uk_gold       = 0
 cargo         = "Air", "Missile", "Helicopter"
-flags         = "BadCityDefender", "Only_Native_Attack"
+flags         = "BadCityDefender", "Only_Native_Attack", "Shield2Gold"
 roles         = ""
 helptext      = _("\
 The Carrier is a mobile airport.\
@@ -1842,8 +1868,8 @@ uk_happy      = 1
 uk_shield     = 1
 uk_food       = 0
 uk_gold       = 0
-cargo         = "Land"
-flags         = "BadCityDefender"
+cargo         = "Land", "Big Land"
+flags         = "BadCityDefender", "Shield2Gold"
 roles         = "Ferryboat"
 helptext      = _("\
 The Transport cannot attack on its own but\
@@ -1875,7 +1901,7 @@ uk_happy      = 1
 uk_shield     = 1
 uk_food       = 0
 uk_gold       = 0
-flags         = "FieldUnit", "OneAttack", "AirAttacker"
+flags         = "FieldUnit", "OneAttack", "AirAttacker", "Shield2Gold"
 roles         = ""
 helptext      = _("\
 The Cruise Missile is a long-distance missile\
@@ -1910,7 +1936,7 @@ uk_happy      = 1
 uk_shield     = 1
 uk_food       = 0
 uk_gold       = 0
-flags         = "FieldUnit", "OneAttack", "Nuclear"
+flags         = "FieldUnit", "OneAttack", "Nuclear", "Shield2Gold"
 ; No veteran levels (level name is never displayed)
 veteran_names = _("green")
 veteran_raise_chance = 0
@@ -2127,7 +2153,7 @@ Spies built under a Communist government will start at the first\
 name          = _("Caravan")
 class         = "Land"
 tech_req      = "Trade"
-obsolete_by   = "Freight"
+obsolete_by   = "None"
 graphic       = "u.caravan"
 graphic_alt   = "-"
 sound_move    = "m_caravan"
@@ -2177,7 +2203,7 @@ TIP:  You can stockpile a stack of Caravans in advance and bring\
 
 [unit_freight]
 name          = _("Freight")
-class         = "Land"
+class         = "Big Land"
 tech_req      = "The Corporation"
 obsolete_by   = "None"
 graphic       = "u.freight"
@@ -2203,7 +2229,8 @@ uk_gold       = 0
 flags         = "TradeRoute", "HelpWonder", "IgZOC", "NonMil"
 roles         = ""
 helptext      = _("\
-The Freight unit replaces the Caravan, and moves at twice the speed.\
+The Freight is twice as fast alternative to the Caravan, but unable to\
+ move at all outside flat terrains and roads.\
 ")
 
 [unit_explorer]
@@ -2345,7 +2372,7 @@ uk_happy      = 1
 uk_shield     = 1
 uk_food       = 0
 uk_gold       = 0
-flags         = ""
+flags         = "Shield2Gold"
 roles         = ""
 helptext      = _("\
 The AWACS (Airborne Warning and Control System) is an airplane with an \
