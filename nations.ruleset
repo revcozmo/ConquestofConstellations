@@ -10,8 +10,10 @@
 ; See classic/nations.ruleset and default/nationlist.ruleset for more
 ; information.
 
+; Note: The list is based on Civ2-ToT.
+
 [datafile]
-description="Civ1-equivalent nations data for Freeciv"
+description="Civ2-equivalent nations data for Freeciv"
 options="+Freeciv-2.5-ruleset"
 
 [compatibility]
@@ -85,12 +87,14 @@ legend=_("Formally named the United States of America.  Independent from\
 
 leaders = {
  "name",                        "sex"
+ "Eleanor Roosevelt",           "Female"
  "Abraham Lincoln",             "Male"
 }
 
 ruler_titles = {
  "government",      "male_title",         "female_title"
  "Republic",        _("Speaker %s"),      _("?female:Speaker %s")
+ "Fundamentalism",  _("Reverend %s"),     _("?female:Reverend %s")
 }
 
 flag="usa"
@@ -198,6 +202,7 @@ legend=_("The Azteca, a Nahuatl speaking people from the Sonoran desert,\
 
 leaders = {
  "name",                        "sex"
+ "Tecuichpo",                   "Female"
  "Motecuhzoma",                 "Male"
 }
 
@@ -293,6 +298,7 @@ legend=_("Babylon was the dominant city of Mesopotamia from the 18th to\
 
 leaders = {
  "name",                        "sex"
+ "Sammur-Amat",                 "Female"
  "Hammurabi",                   "Male"
 }
 
@@ -343,6 +349,125 @@ cities =
  "Uruk", ; Orchoe
  "Apameia" ; Apamea
 
+[nation_carthaginian]
+
+translation_domain="freeciv"
+
+name=_("Carthaginian")
+plural=_("?plural:Carthaginians")
+groups="Ancient"
+legend=_("The Carthaginians, descendants of Phoenician traders,\
+ ran a naval empire in the Mediterranean from the 5th to 2nd centuries\
+ BC. Carthage was destroyed by Rome in 146 BC.")
+
+leaders = {
+ "name",                "sex"
+ "Dido",                "Female"
+ "Hannibal Barca",      "Male"
+}
+
+flag="cartago"
+flag_alt="-"
+city_style="Classical"
+
+init_techs=""
+init_buildings=""
+init_units=""
+
+cities =
+  "Carthago", "Leptis Magna", "Cirta", "Hadrumetum", "Aspis",
+  "Charax", "Oea", "Sabrata", "Utica", "Saldae", "Cartenna",
+  "Siga", "Rusaddir", "Tingis", "Gades", "Malaca", "Mastia",
+  "Thapsus", "Capsa", "Thugga", "Thevesta", "Madaura", "Sitifis",
+  "Githis", "Uthina", "Thamugaddi", "Lambaesis"
+
+[nation_celtic]
+
+translation_domain="freeciv"
+
+name=_("Celtic")
+plural=_("?plural:Celts")
+groups="Ancient"
+legend=_("The Celts were an Indo-European ethno-linguistic complex in Western\
+ Europe, probably originating from the area between the upper Rhine and\
+ upper Danube, from the Urnfield culture and the western group of the\
+ Hallstatt culture. The Celts were known as cruel and savage warriors\
+ who terrorized the ancient civilized peoples of Europe and Asia Minor.\
+ The Celts colonized much of Europe and had a large influence on the\
+ development of European civilization.")
+
+leaders = {
+ "name",                "sex"
+ "Boudica",             "Female"
+ "Cunobelinos",         "Male"
+}
+
+ruler_titles = {
+ "government",     "male_title",          "female_title"
+ "Despotism",      _("Great Warrior %s"), _("?female:Great Warrior %s")
+ "Communism",      _("Brother %s"),       _("Sister %s")
+ "Republic",       _("Spokesman %s"),     _("Spokeswoman %s")
+ "Democracy",      _("Speaker %s"),       _("?female:Speaker %s")
+ "Fundamentalism", _("High Druid %s"),    _("?female:High Druid %s")
+} 
+
+flag="celtic"
+flag_alt="-"
+city_style="Celtic"
+
+init_techs=""
+init_buildings=""
+init_units=""
+
+cities =
+    ;Urnfield culture:
+    "Knoviz",
+    "Milavce",
+    "Velatice",
+    "Baierdorf",
+    "Čaka",
+    "Unstrut",
+    "Châtenay",
+    "Lingolsheim",
+    "Marburg",
+    "Hanau",
+    "Friedberger",
+    "Goloring",
+    ;Halstatt culture:
+    "Halstatt",
+    "Gräfenbühl",
+    "Hochmichele",
+    "Hochdorf",
+    "Heuneburg",
+    "Châtillon-sur-Seine",
+    "Vix",
+    "Molpír",
+    "Býčí Skála",
+    "Frögg",
+    "Hirschlanden",
+    "Glauberg",
+    ;La Téne culture:
+    "La Téne",
+    "Engehalbinsel",
+    "Jolimont",
+    "Manching",
+    "Mormont",
+    "Münsingen",
+    "Petinesca",
+    "Basel",
+    "Bibracte",
+    "Erstfeld",
+    "Bopfingen",
+    "Fellbach-Schmiden",
+    "Kleinaspergle",
+    "Waldalgesheim",
+    "Dürrnberg",
+    "Donnersberg",
+    "Vill",
+    "Sandberg",
+    "Titelberg",
+    "Reinheim"
+
 [nation_chinese]
 
 translation_domain="freeciv"
@@ -361,6 +486,7 @@ legend=_("China is the oldest major civilization that is still in\
 
 leaders = {
  "name",                "sex"
+ "Wu Zetian",           "Female"
  "Mao Zedong",          "Male"
 }
 
@@ -501,6 +627,7 @@ legend=_("Egypt was the second-oldest of the world's civilizations.  Since\
 
 leaders = {
  "name",                "sex"
+ "Cleopatra VII",       "Female"
  "Ramesses II",         "Male"
 }
 
@@ -580,11 +707,13 @@ legend=_("England was unified by Alfred the Great of Wessex in the late\
 leaders = {
  "name",                        "sex"
  "Elizabeth I",                 "Female"
+ "Henry VIII",                  "Male"
 }
 
 ruler_titles = {
  "government",      "male_title",           "female_title"
  "Democracy",       _("Prime Minister %s"), _("?female:Prime Minister %s")
+ "Fundamentalism",  _("Lord Protector %s"), _("Lady Protector %s")
 }
 
 flag="england"
@@ -688,6 +817,7 @@ legend=_("France has long been a major power in Europe. French conquerors\
 
 leaders = {
  "name",                "sex"
+ "Jeanne d'Arc",        "Female"
  "Napoléon Bonaparte",  "Male"
 }
 
@@ -695,6 +825,7 @@ ruler_titles = {
  "government",      "male_title",         "female_title"
  "Despotism",       _("Chieftain %s"),    _("?female:Chieftain %s")
  "Democracy",       _("Premier %s"),      _("?female:Premier %s")
+ "Fundamentalism",  _("Archbishop %s"),   _("?female:Archbishop %s")
 }
 
 flag="france_old"
@@ -811,13 +942,15 @@ into two states, which reunited in 1990 at the end of the Cold War.")
 
 leaders = {
  "name",                        "sex"
- "Friedrich II",                "Male"
+ "Maria Theresia",              "Female"
+ "Friedrich I Barbarossa",      "Male"
 }
 
 ruler_titles = {
  "government",      "male_title",            "female_title"
  "Democracy",       _("Chancellor %s"),      _("?female:Chancellor %s")
  "Communism",       _("First Secretary %s"), _("?female:First Secretary %s")
+ "Fundamentalism",  _("Archbishop %s"),      _("?female:Archbishop %s")
 }
 
 flag         = "hre"
@@ -959,6 +1092,7 @@ legend=_("The ancient Greeks, between Mycenae and the Roman conquest.")
 
 leaders = {
  "name",                "sex"
+ "Olympias",            "Female"
  "Megas Alexandros",    "Male" ; Alexander the Great
 }
 
@@ -1108,6 +1242,7 @@ legend=_("The cradle of Ancient Indian civilization lay in the Indus river\
 
 leaders = {
  "name",                "sex"
+ "Indira Gandhi",       "Female"
  "Mohandas Gandhi",     "Male"
 }
 
@@ -1116,6 +1251,7 @@ ruler_titles = {
  "Despotism",       _("Raja %s"),      _("Rani %s")
  "Monarchy",        _("Maharaja %s"),  _("Maharani %s")
  "Republic",        _("Mahatma %s"),   _("?female:Mahatma %s")
+ "Fundamentalism",  _("Guru %s"),      _("?female:Guru %s")
 }
 
 flag="india"
@@ -1189,6 +1325,119 @@ cities =
  "Gwalior",
  "Hubballi-Dharwad"
 
+[nation_japanese]
+
+translation_domain="freeciv"
+
+name=_("Japanese")
+plural=_("?plural:Japanese")
+groups="Modern"
+legend=_("According to traditional Japanese mythology, Japan was founded\
+ in the 7th century BC by the ancestral Emperor Jimmu.")
+
+leaders = {
+ "name",                "sex"
+ "Suiko",               "Female"
+ "Tokugawa Ieyasu",     "Male"
+}
+
+ruler_titles = {
+ "government",      "male_title",           "female_title"
+ "Monarchy",        _("Emperor %s"),        _("Empress %s")
+ "Republic",        _("Shogun %s"),         _("?female:Shogun %s")
+ "Democracy",       _("Prime Minister %s"), _("?female:Prime Minister %s")
+}
+
+flag="japan"
+flag_alt="-"
+city_style="Asian"
+
+init_techs=""
+init_buildings=""
+init_units=""
+
+cities =
+  "Tokyo (ocean)",
+  "Osaka (ocean)",
+  "Kyoto (!ocean)",
+  "Nara (!ocean)",
+  "Sapporo (ocean)",
+  "Nagoya (ocean)",
+  "Fukuoka (ocean)",
+  "Kobe (ocean)",
+  "Hiroshima (ocean)",
+  "Sendai (ocean)",
+  "Kawasaki (ocean)",
+  "Kokura (ocean)",	; Modern-day "Kita-Kyushu"
+  "Saitama (!ocean)",
+  "Yokohama (ocean)",
+  "Chiba (ocean)",
+  "Shizuoka (ocean)",
+  "Niigata (ocean)",
+  "Matsuyama (ocean)",
+  "Kanazawa (ocean)",
+  "Sakai (ocean)",
+  "Sagamihara (!ocean)",
+  "Hachioji (!ocean)",
+  "Nagano (!ocean)",
+  "Kumamoto (ocean)",
+  "Okayama (ocean)",
+  "Kagoshima (ocean)",
+  "Hamamatsu (ocean)",
+  "Akita (ocean)",
+  "Himeji (ocean)",
+  "Nagasaki (ocean)",
+  "Yokosuka (ocean)",
+  "Oita (ocean)",
+  "Gifu (!ocean)",
+  "Wakayama (ocean)",
+  "Iwaki (ocean)",
+  "Asahikawa (!ocean)",
+  "Takamatsu (ocean)",
+  "Kochi (ocean)",
+  "Toyama (ocean)",
+  "Naha (ocean)",
+  "Aomori (ocean)",
+  "Hakodate (ocean)",
+  "Maebashi (!ocean)",
+  "Morioka (!ocean)",
+  "Otsu",
+  "Tokushima (ocean)",
+  "Yamagata (!ocean)",
+  "Fukui (ocean)",
+  "Matsumoto (!ocean)",
+  "Kofu (!ocean)",
+  "Funabashi",
+  "Utsunomiya (!ocean)",
+  "Miyazaki (ocean)",
+  "Fukuyama",
+  "Toyota (!ocean)",
+  "Tokorozawa (!ocean)",
+  "Fukushima (!ocean)",
+  "Yokkaichi (ocean)",
+  "Shimonoseki (ocean)",
+  "Koganei (!ocean)",
+  "Hachinohe (ocean)",
+  "Mito (!ocean)",
+  "Sasebo (ocean)",
+  "Matsue (ocean)",
+  "Kawaguchi (!ocean)",
+  "Kushiro (ocean)",
+  "Chofu (!ocean)",
+  "Fuse (!ocean)",	; One of the old cities that now is "Higashi-Osaka"
+  "Kumagaya (!ocean)",
+  "Amagasaki (ocean)",
+  "Ichikawa",
+  "Saga",
+  "Machida (!ocean)",
+  "Tottori (ocean)",
+  "Toyonaka (!ocean)",
+  "Fujisawa (ocean)",
+  "Kurume (!ocean)",
+  "Toyohashi (ocean)",
+  "Kawagoe (!ocean)",
+  "Tsu (ocean)"
+
 [nation_mongol]
 
 translation_domain="freeciv"
@@ -1203,7 +1452,8 @@ legend=_("In the centuries after their unification by Chinggis Khan, the\
 
 leaders = {
  "name",        "sex"
- "Chinggis",	"Male" ; Genghis / Чингис
+ "Börte",       "Female" ; Bortei / Бөртэ
+ "Chinggis",    "Male" ; Genghis / Чингис
 }
 
 ruler_titles = {
@@ -1252,6 +1502,78 @@ cities=
  "Uliastai", ; Улиастай
  "Khuld" ; Хулд
 
+[nation_persian]
+
+translation_domain="freeciv"
+
+name=_("Persian")
+plural=_("?plural:Persians")
+groups="Ancient"
+legend=_("The first Persian (Achaemenid) Empire lasted from 550 BC to 330\
+ BC; the second (Sassanid) from 226 AD to 642 AD.")
+
+leaders = {
+ "name",                "sex"
+ "Purandokht",          "Female"
+ "Khshayarsha I",       "Male" ; a.k.a. "Xerxes"
+}
+
+ruler_titles = {
+ "government",      "male_title",         "female_title"
+ "Monarchy",        _("%s Shah"),         _("%s Shahbanu")
+ "Fundamentalism",  _("Ayatollah %s"),    _("?female:Ayatollah %s")
+}
+
+flag="iran_ancient"
+flag_alt="-"
+city_style="Classical"
+
+init_techs=""
+init_buildings=""
+init_units=""
+
+cities =
+; Ancient cities first; Latin rendering in comment
+ "Parsa",	; Persepolis
+ "Susa",
+ "Hagmatana",	; Ecbatana
+ "Pathragada",	; Pasaradae
+ "Raga",	; Rhagae
+ "Margush",	; Margiane
+ "Baktra",
+ "Takshasila",	; Taxila
+ "Gaba",	; Gabae
+ "Sakarta",	; Zadrakarta
+ "Herat",
+ "Drapsaka",
+ "Karmana",
+ "Pura",
+ "Bishapur",
+ "Ardashir Khureh",
+ "Tikni",
+ "Istakhr",
+ "Shurkutir",
+ "Susia",
+
+ ; Modern cities of the region
+ "Teheran",
+ "Isfahan",
+ "Tabriz",
+ "Hamadan",
+ "Rasht",
+ "Ahraz",
+ "Shiraz",
+ "Kerman",
+ "Yazd",
+ "Mashhad",
+ "Zahedan",
+ "Bushehr",
+ "Qazrin",
+ "Lhasa",
+ "Bulgar",
+ "Hormuz",
+ "Mosul"
+
 [nation_roman]
 
 translation_domain="freeciv"
@@ -1265,7 +1587,7 @@ legend=_("Rome was, in legend, founded by Romulus in 753 BC. At its\
 
 leaders = {
  "name",                "sex"
-; Full name "Gaius Julius Caesar".
+ "Livia",               "Female"
  "Caesar",              "Male"
 }
 
@@ -1323,13 +1645,15 @@ legend=_("According to legend, Slavic and Finnic tribes of Novgorod\
 
 leaders = {
  "name",                        "sex"
- "Iosif Stalin",                "Male"
+ "Ekaterina II",                "Female"
+ "Vladimir Lenin",              "Male"
 }
 
 ruler_titles = {
  "government",      "male_title",      "female_title"
  "Despotism",       _("Duke %s"),      _("Duchess %s")
  "Monarchy",        _("Tsar %s"),      _("Tsaritsa %s")
+ "Fundamentalism",  _("Patriarch %s"), _("Matriarch %s")
 }
 
 flag="kiev"
@@ -1396,6 +1720,248 @@ cities =
  "Norilsk",
  "Novokuznetsk"
 
+[nation_sioux]
+
+translation_domain="freeciv"
+
+name=_("Sioux")
+plural=_("?plural:Sioux")
+groups="Ancient"
+legend=_("The Sioux was a North American nation that fought several\
+ decisive battles against the United States. It consisted of three distinct\
+ groups of tribes: the Lakota, the Dakota and the Nakota.")
+
+leaders = {
+ "name",                "sex"
+ "Black Shawl",         "Female"
+ "Sitting Bull",        "Male" ; a.k.a. Tatanka Yotanka
+}
+
+ruler_titles = {
+ "government",      "male_title",            "female_title"
+ "Monarchy",        _("Great Chief %s"),     _("?female:Great Chief %s")
+ "Republic",        _("Spokesman %s"),       _("Spokeswoman %s")
+ "Democracy",       _("Principal Chief %s"), _("?female:Principal Chief %s")
+}
+
+flag="cheyenne"
+flag_alt="-"
+city_style="Celtic"
+
+init_techs=""
+init_buildings=""
+init_units=""
+
+cities =
+ "Mdewakanton",
+ "Wahpekute",
+ "Sisseton",
+ "Wahpeton",
+ "Yankton",
+ "Yanktonai",
+ "Sichangu",
+ "Itazipcho",
+ "Sihasapa",
+ "Miniconjou",
+ "Oohenonpa",
+ "Oglala",
+ "Hunkpapa",
+ "Assiniboin",
+ "Omaha",
+ "Ponca",
+ "Quapaw",
+ "Osage",
+ "Pahatsi",
+ "Utsehta",
+ "Santsukhdhi",
+ "Kansa",
+ "Iowa",
+ "Oto",
+ "Missouri",
+ "Winnebago",
+ "Mandan",
+ "Hidatsa",
+ "Absaroke",
+ "Biloxi",
+ "Ofo",
+ "Monacan",
+ "Meipontsky",
+ "Mohemencho",
+ "Tutelo",
+ "Saponi",
+ "Occaneechi",
+ "Manahoac",
+ "Stegaraki",
+ "Shackaconia",
+ "Tauxitania",
+ "Ontponea",
+ "Tegninateo",
+ "Whonkentia",
+ "Hassinunga",
+ "Catawba",
+ "Woecon",
+ "Sissipahaw",
+ "Adshusheer",
+ "Eno",
+ "Waxhaw",
+ "Sugeree",
+ "Santee",
+ "Catawba",
+ "Cheraw",
+ "Keyauwee"
+
+[nation_spanish]
+
+translation_domain="freeciv"
+
+name=_("Spanish")
+plural=_("?plural:Spanish")
+groups="Modern"
+legend=_("The modern Spanish nation was formed when the rulers of the\
+ kingdoms of Castile and Aragon led the recapture of the Iberian\
+ peninsula from the Moslems. The Reconquista was completed in 1492,\
+ the same year Columbus sailed. Spain then went on to create an empire\
+ on which the sun never set.")
+
+leaders = {
+ "name",                "sex"
+ "Isabel I",            "Female"
+ "Felipe II",           "Male"
+}
+
+ruler_titles = {
+ "government",     "male_title",           "female_title"
+ "Despotism",      _("Caudillo %s"),       _("Caudilla %s")
+ "Fundamentalism", _("Cardinal %s"),       _("?female:Cardinal %s")
+ "Democracy",      _("Prime Minister %s"), _("?female:Prime Minister %s")
+}
+
+flag="spain"
+flag_alt = "-"
+city_style = "Classical"
+
+init_techs=""
+init_buildings=""
+init_units=""
+
+cities =
+  "Madrid", "Barcelona", "Bilbao", "Valencia", "Sevilla", "Zaragoza",
+  "Pamplona", "Oviedo", "Valladolid", "Toledo", "Santander", "Granada",
+  "León", "Córdoba", "San Sebastián", "Segovia", "Gerona", "La Coruña",
+  "Murcia", "Málaga", "Cádiz", "Tarragona", "Vitoria", "Burgos",
+  "Palma", "Castellón de la Plana", "Palencia", "Huelva", "Zamora",
+  "Badajoz", "Jaén", "Teruel", "Lugo", "Ciudad Real", "Alicante",
+  "Almería", "Soria", "Logroño", "Pontevedra", "Orense",
+  "Guadalajara (river)", "Cuenca", "Santa Cruz de Tenerife", "Huesca",
+  "Avila", "Albacete", "Lérida", "Salamanca", "Cáceres",
+  "Las Palmas de Gran Canaria", "Reus", "Linares", "Sabadell",
+  "Baracaldo", "Calahorra", "Manacor", "Calatrava", "Getafe", "Alcudia",
+  "Laredo", "Albarracín", "Rentería", "Almazán", "Durango", "Barbastro",
+  "Ciudad Rodrigo", "El Ferrol", "Jerez de la Frontera", "Algeciras",
+  "Estela", "Alcalá de Henares", "Ponferrada", "Calatayud", "Monforte",
+  "Elche", "Orihuela", "Mérida", "Trujillo", "Vigo", "Alcoy", "Tarrasa",
+  "Astorga", "Manresa", "Torrelavega", "Mataró", "Puertollano (hills)",
+  "Plasencia", "Santurce", "Cartagena", "Ibiza", "Mahón", "Badalona",
+  "Gijón", "Aranjuez", "Almadén", "Urgel", "Bailén", "Ampurias",
+  "Navalcarnero", "Güímar", "Carmona", "Betanzos", "La Laguna", "Hijar",
+  "Baltanás", "Villena", "Valdepeñas", "Vergara", "Tolosa", "Sigüenza",
+  "Cangas", "Morella", "Vitigudino", "Marchena", "Armuña", "Tornelloso",
+  "Arzúa", "Belorado", "Jaca", "Castrojeriz (hills)", "Alméniz",
+  "Cervera", "Cifuentes", "Garafía", "Sequeros", "Alarcón", "Segorbe",
+  "Almudévar", "Salvatierra", "Sarnón", "Barbate", "Albañiz", "Gandía",
+  "Lerma", "Villaviciosa", "Játiva", "Calamocha", "Orotava",
+  "Labastida", "Mogán", "Figueras", "Orcera", "Alcaudete", "Alcira",
+  "Zumárraga", "Tudela", "Montalbán", "Reinosa",
+  "Navalmoral de la mata", "Monreal", "Mazarrón", "Lepe",
+  "Montefrío (hills)", "Utrera", "Alcañiz", "Villalba", "Jaraíz",
+  "Vélez", "Almuñécar", "Brunete", "Talavera", "Cardona", "Amposta",
+  "Sacedón", "Marbella", "Vejer de la frontera", "Guadix (river)",
+  "Azpeitía", "Ubeda", "Caspe", "Torquemada", "Lorca", "Benidorm",
+  "Tortosa", "Motril", "Lucena", "Berga", "Monzón", "Agüimes",
+  "Fregenal", "Aguilar", "Antequera", "Tineo", "Sedano", "Lebrija",
+  "Calatañazor", "Azuaga", "Vilches", "Alcántara", "Fraga", "Benavente",
+  "Mondragón", "Calanda", "Daroca", "Valverde", "Belmonte", "Simancas",
+  "Coria", "Requena", "Aranda"
+
+[nation_viking]
+
+translation_domain="freeciv"
+
+name=_("Viking")
+plural=_("?plural:Vikings")
+groups="Ancient"
+legend=_("The Vikings raided and traded along the coasts of Europe\
+ between 800 AD and 1100 AD. Viking raiders eventually became the rulers\
+ of Normandy, Russia, and a short-lived kingdom in Sicily.")
+
+leaders = {
+ "name",                "sex"
+ "Gunnhildr",           "Female"
+ "Knutr",               "Male"
+}
+
+ruler_titles = {
+ "government",   "male_title",           "female_title"
+ "Despotism",    _("%s Jarl"),           _("?female:%s Jarl")
+ "Democracy",    _("Prime Minister %s"), _("?female:Prime Minister %s")
+}
+
+flag="viking"
+flag_alt="-"
+city_style="European"
+
+init_techs=""
+init_buildings=""
+init_units=""
+
+cities =
+ "Skiringssal",		; Viking era name for Kaupang, Norway
+ "Birka",
+ "Ribe",
+ "Hedeby",
+ "Nidaros",
+ "Reykjavik (ocean)",
+ "Torshavn (ocean)",
+ "Bjørgvin",
+ "Jorvik (ocean)",
+ "Fjaler",
+ "Vikarskeid",
+ "Hvitaby",
+ "Torsberg (mountains)",
+ "Bålagardsida",
+ "Odinsøy",
+ "Trasvik (ocean)",
+ "Steinvågen",
+ "Folland",
+ "Medalhus",
+ "Vendelskage",
+ "Vigra",
+ "Haugseid",
+ "Sudatorp",
+ "Omd",
+ "Håstein",
+ "Fyrileiv",
+ "Kjarrekstader",
+ "Gresvik (ocean)",
+ "Valsnes (river)",
+ "Lusbrei",
+ "Åros",
+ "Rossanes",
+ "Kantaraborg (grassland)",
+ "Lejre",
+ "Kongssund (ocean)",
+ "Anger",
+ "Gaular",
+ "Vardynjar",
+ "Dimun",
+ "Dingenes (ocean)",
+ "Brekke",
+ "Florvåg",
+ "Aldeigjuborg (grassland)",
+ "Bøle",
+ "Jungufurda",
+ "Apardjon"
+
 [nation_zulu]
 
 translation_domain="freeciv"
@@ -1409,6 +1975,7 @@ legend=_("The Zulus are a warlike Bantu people who migrated from\
 
 leaders = {
  "name",                        "sex"
+ "Nandi",                       "Female"
  "Shaka kaSenzangakhona",       "Male" ; Shaka Zulu
 }
 

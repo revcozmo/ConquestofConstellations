@@ -11,7 +11,7 @@
 ; than minor changes.
 
 [datafile]
-description="Civ1 tile_type data for Freeciv"
+description="Civ2 tile_type data for Freeciv"
 options="+Freeciv-2.5-ruleset"
 
 [control]
@@ -186,7 +186,7 @@ defense_bonus        = 0
 food                 = 1
 shield               = 0
 trade                = 2
-resources            = "resource_fish"
+resources            = "resource_fish", "resource_whales"
 road_trade_incr_pct  = 0
 base_time            = 1
 road_time            = 0
@@ -202,7 +202,7 @@ warmer_wetter_result = "no"
 warmer_drier_result  = "no"
 cooler_wetter_result = "no"
 cooler_drier_result  = "no"
-native_to            = "Sea", "Air", "Missile"
+native_to            = "Sea", "Air", "Missile", "Helicopter"
 flags                = "UnsafeCoast", "NoCities", "NoPollution"
 property_ocean_depth = 36
 color.r              = 0
@@ -210,14 +210,10 @@ color.g              = 46
 color.b              = 137
 helptext             = _("\
 Oceans cover much of the world.\
-"), _("\
-In cities built on the coast, stored food and work towards the current\
- project are at risk from piracy, unless there is any kind of\
- Barracks in the city.\
 ")
 
-[terrain_arctic]
-name                 = _("Arctic")
+[terrain_glacier]
+name                 = _("Glacier")
 graphic              = "arctic"
 graphic_alt          = "-"
 identifier           = "a"
@@ -227,30 +223,30 @@ defense_bonus        = 0
 food                 = 0
 shield               = 0
 trade                = 0
-resources            = "resource_seals"
+resources            = "resource_icy_ivory", "resource_icy_oil"
 road_trade_incr_pct  = 0
 base_time            = 1
 road_time            = 4
 irrigation_result    = "no"
 irrigation_food_incr = 0
 irrigation_time      = 0
-mining_result        = "no"
-mining_shield_incr   = 0
-mining_time          = 0
-transform_result     = "no"
-transform_time       = 0
+mining_result        = "yes"
+mining_shield_incr   = 1
+mining_time          = 10
+transform_result     = "terrain_tundra"
+transform_time       = 24
 warmer_wetter_result = "no"
 warmer_drier_result  = "no"
 cooler_wetter_result = "no"
 cooler_drier_result  = "no"
-native_to            = "Land", "Air", "Missile"
-flags                = "NoBarbs"
+native_to            = "Land", "Air", "Missile", "Helicopter"
+flags                = "NoBarbs", "CanHaveRiver"
 property_frozen      = 100
 color.r              = 232
 color.g              = 232
 color.b              = 232
 helptext             = _("\
-Arctic tiles are found only in the most northerly or southerly\
+Glaciers are found only in the most northerly or southerly\
  reaches of the world.  They are very cold, and hence difficult to\
  work with.\
 ")
@@ -266,7 +262,7 @@ defense_bonus        = 0
 food                 = 0
 shield               = 1
 trade                = 0
-resources            = "resource_oasis"
+resources            = "resource_oasis", "resource_desert_oil"
 road_trade_incr_pct  = 100
 base_time            = 1
 road_time            = 2
@@ -276,13 +272,14 @@ irrigation_time      = 5
 mining_result        = "yes"
 mining_shield_incr   = 1
 mining_time          = 5
-transform_result     = "no"
-transform_time       = 0
+transform_result     = "terrain_plains"
+transform_time       = 24
 warmer_wetter_result = "terrain_swamp"
 warmer_drier_result  = "no"
 cooler_wetter_result = "no"
 cooler_drier_result  = "no"
-native_to            = "Land", "Air", "Missile"
+native_to            = "Land", "Air", "Missile", "Helicopter"
+flags                = "CanHaveRiver"
 property_dry         = 100
 property_tropical    = 50
 property_temperate   = 20
@@ -305,7 +302,7 @@ defense_bonus        = 50
 food                 = 1
 shield               = 2
 trade                = 0
-resources            = "resource_game"
+resources            = "resource_pheasant", "resource_silk"
 road_trade_incr_pct  = 0
 base_time            = 1
 road_time            = 4
@@ -315,14 +312,14 @@ irrigation_time      = 5
 mining_result        = "no"
 mining_shield_incr   = 0
 mining_time          = 0
-transform_result     = "no"
-transform_time       = 0
+transform_result     = "terrain_grassland"
+transform_time       = 24
 warmer_wetter_result = "terrain_jungle"
 warmer_drier_result  = "terrain_desert"
 cooler_wetter_result = "no"
 cooler_drier_result  = "no"
-native_to            = "Land", "Air", "Missile"
-flags                = "Starter"
+native_to            = "Land", "Air", "Missile", "Helicopter"
+flags                = "Starter", "CanHaveRiver"
 property_cold        = 20
 property_wet         = 20
 property_foliage     = 50
@@ -356,13 +353,13 @@ irrigation_time      = 5
 mining_result        = "terrain_forest"
 mining_shield_incr   = 0
 mining_time          = 10
-transform_result     = "no"
-transform_time       = 0
+transform_result     = "terrain_hills"
+transform_time       = 24
 warmer_wetter_result = "terrain_swamp"
 warmer_drier_result  = "terrain_desert"
 cooler_wetter_result = "terrain_desert"
 cooler_drier_result  = "terrain_tundra"
-native_to            = "Land", "Air", "Missile"
+native_to            = "Land", "Air", "Missile", "Helicopter"
 flags                = "Starter", "CanHaveRiver"
 property_green       = 50
 property_temperate   = 50
@@ -384,7 +381,7 @@ defense_bonus        = 100
 food                 = 1
 shield               = 0
 trade                = 0
-resources            = "resource_coal"
+resources            = "resource_coal", "resource_wine"
 road_trade_incr_pct  = 0
 base_time            = 1
 road_time            = 4
@@ -394,15 +391,15 @@ irrigation_time      = 10
 mining_result        = "yes"
 mining_shield_incr   = 3
 mining_time          = 10
-transform_result     = "no"
-transform_time       = 0
+transform_result     = "terrain_plains"
+transform_time       = 24
 warmer_wetter_result = "no"
 warmer_drier_result  = "no"
 cooler_wetter_result = "no"
 cooler_drier_result  = "no"
-native_to            = "Land", "Air", "Missile"
-flags                = "Starter"
-property_green       = 10
+native_to            = "Land", "Air", "Missile", "Helicopter"
+flags                = "Starter", "CanHaveRiver"
+property_green       = 50
 property_mountainous = 30
 color.r              = 24
 color.g              = 97
@@ -410,10 +407,6 @@ color.b              = 5
 helptext             = _("\
 In addition to being amenable to agriculture, Hills are frequently\
  rich in resources.\
-"), _("\
-A city built in or next to hills is at risk of earthquakes, which can\
- destroy buildings in that city. There is no technology or improvement\
- which can prevent this disaster.\
 ")
 
 [terrain_jungle]
@@ -427,7 +420,7 @@ defense_bonus        = 50
 food                 = 1
 shield               = 0
 trade                = 0
-resources            = "resource_gems"
+resources            = "resource_gems", "resource_fruit"
 road_trade_incr_pct  = 0
 base_time            = 1
 road_time            = 4
@@ -437,15 +430,17 @@ irrigation_time      = 15
 mining_result        = "terrain_forest"
 mining_shield_incr   = 0
 mining_time          = 15
-transform_result     = "no"
-transform_time       = 0
+transform_result     = "terrain_plains"
+transform_time       = 24
 warmer_wetter_result = "no"
 warmer_drier_result  = "no"
 cooler_wetter_result = "terrain_desert"
 cooler_drier_result  = "terrain_tundra"
-native_to     	     = "Land", "Air", "Missile"
+native_to            = "Land", "Air", "Missile", "Helicopter"
+flags                = "CanHaveRiver"
 property_foliage     = 50
 property_tropical    = 50
+property_wet         = 50
 color.r              = 55
 color.g              = 156
 color.b              = 38
@@ -465,7 +460,7 @@ defense_bonus        = 200
 food                 = 0
 shield               = 1
 trade                = 0
-resources            = "resource_gold"
+resources            = "resource_gold", "resource_iron"
 road_trade_incr_pct  = 0
 base_time            = 1
 road_time            = 6
@@ -475,13 +470,14 @@ irrigation_time      = 0
 mining_result        = "yes"
 mining_shield_incr   = 1
 mining_time          = 10
-transform_result     = "no"
-transform_time       = 0
+transform_result     = "terrain_hills"
+transform_time       = 24
 warmer_wetter_result = "no"
 warmer_drier_result  = "no"
 cooler_wetter_result = "no"
 cooler_drier_result  = "no"
-native_to            = "Land", "Air", "Missile"
+native_to            = "Land", "Air", "Missile", "Helicopter"
+flags                = "CanHaveRiver"
 property_mountainous = 70
 color.r              = 129
 color.g              = 127
@@ -489,10 +485,6 @@ color.b              = 118
 helptext             = _("\
 Mountains are regions of extreme altitude, making agriculture and\
  trade very difficult.\
-"), _("\
-Cities built in or next to mountains are at risk from volcanic\
- activity. A Temple in the city instils sufficient respect for the\
- forces of nature to prevent population loss.\
 ")
 
 [terrain_plains]
@@ -506,7 +498,7 @@ defense_bonus        = 0
 food                 = 1
 shield               = 1
 trade                = 0
-resources            = "resource_horses"
+resources            = "resource_buffalo", "resource_wheat"
 road_trade_incr_pct  = 100
 base_time            = 1
 road_time            = 2
@@ -516,14 +508,15 @@ irrigation_time      = 5
 mining_result        = "terrain_forest"
 mining_shield_incr   = 0
 mining_time          = 15
-transform_result     = "no"
-transform_time       = 0
+transform_result     = "terrain_grassland"
+transform_time       = 24
 warmer_wetter_result = "terrain_swamp"
 warmer_drier_result  = "terrain_desert"
 cooler_wetter_result = "terrain_desert"
 cooler_drier_result  = "terrain_tundra"
-native_to            = "Land", "Air", "Missile"
-flags                = "Starter"
+native_to            = "Land", "Air", "Missile", "Helicopter"
+flags                = "Starter", "CanHaveRiver"
+property_dry         = 50
 property_green       = 50
 property_temperate   = 50
 color.r              = 122
@@ -545,7 +538,7 @@ defense_bonus        = 50
 food                 = 1
 shield               = 0
 trade                = 0
-resources            = "resource_swamp_oil"
+resources            = "resource_peat", "resource_spice"
 road_trade_incr_pct  = 0
 base_time            = 1
 road_time            = 4
@@ -555,13 +548,14 @@ irrigation_time      = 15
 mining_result        = "terrain_forest"
 mining_shield_incr   = 0
 mining_time          = 15
-transform_result     = "no"
-transform_time       = 0
+transform_result     = "terrain_plains"
+transform_time       = 24
 warmer_wetter_result = "no"
 warmer_drier_result  = "terrain_desert"
 cooler_wetter_result = "no"
 cooler_drier_result  = "terrain_tundra"
-native_to            = "Land", "Air", "Missile"
+native_to            = "Land", "Air", "Missile", "Helicopter"
+flags                = "CanHaveRiver"
 property_wet         = 100
 property_tropical    = 10
 property_temperate   = 10
@@ -585,24 +579,24 @@ defense_bonus        = 0
 food                 = 1
 shield               = 0
 trade                = 0
-resources            = "resource_game"
+resources            = "resource_game", "resource_furs"
 road_trade_incr_pct  = 0
 base_time            = 1
 road_time            = 2
-irrigation_result    = "no"
-irrigation_food_incr = 0
-irrigation_time      = 0
+irrigation_result    = "yes"
+irrigation_food_incr = 1
+irrigation_time      = 5
 mining_result        = "no"
 mining_shield_incr   = 0
 mining_time          = 0
-transform_result     = "no"
-transform_time       = 0
+transform_result     = "terrain_desert"
+transform_time       = 24
 warmer_wetter_result = "no"
 warmer_drier_result  = "no"
-cooler_wetter_result = "terrain_arctic"
-cooler_drier_result  = "terrain_arctic"
-native_to            = "Land", "Air", "Missile"
-flags                = "Starter", "NoBarbs"
+cooler_wetter_result = "terrain_glacier"
+cooler_drier_result  = "terrain_glacier"
+native_to            = "Land", "Air", "Missile", "Helicopter"
+flags                = "Starter", "NoBarbs", "CanHaveRiver"
 property_cold        = 50
 color.r              = 188
 color.g              = 188
@@ -637,81 +631,180 @@ Tundra are broad, cold regions, fit for some agriculture and little\
 name        = _("Gold")
 graphic     = "ts.gold"
 graphic_alt = "-"
-identifier  = "H"
+identifier  = "$"
 trade       = 6
+# mountains.
+
+[resource_iron]
+name        = _("Iron")
+graphic     = "ts.iron"
+graphic_alt = "-"
+identifier  = "/"
+shield      = 3
 # mountains.
 
 [resource_game]
 name        = _("?animals:Game")
 graphic     = "ts.tundra_game"
 graphic_alt = "-"
-identifier  = "A"
+identifier  = "e"
 food        = 2
-# forest, tundra.
+shield      = 1
+# tundra.
+
+[resource_furs]
+name        = _("Furs")
+graphic     = "ts.furs"
+graphic_alt = "-"
+identifier  = "u"
+food        = 1
+trade       = 3
+# tundra-only (beaver pelts).
 
 [resource_coal]
 name        = _("Coal")
 graphic     = "ts.coal"
 graphic_alt = "-"
-identifier  = "C"
+identifier  = "c"
 shield      = 2
 # hills.
+
+; "d" reserved for dyes
+
+; "e" reserved for (elephant) ivory
 
 [resource_fish]
 name        = _("Fish")
 graphic     = "ts.fish"
 graphic_alt = "-"
-identifier  = "F"
+identifier  = "y"
 food        = 2
 # ocean.
+
+[resource_fruit]
+name        = _("Fruit")
+graphic     = "ts.fruit"
+graphic_alt = "-"
+identifier  = "f"
+food        = 3
+trade       = 1
+# jungle.
 
 [resource_gems]
 name        = _("Gems")
 graphic     = "ts.gems"
 graphic_alt = "-"
-identifier  = "G"
+identifier  = "g"
 trade       = 4
 # jungle.
 
-[resource_horses]
-name        = _("Horses")
-graphic     = "ts.horses"
+[resource_buffalo]
+name        = _("Buffalo")
+graphic     = "ts.buffalo"
 graphic_alt = "-"
-identifier  = "I"
+identifier  = "b"
 shield      = 2
 # plains (horses => buffalo => cattle).
+
+[resource_wheat]
+name        = _("Wheat")
+graphic     = "ts.wheat"
+graphic_alt = "-"
+identifier  = "j"
+food        = 2
+# plains.
 
 [resource_oasis]
 name        = _("Oasis")
 graphic     = "ts.oasis"
 graphic_alt = "-"
-identifier  = "O"
+identifier  = "o"
 food        = 3
 # desert.
 
-[resource_swamp_oil]
-name        = _("Oil")
-graphic     = "ts.oil"
+[resource_peat]
+name        = _("Peat")
+graphic     = "ts.peat"
 graphic_alt = "-"
-identifier  = "P"
+identifier  = "a"
 shield      = 4
 # swamp (petroleum => peat => petroleum).
+
+[resource_pheasant]
+name        = _("Pheasant")
+graphic     = "ts.pheasant"
+graphic_alt = "-"
+identifier  = "p"
+food        = 2
+# forest.
 
 [resource_bonus]
 name        = _("Resources")
 graphic     = "ts.grassland_resources"
 graphic_alt = "-"
-identifier  = "R"
+identifier  = "r"
 shield      = 1
 # grassland.
 
-[resource_seals]
-name        = _("Seals")
-graphic     = "ts.seals"
+[resource_icy_ivory]
+name        = _("Ivory")
+graphic     = "ts.arctic_ivory"
 graphic_alt = "-"
-identifier  = "S"
+identifier  = "i"
+food        = 1
+shield      = 1
+trade       = 4
+# glacier (seals => walrus).
+
+[resource_silk]
+name        = _("Silk")
+graphic     = "ts.silk"
+graphic_alt = "-"
+identifier  = "s"
+trade       = 3
+# forest.
+
+[resource_spice]
+name        = _("Spice")
+graphic     = "ts.spice"
+graphic_alt = "-"
+identifier  = "t"
 food        = 2
-# arctic (seals => walrus).
+trade       = 4
+# swampy.
+
+[resource_whales]
+name        = _("Whales")
+graphic     = "ts.whales"
+graphic_alt = "-"
+identifier  = "v"
+food        = 1
+shield      = 1
+# ocean (sea).
+
+[resource_wine]
+name        = _("Wine")
+graphic     = "ts.wine"
+graphic_alt = "-"
+identifier  = "w"
+trade       = 4
+# hilly.
+
+[resource_icy_oil]
+name        = _("Oil")
+graphic     = "ts.oil"
+graphic_alt = "-"
+identifier  = "x"
+shield      = 4
+# glacier-only.
+
+[resource_desert_oil]
+name        = _("Oil")
+graphic     = "ts.oil"
+graphic_alt = "-"
+identifier  = "P"
+shield      = 3
+# desert-only, special processing, see savegame map_load().
 
 ; /* <-- avoid gettext warnings
 ;
@@ -784,7 +877,31 @@ defense_bonus = 100
 native_to     = "Land"
 flags         = "NoAggressive", "NoStackDeath", "DiplomatDefense"
 helptext       = _("\
-Fortresses improve defense for land units.\
+Fortresses improve defense for land units. Among other effects, a land \
+unit remaining in a fortress for a whole turn without moving recovers \
+a quarter of its hit points.\
+")
+
+[base_airbase]
+name          = _("Airbase")
+graphic       = "base.airbase"
+graphic_alt   = "-"
+activity_gfx  = "unit.airbase"
+act_gfx_alt   = "-"
+reqs          =
+    { "type", "name", "range", "negated"
+      "Tech", "Radio", "Player", FALSE
+      "TerrainClass", "Land", "Local", FALSE
+      "UnitFlag", "Airbase", "Local", FALSE
+      "CityTile", "Center", "Local", TRUE
+    }
+gui_type      = "Airbase"
+build_time    = 3
+native_to     = "Air", "Helicopter", "Missile"
+flags         = "NoStackDeath", "ParadropFrom"
+helptext       = _("\
+Airbases allow your air units to land and refuel. Air units in an \
+airbase may be attacked by land units.\
 ")
 
 ; /* <-- avoid gettext warnings
@@ -916,9 +1033,9 @@ build_time     = 3
 food_incr      = 0
 shield_incr    = 0
 trade_incr     = 0
-food_bonus     = 50
+food_bonus     = 0
 shield_bonus   = 50
-trade_bonus    = 50
+trade_bonus    = 0
 compat_special = "Railroad"
 native_to      = "Land"
 flags          = "RequiresBridge", "AutoOnCityCenter"
@@ -927,9 +1044,9 @@ Once you learn the Railroad technology, you may upgrade your roads\
  to railroads. Units expend no movement points when moving along a\
  railroad; you may ride a railroad indefinitely. (As may your enemies!)\
 "), _("\
-A railroad also increases by half (rounding down) all resources produced\
- by a tile. A tile whose road is upgraded to a railroad retains any trade\
- bonus from the road as well.\
+A railroad also increases any shield resources produced by a tile.\
+ A tile whose road is upgraded to a railroad retains any trade bonus\
+ from the road as well.\
 "), _("\
 City center tiles with roads are automatically upgraded to railroads\
  when you learn the Railroad technology.\
@@ -943,19 +1060,19 @@ activity_gfx   = "unit.rail"
 act_gfx_alt    = "unit.road"
 buildable      = FALSE
 pillageable    = FALSE
-defense_bonus  = 0
+defense_bonus  = 50
 move_cost      = 1
-move_mode      = "NoBonus"
+move_mode      = "Cardinal"
+trade_incr_const = 1
 compat_special = "River"
 native_to      = "Land"
-flags          = "River", "PreventsOtherRoads", "Unrestrictedinfra", "Natural"
+flags          = "River", "PreventsOtherRoads", "UnrestrictedInfra", "Natural"
 helptext       = _("\
-Any land terrain type may have a River on it.\
+Any land terrain type may have a River on it.  A River adds 1\
+ trade to the resources produced by that tile.  It also increases a tile's\
+ defense factor by 50%.  Finally, land units may move along a River (but\
+ not diagonally) for fast travel.\
 "), _("\
 Roads and railroads can only be built on River tiles if your\
  civilization has learned Bridge Building technology.\
-"), _("\
-Cities built on or next to rivers are at risk of flooding, which\
- will cause a loss of population and stored food. City Walls\
- eliminate this risk.\
 ")

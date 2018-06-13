@@ -10,22 +10,16 @@
 ; than minor changes.
 
 [datafile]
-description="Civ1-style game rules for Freeciv"
+description="Civ2-style game rules for Freeciv"
 options="+Freeciv-2.5-ruleset"
 
 [about]
 ; Ruleset name
-name = _("Civ1 ruleset")
+name = _("Civ2 ruleset")
 
 ; Description of the ruleset
-description = _("You are playing with civ1 style rules. \
-These rules are much simpler than the Freeciv default rules. \
-If you know only the default rules, spend some time checking the \
-differences.\
-\n\n\
- * There are fewer technologies, buildings and units.\n\
- * Units have no hitpoints. If they win a battle, they remain in full health.\n\
-")
+description = _("You are playing with civ2 style rules. These are\
+ quite close to Freeciv default rules, but with some additions.")
 
 [options]
 global_init_techs=""
@@ -42,15 +36,15 @@ granary_food_ini = 20
 granary_food_inc = 10
 
 ; City center minimum outputs
-min_city_center_food    = 0
-min_city_center_shield  = 0
+min_city_center_food    = 1
+min_city_center_shield  = 1
 min_city_center_trade   = 0
 
 ; Square of initial city radius
 init_city_radius_sq     = 5
 
 ; Square of initially visible radius (true distance).
-init_vis_radius_sq      = 2
+init_vis_radius_sq      = 5
 
 ; The type of collateral contamination produced by a nuclear attack.
 ;   "Pollution" - Pollution (same as industrial/population-generated).
@@ -64,7 +58,7 @@ upgrade_veteran_loss     = 10
 autoupgrade_veteran_loss = 10
 
 ; Whether player gets to select which terrain improvement to pillage.
-pillage_select           = FALSE
+pillage_select           = TRUE
 
 ; Whether civil war is possible at all
 civil_war_enabled        = TRUE
@@ -153,6 +147,27 @@ improvement_factor = 1
 unit_factor = 2
 total_factor = 100
 
+[global_unit_options]
+
+; Explanation: Civ 2 allowed fast units to use any remaining movement after
+; disembarking. Boarding a ship spent every movement point the land unit
+; had.
+;
+; Freeciv doesn`t support removing all movement points when a unit boards a
+; ship. If slow_invasions is set to FALSE a fast unit will be allowed to
+; board a ship, be moved by it, disembark and keep moving in the same turn.
+; That would have been impossible in Civ 2. If it is set to TRUE
+; strategies that involves loading fast units on a ship, waiting a turn and
+; then unloading them so they can act (attack, spy, etc) the same turn will
+; be broken.
+;
+; Shore landing style
+;  FALSE - normal movement
+;  TRUE  - (default) slow invasions by removing all
+;          movement points from ground units moving
+;          from ocean tile to land
+slow_invasions = TRUE
+
 [combat_rules]
 ; If tired_attack is set to TRUE, units that attack with less than a single
 ; move point (per move_fragments in terrain.ruleset) will have their attack
@@ -211,74 +226,7 @@ negative_label = _("BC")
 ;
 ; */ <-- avoid gettext warnings
 
-[disaster_earthquake]
-name           = _("Earthquake")
-reqs           =
-    { "type", "name", "range"
-      "Terrain", "Hills", "Adjacent"
-    }
-frequency      = 10
-effects        = "DestroyBuilding"
-
-[disaster_famine]
-name           = _("Famine")
-reqs           =
-    { "type", "name", "range", "negated"
-      "Building", "Granary", "City", TRUE
-    }
-frequency      = 10
-effects        = "ReducePopulation", "EmptyFoodStock"
-
-[disaster_fire]
-name           = _("Fire")
-reqs           =
-    { "type", "name", "range", "negated"
-      "Building", "Aqueduct", "City", TRUE
-    }
-frequency      = 10
-effects        = "DestroyBuilding"
-
-[disaster_flood]
-name           = _("Flood")
-reqs           =
-    { "type", "name", "range", "negated"
-      "Road", "River", "Adjacent", FALSE
-      "Building", "City Walls", "City", TRUE
-    }
-frequency      = 10
-effects        = "ReducePopulation"
-
-[disaster_piracy]
-name           = _("Piracy")
-reqs           =
-    { "type", "name", "range", "negated"
-      "Terrain", "Ocean", "Adjacent", FALSE
-      "Building", "Barracks", "City", TRUE
-      "Building", "Barracks II", "City", TRUE
-      "Building", "Barracks III", "City", TRUE
-    }
-frequency      = 10
-effects        = "EmptyFoodStock", "EmptyProdStock"
-
-[disaster_plague]
-name           = _("Plague")
-reqs          =
-    { "type", "name", "range", "negated"
-      "Tech", "Medicine", "Player", TRUE
-      "Building", "Aqueduct", "City", TRUE
-    }
-frequency      = 10
-effects        = "ReducePopulation"
-
-[disaster_volcano]
-name           = _("Volcano")
-reqs           =
-    { "type", "name", "range", "negated"
-      "Terrain", "Mountains", "Adjacent", FALSE
-      "Building", "Temple", "City", TRUE
-    }
-frequency      = 10
-effects        = "ReducePopulation"
+; No disasters in civ2
 
 ;
 ; Trade settings
@@ -295,9 +243,10 @@ effects        = "ReducePopulation"
 ;                "Inactive" - Keep them inactive
 ;                "Cancel"   - Cancel them altogether
 ;
-; TODO: What`s correct "cancelling" behavior for civ1? If you have established
+; TODO: What`s correct "cancelling" behavior for civ2? If you have established
 ;       traderoute with enemy city nearby and conquer it -> what happens to traderoute
 ;       between your cities with less than trademindist distance?
+;
 [trade]
 settings =
   { "type",       "pct", "cancelling"
@@ -363,7 +312,7 @@ colorlist =
 ; etc...
 
 [settings]
-; freeciv game  for the civ1 ruleset
+; freeciv game settings for the civ2 ruleset
 ;
 ; set =
 ;     { "name", "value", "lock"
@@ -374,7 +323,6 @@ colorlist =
 set =
     { "name", "value", "lock"
       "sciencebox", 50, FALSE
-      "startunits", "c", FALSE
+      "startunits", "cc", FALSE
       "borders", "DISABLED", FALSE
-      "citymindist", 1, FALSE
     }
