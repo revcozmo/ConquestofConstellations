@@ -10,11 +10,12 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 ***********************************************************************/
-
 #ifndef FC__GOTODLG_H
 #define FC__GOTODLG_H
+
+#include <X11/Intrinsic.h>
 
 #include "gotodlg_g.h"
 
 
-#endif				/* FC__GOTODLG_H */
+#endif  /* FC__GOTODLG_H */

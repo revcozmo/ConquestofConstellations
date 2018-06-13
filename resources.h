@@ -13,8 +13,23 @@
 #ifndef FC__RESOURCES_H
 #define FC__RESOURCES_H
 
-#include <gtk/gtk.h>
+#include <X11/Intrinsic.h>
+#include <X11/StringDefs.h>
 
-extern const gchar *fallback_resources;
+typedef struct _AppResources {
+  Boolean gotAppDefFile;
+  Boolean showHelp;
+  Boolean showVersion;
+  String  logfile;
+  String  loglevel_str;
+  String  name;
+  int     port;
+  String  server;
+  String  metaserver;
+  String  version;
+  String  tileset;
+} AppResources;
+
+extern String fallback_resources[];
 
 #endif  /* FC__RESOURCES_H */

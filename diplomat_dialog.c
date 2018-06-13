@@ -1,5 +1,5 @@
-/**********************************************************************
- Freeciv - Copyright (C) 1996-2006 - Freeciv Development Team
+/***********************************************************************
+ Freeciv - Copyright (C) 1996-2005 - Freeciv Development Team
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
@@ -15,6 +15,17 @@
 #include <fc_config.h>
 #endif
 
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <X11/Intrinsic.h>
+#include <X11/StringDefs.h>
+#include <X11/Xaw/Command.h>
+#include <X11/Xaw/Form.h>
+#include <X11/Xaw/Label.h>
+#include <X11/Xaw/List.h>
+#include <X11/Xaw/SimpleMenu.h>
+
 /* utility */
 #include "astring.h"
 #include "fcintl.h"
@@ -22,1531 +33,817 @@
 
 /* common */
 #include "game.h"
+#include "improvement.h"
 #include "movement.h"
+#include "tech.h"
 #include "unitlist.h"
 
 /* client */
 #include "client_main.h"
 #include "control.h"
 
-/* client/gui-sdl */
+/* client/gui-xaw */
 #include "citydlg.h"
-#include "colors.h"
 #include "dialogs.h"
-#include "graphics.h"
-#include "gui_id.h"
-#include "gui_tilespec.h"
-#include "mapview.h"
-#include "repodlgs.h"
-#include "themespec.h"
-#include "widget.h"
+#include "gui_main.h"
+#include "gui_stuff.h"
 
-#include "dialogs_g.h"
+/******************************************************************/
+static Widget spy_tech_shell;
+static Widget spy_advances_list, spy_advances_list_label;
+static Widget spy_steal_command;
 
-struct diplomat_dialog {
-  int diplomat_id;
-  int diplomat_target_id;
-  struct ADVANCED_DLG *pdialog;
-};
+static int spy_tech_shell_is_modal;
+static int advance_type[A_LAST+1];
+static int steal_advance = 0;
 
-struct small_diplomat_dialog {
-  int diplomat_id;
-  int diplomat_target_id;
-  struct SMALL_DLG *pdialog;
-};
- 
-extern bool is_unit_move_blocked;
+/******************************************************************/
+static Widget spy_sabotage_shell;
+static Widget spy_improvements_list, spy_improvements_list_label;
+static Widget spy_sabotage_command;
 
-void popdown_diplomat_dialog(void);
-void popdown_incite_dialog(void);
-void popdown_bribe_dialog(void);
+static int spy_sabotage_shell_is_modal;
+static int improvement_type[B_LAST+1];
+static int sabotage_improvement = 0;
 
-/* ====================================================================== */
-/* ============================ DIPLOMAT DIALOG ========================= */
-/* ====================================================================== */
-static struct diplomat_dialog *pDiplomat_Dlg = NULL;
+static Widget diplomat_dialog;
+int diplomat_id;
+int diplomat_target_id;
 
 /****************************************************************
-  User interacted with diplomat dialog.
+...
 *****************************************************************/
-static int diplomat_dlg_window_callback(struct widget *pWindow)
+static void diplomat_bribe_yes_callback(Widget w, XtPointer client_data, 
+					XtPointer call_data)
 {
-  if (Main.event.button.button == SDL_BUTTON_LEFT) {
-    move_window_group(pDiplomat_Dlg->pdialog->pBeginWidgetList, pWindow);
-  }
-  return -1;
+  request_diplomat_action(DIPLOMAT_BRIBE, diplomat_id,
+			  diplomat_target_id, 0);
+
+  destroy_message_dialog(w);
 }
 
 /****************************************************************
-  User clicked "Establish Embassy"
+...
 *****************************************************************/
-static int diplomat_embassy_callback(struct widget *pWidget)
+static void diplomat_bribe_no_callback(Widget w, XtPointer client_data, 
+				       XtPointer call_data)
 {
-  if (Main.event.button.button == SDL_BUTTON_LEFT) {
-    if (NULL != game_city_by_number(pDiplomat_Dlg->diplomat_target_id)
-        && NULL != game_unit_by_number(pDiplomat_Dlg->diplomat_id)) {
-      request_diplomat_action(DIPLOMAT_EMBASSY,
-                              pDiplomat_Dlg->diplomat_id,
-                              pDiplomat_Dlg->diplomat_target_id, 0);
-    }
-
-    popdown_diplomat_dialog();
-  }
-  return -1;
-}
-
-/****************************************************************
-  User clicked "Investigate City"
-*****************************************************************/
-static int diplomat_investigate_callback(struct widget *pWidget)
-{
-  if (Main.event.button.button == SDL_BUTTON_LEFT) {
-    if (NULL != game_unit_by_number(pDiplomat_Dlg->diplomat_id)
-        && NULL != game_city_by_number(pDiplomat_Dlg->diplomat_target_id)) {
-      request_diplomat_action(DIPLOMAT_INVESTIGATE,
-                              pDiplomat_Dlg->diplomat_id,
-                              pDiplomat_Dlg->diplomat_target_id, 0);
-    }
-  
-    popdown_diplomat_dialog();
-  }
-  return -1;
-}
-
-/****************************************************************
-  User clicked "Poison City"
-*****************************************************************/
-static int spy_poison_callback( struct widget *pWidget )
-{
-  if (Main.event.button.button == SDL_BUTTON_LEFT) {
-    if (NULL != game_unit_by_number(pDiplomat_Dlg->diplomat_id)
-        && NULL != game_city_by_number(pDiplomat_Dlg->diplomat_target_id)) {
-      request_diplomat_action(SPY_POISON, pDiplomat_Dlg->diplomat_id,
-                              pDiplomat_Dlg->diplomat_target_id, 0);
-    }
-  
-    popdown_diplomat_dialog();
-  }
-  return -1;
-}
-
-/****************************************************************
- Requests up-to-date list of improvements, the return of
- which will trigger the popup_sabotage_dialog() function.
-*****************************************************************/
-static int spy_sabotage_request(struct widget *pWidget)
-{
-  if (NULL != game_unit_by_number(pDiplomat_Dlg->diplomat_id)
-      && NULL != game_city_by_number(pDiplomat_Dlg->diplomat_target_id)) {
-    request_diplomat_answer(DIPLOMAT_SABOTAGE, pDiplomat_Dlg->diplomat_id,
-                            pDiplomat_Dlg->diplomat_target_id, 0);
-  }
-
-  popdown_diplomat_dialog();
-  
-  return -1;
-}
-
-/****************************************************************
-  User clicked "Sabotage City" for diplomat (not spy)
-*****************************************************************/
-static int diplomat_sabotage_callback(struct widget *pWidget)
-{
-  if (Main.event.button.button == SDL_BUTTON_LEFT) {
-    if (NULL != game_unit_by_number(pDiplomat_Dlg->diplomat_id)
-        && NULL != game_city_by_number(pDiplomat_Dlg->diplomat_target_id)) {
-      request_diplomat_action(DIPLOMAT_SABOTAGE, pDiplomat_Dlg->diplomat_id,
-                              pDiplomat_Dlg->diplomat_target_id, B_LAST + 1);
-    }
-    
-    popdown_diplomat_dialog();
-  }
-  return -1;
-}
-
-/* --------------------------------------------------------- */
-
-/****************************************************************
-  User interacted with spy's steal dialog window.
-*****************************************************************/
-static int spy_steal_dlg_window_callback(struct widget *pWindow)
-{
-  if (Main.event.button.button == SDL_BUTTON_LEFT) {
-    move_window_group(pDiplomat_Dlg->pdialog->pBeginWidgetList, pWindow);
-  }
-  return -1;
-}
-
-/****************************************************************
-  Exit spy's steal dialog.
-*****************************************************************/
-static int exit_spy_steal_dlg_callback(struct widget *pWidget)
-{
-  if (Main.event.button.button == SDL_BUTTON_LEFT) {
-    popdown_diplomat_dialog();
-  }
-  return -1;  
-}
-
-/****************************************************************
-  User selected which tech spy steals.
-*****************************************************************/
-static int spy_steal_callback(struct widget *pWidget)
-{
-  if (Main.event.button.button == SDL_BUTTON_LEFT) {
-    int steal_advance = MAX_ID - pWidget->ID;
-  
-    if (NULL != game_unit_by_number(pDiplomat_Dlg->diplomat_id)
-        && NULL != game_city_by_number(pDiplomat_Dlg->diplomat_target_id)) {
-      request_diplomat_action(DIPLOMAT_STEAL, pDiplomat_Dlg->diplomat_id,
-                              pDiplomat_Dlg->diplomat_target_id,
-                              steal_advance);
-    }
-    
-    popdown_diplomat_dialog();
-  }
-  return -1;
+  destroy_message_dialog(w);
 }
 
 /**************************************************************************
-  Popup spy tech stealing dialog.
+  Asks the server how much the bribe is
 **************************************************************************/
-static int spy_steal_popup(struct widget *pWidget)
+static void diplomat_bribe_callback(Widget w, XtPointer client_data, 
+				    XtPointer call_data)
 {
-  struct city *pVcity = pWidget->data.city;
-  int id = MAX_ID - pWidget->ID;
-  struct player *pVictim = NULL;
-  struct CONTAINER *pCont;
-  struct widget *pBuf = NULL;
-  struct widget *pWindow;
-  SDL_String16 *pStr;
-  SDL_Surface *pSurf;
-  int max_col, max_row, col, i, count = 0;
-  SDL_Rect area;
+  destroy_message_dialog(w);
 
-  popdown_diplomat_dialog();
-  
-  if(pVcity)
-  {
-    pVictim = city_owner(pVcity);
+  if (NULL != game_unit_by_number(diplomat_id)
+      && NULL != game_unit_by_number(diplomat_target_id)) {
+    request_diplomat_answer(DIPLOMAT_BRIBE, diplomat_id,
+                            diplomat_target_id, 0);
   }
-  
-  if (pDiplomat_Dlg || !pVictim) {
-    return 1;
-  }
-  
-  count = 0;
-  advance_index_iterate(A_FIRST, i) {
-    if (player_invention_reachable(client.conn.playing, i, FALSE)
-     && TECH_KNOWN == player_invention_state(pVictim, i)
-     && (TECH_UNKNOWN == player_invention_state(client.conn.playing, i)
-         || TECH_PREREQS_KNOWN ==
-              player_invention_state(client.conn.playing, i))) {
-      count++;
-    }
-  } advance_index_iterate_end;
-  
-  if(!count) {    
-    /* if there is no known tech to steal then 
-       send steal order at Spy's Discretion */
-    int target_id = pVcity->id;
+}
 
-    request_diplomat_action(DIPLOMAT_STEAL, id, target_id, A_UNSET);
-    return -1;
-  }
-    
-  pCont = fc_calloc(1, sizeof(struct CONTAINER));
-  pCont->id0 = pVcity->id;
-  pCont->id1 = id;/* spy id */
-  
-  pDiplomat_Dlg = fc_calloc(1, sizeof(struct diplomat_dialog));
-  pDiplomat_Dlg->diplomat_id = id;
-  pDiplomat_Dlg->diplomat_target_id = pVcity->id;
-  pDiplomat_Dlg->pdialog = fc_calloc(1, sizeof(struct ADVANCED_DLG));
-      
-  pStr = create_str16_from_char(_("Select Advance to Steal"), adj_font(12));
-  pStr->style |= TTF_STYLE_BOLD;
+/**************************************************************************
+  Creates and popups the bribe dialog
+**************************************************************************/
+void popup_bribe_dialog(struct unit *actor, struct unit *punit, int cost)
+{
+  char tbuf[128], buf[128];
 
-  pWindow = create_window_skeleton(NULL, pStr, 0);
-  
-  pWindow->action = spy_steal_dlg_window_callback;
-  set_wstate(pWindow , FC_WS_NORMAL);
-  
-  add_to_gui_list(ID_DIPLOMAT_DLG_WINDOW, pWindow);
-  pDiplomat_Dlg->pdialog->pEndWidgetList = pWindow;
-  
-  area = pWindow->area;
-  area.w = MAX(area.w, adj_size(8));  
-  
-  /* ------------------ */
-  /* exit button */
-  pBuf = create_themeicon(pTheme->Small_CANCEL_Icon, pWindow->dst,
-                          WF_WIDGET_HAS_INFO_LABEL | WF_RESTORE_BACKGROUND);
-  pBuf->info_label = create_str16_from_char(_("Close Dialog (Esc)"),
-                                            adj_font(12));
-  area.w += pBuf->size.w + adj_size(10);
-  pBuf->action = exit_spy_steal_dlg_callback;
-  set_wstate(pBuf, FC_WS_NORMAL);
-  pBuf->key = SDLK_ESCAPE;
-  
-  add_to_gui_list(ID_TERRAIN_ADV_DLG_EXIT_BUTTON, pBuf);  
-  /* ------------------------- */
-  
-  count++; /* count + at Spy's Discretion */
-  /* max col - 104 is steal tech widget width */
-  max_col = (Main.screen->w - (pWindow->size.w - pWindow->area.w) - adj_size(2)) / adj_size(104);
-  /* max row - 204 is steal tech widget height */
-  max_row = (Main.screen->h - (pWindow->size.h - pWindow->area.h)) / adj_size(204);
-  
-  /* make space on screen for scrollbar */
-  if (max_col * max_row < count) {
-    max_col--;
-  }
+  fc_snprintf(tbuf, ARRAY_SIZE(tbuf), PL_("Treasury contains %d gold.",
+                                          "Treasury contains %d gold.",
+                                          client_player()->economic.gold),
+              client_player()->economic.gold);
 
-  if (count < max_col + 1) {
-    col = count;
+  if (unit_has_type_flag(punit, UTYF_UNBRIBABLE)) {
+    popup_message_dialog(toplevel, "diplomatbribedialog",
+                         _("This unit cannot be bribed!"),
+                         diplomat_bribe_no_callback, 0, 0, NULL);
+  } else if (cost <= client_player()->economic.gold) {
+    fc_snprintf(buf, sizeof(buf),
+                /* TRANS: %s is pre-pluralised "Treasury contains %d gold." */
+                PL_("Bribe unit for %d gold?\n%s",
+                    "Bribe unit for %d gold?\n%s", cost), cost, tbuf);
+    popup_message_dialog(toplevel, "diplomatbribedialog", buf,
+			 diplomat_bribe_yes_callback, 0, 0,
+			 diplomat_bribe_no_callback, 0, 0,
+			 NULL);
   } else {
-    if (count < max_col + adj_size(3)) {
-      col = max_col - adj_size(2);
-    } else {
-      if (count < max_col + adj_size(5)) {
-        col = max_col - 1;
-      } else {
-        col = max_col;
-      }
-    }
+    fc_snprintf(buf, sizeof(buf),
+                /* TRANS: %s is pre-pluralised "Treasury contains %d gold." */
+                PL_("Bribing the unit costs %d gold.\n%s",
+                    "Bribing the unit costs %d gold.\n%s", cost), cost, tbuf);
+    popup_message_dialog(toplevel, "diplomatnogolddialog", buf,
+			 diplomat_bribe_no_callback, 0, 0,
+			 NULL);
   }
-  
-  pStr = create_string16(NULL, 0, adj_font(10));
-  pStr->style |= (TTF_STYLE_BOLD | SF_CENTER);
-  
-  count = 0;
-  advance_index_iterate(A_FIRST, i) {
-    if (player_invention_reachable(client.conn.playing, i, FALSE)
-     && TECH_KNOWN == player_invention_state(pVictim, i)
-     && (TECH_UNKNOWN == player_invention_state(client.conn.playing, i)
-         || TECH_PREREQS_KNOWN ==
-              player_invention_state(client.conn.playing, i))) {
-      count++;
-
-      copy_chars_to_string16(pStr, advance_name_translation(advance_by_number(i)));
-      pSurf = create_sellect_tech_icon(pStr, i, FULL_MODE);
-      pBuf = create_icon2(pSurf, pWindow->dst,
-      		WF_FREE_THEME | WF_RESTORE_BACKGROUND);
-
-      set_wstate(pBuf, FC_WS_NORMAL);
-      pBuf->action = spy_steal_callback;
-      pBuf->data.cont = pCont;
-
-      add_to_gui_list(MAX_ID - i, pBuf);
-    
-      if (count > (col * max_row)) {
-        set_wflag(pBuf, WF_HIDDEN);
-      }
-    }
-  } advance_index_iterate_end;
-  
-  /* Get Spy tech to use for "At Spy's Discretion" -- this will have the
-   * side effect of displaying the unit's icon */
-  i = advance_number(unit_type(game_unit_by_number(id))->require_advance);
-  {
-    struct astring str = ASTRING_INIT;
-    /* TRANS: %s is a unit name, e.g., Spy */
-    astr_set(&str, _("At %s's Discretion"),
-             unit_name_translation(game_unit_by_number(id)));
-    copy_chars_to_string16(pStr, astr_str(&str));
-    astr_free(&str);
-  }
-  pSurf = create_sellect_tech_icon(pStr, i, FULL_MODE);
-	
-  pBuf = create_icon2(pSurf, pWindow->dst,
-    	(WF_FREE_THEME | WF_RESTORE_BACKGROUND| WF_FREE_DATA));
-  set_wstate(pBuf, FC_WS_NORMAL);
-  pBuf->action = spy_steal_callback;
-  pBuf->data.cont = pCont;
-    
-  add_to_gui_list(MAX_ID - A_UNSET, pBuf);
-  count++;
-  
-  /* --------------------------------------------------------- */
-  FREESTRING16(pStr);
-  pDiplomat_Dlg->pdialog->pBeginWidgetList = pBuf;
-  pDiplomat_Dlg->pdialog->pBeginActiveWidgetList = pDiplomat_Dlg->pdialog->pBeginWidgetList;
-  pDiplomat_Dlg->pdialog->pEndActiveWidgetList = pDiplomat_Dlg->pdialog->pEndWidgetList->prev->prev;
-  
-  /* -------------------------------------------------------------- */
-  
-  i = 0;
-  if (count > col) {
-    count = (count + (col - 1)) / col;
-    if (count > max_row) {
-      pDiplomat_Dlg->pdialog->pActiveWidgetList = pDiplomat_Dlg->pdialog->pEndActiveWidgetList;
-      count = max_row;
-      i = create_vertical_scrollbar(pDiplomat_Dlg->pdialog, col, count, TRUE, TRUE);  
-    }
-  } else {
-    count = 1;
-  }
-
-  area.w = MAX(area.w, (col * pBuf->size.w + adj_size(2) + i));
-  area.h = count * pBuf->size.h + adj_size(2);
-
-  /* alloca window theme and win background buffer */
-  pSurf = theme_get_background(theme, BACKGROUND_SPYSTEALDLG);
-  if (resize_window(pWindow, pSurf, NULL,
-                    (pWindow->size.w - pWindow->area.w) + area.w,
-                    (pWindow->size.h - pWindow->area.h) + area.h))
-  {
-    FREESURFACE(pSurf);
-  }
-  
-  area = pWindow->area;
-  
-  widget_set_position(pWindow,
-                      (Main.screen->w - pWindow->size.w) / 2,
-                      (Main.screen->h - pWindow->size.h) / 2);
-  
-    /* exit button */
-  pBuf = pWindow->prev;
-  pBuf->size.x = area.x + area.w - pBuf->size.w - 1;
-  pBuf->size.y = pWindow->size.y + adj_size(2);
-  
-  setup_vertical_widgets_position(col, area.x + 1,
-		  area.y, 0, 0,
-		  pDiplomat_Dlg->pdialog->pBeginActiveWidgetList,
-  		  pDiplomat_Dlg->pdialog->pEndActiveWidgetList);
-    
-  if(pDiplomat_Dlg->pdialog->pScroll) {
-    setup_vertical_scrollbar_area(pDiplomat_Dlg->pdialog->pScroll,
-	area.x + area.w, area.y,
-    	area.h, TRUE);
-  }
-
-  redraw_group(pDiplomat_Dlg->pdialog->pBeginWidgetList, pWindow, FALSE);
-  widget_mark_dirty(pWindow);
-  
-  return -1;
 }
 
 /****************************************************************
-  Technology stealing dialog, diplomat (not spy) version
+...
 *****************************************************************/
-static int diplomat_steal_callback(struct widget *pWidget)
+static void diplomat_sabotage_callback(Widget w, XtPointer client_data, 
+				       XtPointer call_data)
 {
-  if (Main.event.button.button == SDL_BUTTON_LEFT) {
-    if (NULL != game_unit_by_number(pDiplomat_Dlg->diplomat_id)
-        && NULL != game_city_by_number(pDiplomat_Dlg->diplomat_target_id)) {
-      request_diplomat_action(DIPLOMAT_STEAL, pDiplomat_Dlg->diplomat_id,
-                              pDiplomat_Dlg->diplomat_target_id, A_UNSET);
-    }
-    
-    popdown_diplomat_dialog();  
+  destroy_message_dialog(w);
+  diplomat_dialog = NULL;
+
+  if (NULL != game_unit_by_number(diplomat_id)
+      && NULL != game_city_by_number(diplomat_target_id)) {
+    request_diplomat_action(DIPLOMAT_SABOTAGE, diplomat_id,
+                            diplomat_target_id, B_LAST + 1);
   }
-  return -1;
+
+  process_diplomat_arrival(NULL, 0);
 }
 
 /****************************************************************
-...  Ask the server how much the revolt is going to cost us
+...
 *****************************************************************/
-static int diplomat_incite_callback(struct widget *pWidget)
+static void diplomat_embassy_callback(Widget w, XtPointer client_data, 
+				      XtPointer call_data)
 {
-  if (Main.event.button.button == SDL_BUTTON_LEFT) {
-    if (NULL != game_unit_by_number(pDiplomat_Dlg->diplomat_id)
-        && NULL != game_city_by_number(pDiplomat_Dlg->diplomat_target_id)) {
-      request_diplomat_answer(DIPLOMAT_INCITE, pDiplomat_Dlg->diplomat_id,
-                              pDiplomat_Dlg->diplomat_target_id, 0);
-    }
-    
-    popdown_diplomat_dialog();
-  }  
-  return -1;
+  destroy_message_dialog(w);
+  diplomat_dialog = NULL;
+
+  if (NULL != game_unit_by_number(diplomat_id)
+      && NULL != game_city_by_number(diplomat_target_id)) {
+    request_diplomat_action(DIPLOMAT_EMBASSY, diplomat_id,
+                            diplomat_target_id, 0);
+  }
+
+  process_diplomat_arrival(NULL, 0);
 }
 
 /****************************************************************
-  Callback from diplomat/spy dialog for "keep moving".
-  (This should only occur when entering allied city.)
+...
 *****************************************************************/
-static int diplomat_keep_moving_callback(struct widget *pWidget)
+static void diplomat_investigate_callback(Widget w, XtPointer client_data,
+                                          XtPointer call_data)
 {
-  if (Main.event.button.button == SDL_BUTTON_LEFT) {
-    struct unit *punit;
-    struct city *pcity;
+  destroy_message_dialog(w);
+  diplomat_dialog = NULL;
 
-    if ((punit = game_unit_by_number(pDiplomat_Dlg->diplomat_id))
-        && (pcity = game_city_by_number(pDiplomat_Dlg->diplomat_target_id))
-        && !same_pos(unit_tile(punit), city_tile(pcity))) {
-      request_diplomat_action(DIPLOMAT_MOVE, pDiplomat_Dlg->diplomat_id,
-                              pDiplomat_Dlg->diplomat_target_id, 0);
-    }
-    
-    popdown_diplomat_dialog();  
+  if (NULL != game_city_by_number(diplomat_target_id)
+      && NULL != game_unit_by_number(diplomat_id)) {
+    request_diplomat_action(DIPLOMAT_INVESTIGATE, diplomat_id,
+                            diplomat_target_id, 0);
   }
-  return -1;
+
+  process_diplomat_arrival(NULL, 0);
 }
 
 /****************************************************************
-...  Ask the server how much the bribe is
+...
 *****************************************************************/
-static int diplomat_bribe_callback(struct widget *pWidget)
+static void spy_sabotage_unit_callback(Widget w, XtPointer client_data, 
+				       XtPointer call_data)
 {
-  if (Main.event.button.button == SDL_BUTTON_LEFT) {
-    if (NULL != game_unit_by_number(pDiplomat_Dlg->diplomat_id)
-        && NULL != game_unit_by_number(pDiplomat_Dlg->diplomat_target_id)) {
-      request_diplomat_answer(DIPLOMAT_BRIBE, pDiplomat_Dlg->diplomat_id,
-                              pDiplomat_Dlg->diplomat_target_id, 0);
-    }
-    
-    popdown_diplomat_dialog();
-  }  
-  return -1;
+  request_diplomat_action(SPY_SABOTAGE_UNIT, diplomat_id,
+			  diplomat_target_id, 0);
+
+  destroy_message_dialog(w);
 }
 
 /****************************************************************
-  User clicked "Sabotage Unit"
+...
 *****************************************************************/
-static int spy_sabotage_unit_callback(struct widget *pWidget)
+static void spy_poison_callback(Widget w, XtPointer client_data, 
+				XtPointer call_data)
 {
-  if (Main.event.button.button == SDL_BUTTON_LEFT) {
-    int diplomat_id = MAX_ID - pWidget->ID;
-    int target_id = pWidget->data.unit->id;
-    
-    popdown_diplomat_dialog();
-    request_diplomat_action(SPY_SABOTAGE_UNIT, diplomat_id, target_id, 0);
+  destroy_message_dialog(w);
+  diplomat_dialog = NULL;
+
+  if (NULL != game_unit_by_number(diplomat_id)
+      && NULL != game_city_by_number(diplomat_target_id)) {
+    request_diplomat_action(SPY_POISON, diplomat_id, diplomat_target_id, 0);
   }
-  return -1;
+
+  process_diplomat_arrival(NULL, 0);
 }
 
 /****************************************************************
-  Close diplomat dialog.
+...
 *****************************************************************/
-static int diplomat_close_callback(struct widget *pWidget)
+static void diplomat_steal_callback(Widget w, XtPointer client_data, 
+				    XtPointer call_data)
 {
-  if (Main.event.button.button == SDL_BUTTON_LEFT) {
-    popdown_diplomat_dialog();
+  destroy_message_dialog(w);
+  diplomat_dialog = NULL;
+
+  if (NULL != game_unit_by_number(diplomat_id)
+      && NULL != game_city_by_number(diplomat_target_id)) {
+    request_diplomat_action(DIPLOMAT_STEAL, diplomat_id,
+			    diplomat_target_id, A_UNSET);
   }
-  return -1;
+
+  process_diplomat_arrival(NULL, 0);
 }
 
-/**************************************************************************
-  Popdown a dialog giving a diplomatic unit some options when moving into
-  the target tile.
-**************************************************************************/
-void popdown_diplomat_dialog(void)
+/****************************************************************
+...
+*****************************************************************/
+static void spy_close_tech_callback(Widget w, XtPointer client_data, 
+				    XtPointer call_data)
 {
-  if (pDiplomat_Dlg) {
-    is_unit_move_blocked = FALSE;
-    popdown_window_group_dialog(pDiplomat_Dlg->pdialog->pBeginWidgetList,
-				pDiplomat_Dlg->pdialog->pEndWidgetList);
-    FC_FREE(pDiplomat_Dlg->pdialog->pScroll);
-    FC_FREE(pDiplomat_Dlg->pdialog);
-    FC_FREE(pDiplomat_Dlg);
-    queue_flush();
-  }
+  if(spy_tech_shell_is_modal)
+    XtSetSensitive(main_form, TRUE);
+  XtDestroyWidget(spy_tech_shell);
+  spy_tech_shell=0;
+
+  process_diplomat_arrival(NULL, 0);
 }
 
-/**************************************************************************
-  Popup a dialog giving a diplomatic unit some options when moving into
-  the target tile.
-**************************************************************************/
-void popup_diplomat_dialog(struct unit *pUnit, struct tile *ptile)
+/****************************************************************
+...
+*****************************************************************/
+static void spy_close_sabotage_callback(Widget w, XtPointer client_data, 
+					XtPointer call_data)
 {
-  struct widget *pWindow = NULL, *pBuf = NULL;
-  SDL_String16 *pStr;
-  struct city *pCity;
-  struct unit *pTunit;
-  bool spy;
-  SDL_Rect area;
+  if(spy_sabotage_shell_is_modal)
+    XtSetSensitive(main_form, TRUE);
+  XtDestroyWidget(spy_sabotage_shell);
+  spy_sabotage_shell=0;
+
+  process_diplomat_arrival(NULL, 0);
+}
+
+/****************************************************************
+...
+*****************************************************************/
+static void spy_select_tech_callback(Widget w, XtPointer client_data, 
+				     XtPointer call_data)
+{
+  XawListReturnStruct *ret;
+  ret=XawListShowCurrent(spy_advances_list);
   
-  if (pDiplomat_Dlg) {
+  if(ret->list_index!=XAW_LIST_NONE && advance_type[ret->list_index] != -1){
+    steal_advance = advance_type[ret->list_index];
+    XtSetSensitive(spy_steal_command, TRUE);
     return;
   }
-  
-  is_unit_move_blocked = TRUE;
-  pCity = tile_city(ptile);
-  spy = unit_has_type_flag(pUnit, UTYF_SPY);
-  
-  pDiplomat_Dlg = fc_calloc(1, sizeof(struct diplomat_dialog));
-  pDiplomat_Dlg->diplomat_id = pUnit->id;
-  pDiplomat_Dlg->pdialog = fc_calloc(1, sizeof(struct ADVANCED_DLG));
-  
-  /* window */
-  if (pCity)
-  {
-    struct astring title = ASTRING_INIT;
-    /* TRANS: %s is a unit name, e.g., Spy */
-    astr_set(&title, _("Choose Your %s's Strategy"),
-             unit_name_translation(pUnit));
-    pStr = create_str16_from_char(astr_str(&title), adj_font(12));
-    astr_free(&title);
-  }
-  else
-  {
-    pStr = create_str16_from_char(_("Subvert Enemy Unit"), adj_font(12));
-  }
-  
-  pStr->style |= TTF_STYLE_BOLD;
-  
-  pWindow = create_window_skeleton(NULL, pStr, 0);
-    
-  pWindow->action = diplomat_dlg_window_callback;
-  set_wstate(pWindow, FC_WS_NORMAL);
-  
-  add_to_gui_list(ID_CARAVAN_DLG_WINDOW, pWindow);
-  pDiplomat_Dlg->pdialog->pEndWidgetList = pWindow;
-    
-  area = pWindow->area;
-  area.w = MAX(area.w, adj_size(8));
-  area.h = MAX(area.h, adj_size(2));
-  
-  /* ---------- */
-  if((pCity))
-  {
-    /* Spy/Diplomat acting against a city */
-
-    pDiplomat_Dlg->diplomat_target_id = pCity->id;    
-    
-    /* -------------- */
-    if (diplomat_can_do_action(pUnit, DIPLOMAT_EMBASSY, ptile))
-    {
-	
-      create_active_iconlabel(pBuf, pWindow->dst, pStr,
-	    _("Establish Embassy"), diplomat_embassy_callback);
-      
-      pBuf->data.city = pCity;
-      set_wstate(pBuf, FC_WS_NORMAL);
-  
-      add_to_gui_list(MAX_ID - pUnit->id, pBuf);
-    
-      area.w = MAX(area.w, pBuf->size.w);
-      area.h += pBuf->size.h;
-    }
-  
-    /* ---------- */
-    if (diplomat_can_do_action(pUnit, DIPLOMAT_INVESTIGATE, ptile)) {
-    
-      create_active_iconlabel(pBuf, pWindow->dst, pStr,
-			      _("Investigate City"),
-			      diplomat_investigate_callback);
-      pBuf->data.city = pCity;
-      set_wstate(pBuf, FC_WS_NORMAL);
-  
-      add_to_gui_list(MAX_ID - pUnit->id, pBuf);
-    
-      area.w = MAX(area.w, pBuf->size.w);
-      area.h += pBuf->size.h;
-    }
-  
-    /* ---------- */
-    if (spy && diplomat_can_do_action(pUnit, SPY_POISON, ptile)) {
-    
-      create_active_iconlabel(pBuf, pWindow->dst, pStr,
-	    _("Poison City"), spy_poison_callback);
-      
-      pBuf->data.city = pCity;
-      set_wstate(pBuf, FC_WS_NORMAL);
-  
-      add_to_gui_list(MAX_ID - pUnit->id, pBuf);
-    
-      area.w = MAX(area.w, pBuf->size.w);
-      area.h += pBuf->size.h;
-    }    
-    /* ---------- */
-    if (diplomat_can_do_action(pUnit, DIPLOMAT_SABOTAGE, ptile)) {
-    
-      create_active_iconlabel(pBuf, pWindow->dst, pStr,
-	    _("Sabotage City"), 
-      		spy ? spy_sabotage_request : diplomat_sabotage_callback);
-      
-      pBuf->data.city = pCity;
-      set_wstate(pBuf, FC_WS_NORMAL);
-  
-      add_to_gui_list(MAX_ID - pUnit->id, pBuf);
-    
-      area.w = MAX(area.w, pBuf->size.w);
-      area.h += pBuf->size.h;
-    }
-  
-    /* ---------- */
-    if (diplomat_can_do_action(pUnit, DIPLOMAT_STEAL, ptile)) {
-    
-      create_active_iconlabel(pBuf, pWindow->dst, pStr,
-	    _("Steal Technology"),
-      			spy ? spy_steal_popup : diplomat_steal_callback);
-      pBuf->data.city = pCity;
-      set_wstate(pBuf , FC_WS_NORMAL);
-  
-      add_to_gui_list(MAX_ID - pUnit->id , pBuf);
-    
-      area.w = MAX(area.w , pBuf->size.w);
-      area.h += pBuf->size.h;
-    }
-      
-    /* ---------- */
-    if (diplomat_can_do_action(pUnit, DIPLOMAT_INCITE, ptile)) {
-    
-      create_active_iconlabel(pBuf, pWindow->dst, pStr,
-	    _("Incite a Revolt"), diplomat_incite_callback);
-      pBuf->data.city = pCity;
-      set_wstate(pBuf , FC_WS_NORMAL);
-  
-      add_to_gui_list(MAX_ID - pUnit->id , pBuf);
-    
-      area.w = MAX(area.w , pBuf->size.w);
-      area.h += pBuf->size.h;
-    }
-      
-    /* ---------- */
-    if (unit_can_move_to_tile(pUnit, ptile, FALSE)) {
-    
-      create_active_iconlabel(pBuf, pWindow->dst, pStr,
-	    _("Keep moving"), diplomat_keep_moving_callback);
-      
-      pBuf->data.city = pCity;
-      set_wstate(pBuf , FC_WS_NORMAL);
-  
-      add_to_gui_list(MAX_ID - pUnit->id , pBuf);
-    
-      area.w = MAX(area.w, pBuf->size.w);
-      area.h += pBuf->size.h;
-    }
-  }
-  else
-  {
-    if((pTunit=unit_list_get(ptile->units, 0))){
-       /* Spy/Diplomat acting against a unit */ 
-      
-      pDiplomat_Dlg->diplomat_target_id = pTunit->id;
-      
-      /* ---------- */
-      if (diplomat_can_do_action(pUnit, DIPLOMAT_BRIBE, ptile)) {
-    
-        create_active_iconlabel(pBuf, pWindow->dst, pStr,
-	    _("Bribe Enemy Unit"), diplomat_bribe_callback);
-	
-        pBuf->data.unit = pTunit;
-        set_wstate(pBuf , FC_WS_NORMAL);
-  
-        add_to_gui_list(MAX_ID - pUnit->id , pBuf);
-    
-        area.w = MAX(area.w , pBuf->size.w);
-        area.h += pBuf->size.h;
-      }
-      
-      /* ---------- */
-      if (diplomat_can_do_action(pUnit, SPY_SABOTAGE_UNIT, ptile)) {
-    
-        create_active_iconlabel(pBuf, pWindow->dst, pStr,
-	    _("Sabotage Enemy Unit"), spy_sabotage_unit_callback);
-	
-        pBuf->data.unit = pTunit;
-        set_wstate(pBuf , FC_WS_NORMAL);
-  
-        add_to_gui_list(MAX_ID - pUnit->id , pBuf);
-    
-        area.w = MAX(area.w , pBuf->size.w);
-        area.h += pBuf->size.h;
-      }
-    }
-  }
-  /* ---------- */
-  
-  create_active_iconlabel(pBuf, pWindow->dst, pStr,
-	    _("Cancel"), diplomat_close_callback);
-    
-  set_wstate(pBuf , FC_WS_NORMAL);
-  pBuf->key = SDLK_ESCAPE;
-  
-  add_to_gui_list(ID_LABEL , pBuf);
-    
-  area.w = MAX(area.w, pBuf->size.w);
-  area.h += pBuf->size.h;
-  /* ---------- */
-  pDiplomat_Dlg->pdialog->pBeginWidgetList = pBuf;
-  
-  /* setup window size and start position */
-
-  resize_window(pWindow, NULL, NULL, 
-                (pWindow->size.w - pWindow->area.w) + area.w,
-                (pWindow->size.h - pWindow->area.h) + area.h);
-  
-  area = pWindow->area;
-  
-  auto_center_on_focus_unit();
-  put_window_near_map_tile(pWindow, pWindow->size.w, pWindow->size.h,
-                           unit_tile(pUnit));
- 
-  /* setup widget size and start position */
-    
-  pBuf = pWindow->prev;
-  setup_vertical_widgets_position(1,
-	area.x,
-  	area.y + 1, area.w, 0,
-	pDiplomat_Dlg->pdialog->pBeginWidgetList, pBuf);
-  
-  /* --------------------- */
-  /* redraw */
-  redraw_group(pDiplomat_Dlg->pdialog->pBeginWidgetList, pWindow, 0);
-
-  widget_flush(pWindow);
-  
+  XtSetSensitive(spy_steal_command, FALSE);
 }
 
 /****************************************************************
-  Returns id of a diplomat currently handled in diplomat dialog
+...
 *****************************************************************/
-int diplomat_handled_in_diplomat_dialog(void)
+static void spy_select_improvement_callback(Widget w, XtPointer client_data, 
+					    XtPointer call_data)
 {
-  if (!pDiplomat_Dlg) {
-    return -1;
-  }
-
-  return pDiplomat_Dlg->diplomat_id;
-}
-
-/****************************************************************
-  Closes the diplomat dialog
-****************************************************************/
-void close_diplomat_dialog(void)
-{
-  popdown_diplomat_dialog();
-}
-
-/* ====================================================================== */
-/* ============================ SABOTAGE DIALOG ========================= */
-/* ====================================================================== */
-
-/****************************************************************
-  User selected what to sabotage.
-****************************************************************/
-static int sabotage_impr_callback(struct widget *pWidget)
-{
-  if (Main.event.button.button == SDL_BUTTON_LEFT) {
-    int sabotage_improvement = MAX_ID - pWidget->ID;
-    int diplomat_target_id = pWidget->data.cont->id0;
-    int diplomat_id = pWidget->data.cont->id1;
-      
-    popdown_diplomat_dialog();
-    
-    if(sabotage_improvement == 1000)
-    {
-      sabotage_improvement = -1;
-    }
-
-    if (NULL != game_unit_by_number(diplomat_id)
-        && NULL != game_city_by_number(diplomat_target_id)) {
-      request_diplomat_action(DIPLOMAT_SABOTAGE, diplomat_id,
-                              diplomat_target_id, sabotage_improvement + 1);
-    }
-  }
-  return -1;
-}
-
-/*************************************************************************
- Pops-up the Spy sabotage dialog, upon return of list of
- available improvements requested by the above function.
-**************************************************************************/
-void popup_sabotage_dialog(struct unit *actor, struct city *pCity)
-{
-  struct widget *pWindow = NULL, *pBuf = NULL , *pLast = NULL;
-  struct CONTAINER *pCont;
-  struct unit *pUnit = head_of_units_in_focus();
-  SDL_String16 *pStr;
-  SDL_Rect area, area2;
-  int n, w = 0, h, imp_h = 0, y;
+  XawListReturnStruct *ret;
+  ret=XawListShowCurrent(spy_improvements_list);
   
-  if (pDiplomat_Dlg || !pUnit || !unit_has_type_flag(pUnit, UTYF_SPY)) {
+  if(ret->list_index!=XAW_LIST_NONE){
+    sabotage_improvement = improvement_type[ret->list_index];
+    XtSetSensitive(spy_sabotage_command, TRUE);
     return;
   }
-  
-  is_unit_move_blocked = TRUE;
-    
-  pDiplomat_Dlg = fc_calloc(1, sizeof(struct diplomat_dialog));
-  pDiplomat_Dlg->diplomat_id = pUnit->id;
-  pDiplomat_Dlg->diplomat_target_id = pCity->id;
-  pDiplomat_Dlg->pdialog = fc_calloc(1, sizeof(struct ADVANCED_DLG));
-  
-  pCont = fc_calloc(1, sizeof(struct CONTAINER));
-  pCont->id0 = pCity->id;
-  pCont->id1 = pUnit->id;/* spy id */
-    
-  pStr = create_str16_from_char(_("Select Improvement to Sabotage") , adj_font(12));
-  pStr->style |= TTF_STYLE_BOLD;
-  
-  pWindow = create_window_skeleton(NULL, pStr, 0);
-    
-  pWindow->action = diplomat_dlg_window_callback;
-  set_wstate(pWindow, FC_WS_NORMAL);
-  
-  add_to_gui_list(ID_TERRAIN_ADV_DLG_WINDOW, pWindow);
-  pDiplomat_Dlg->pdialog->pEndWidgetList = pWindow;
-  
-  area = pWindow->area;
-  area.h = MAX(area.h, adj_size(2));
-  
-  /* ---------- */
-  /* exit button */
-  pBuf = create_themeicon(pTheme->Small_CANCEL_Icon, pWindow->dst,
-                          WF_WIDGET_HAS_INFO_LABEL | WF_RESTORE_BACKGROUND);
-  pBuf->info_label = create_str16_from_char(_("Close Dialog (Esc)"),
-                                            adj_font(12));
-  area.w += pBuf->size.w + adj_size(10);
-  pBuf->action = diplomat_close_callback;
-  set_wstate(pBuf, FC_WS_NORMAL);
-  pBuf->key = SDLK_ESCAPE;
-  
-  add_to_gui_list(ID_TERRAIN_ADV_DLG_EXIT_BUTTON, pBuf);
-  /* ---------- */
-  
-  create_active_iconlabel(pBuf, pWindow->dst, pStr,
-	    _("City Production"), sabotage_impr_callback);
-  pBuf->data.cont = pCont;  
-  set_wstate(pBuf, FC_WS_NORMAL);
-  set_wflag(pBuf, WF_FREE_DATA);
-  add_to_gui_list(MAX_ID - 1000, pBuf);
-    
-  area.w = MAX(area.w, pBuf->size.w);
-  area.h += pBuf->size.h;
+  XtSetSensitive(spy_sabotage_command, FALSE);
+}
 
-  /* separator */
-  pBuf = create_iconlabel(NULL, pWindow->dst, NULL, WF_FREE_THEME);
-    
-  add_to_gui_list(ID_SEPARATOR, pBuf);
-  area.h += pBuf->next->size.h;
+/****************************************************************
+...
+*****************************************************************/
+static void spy_steal_callback(Widget w, XtPointer client_data, 
+			       XtPointer call_data)
+{  
+  XtDestroyWidget(spy_tech_shell);
+  spy_tech_shell = 0l;
+  
+  if(!steal_advance){
+    log_error("Bug in spy steal tech code");
+    process_diplomat_arrival(NULL, 0);
+    return;
+  }
 
-  pDiplomat_Dlg->pdialog->pEndActiveWidgetList = pBuf;
+  if (NULL != game_unit_by_number(diplomat_id)
+      && NULL != game_city_by_number(diplomat_target_id)) {
+    request_diplomat_action(DIPLOMAT_STEAL, diplomat_id,
+                            diplomat_target_id, steal_advance);
+  }
 
-  /* ------------------ */
-  n = 0;
-  city_built_iterate(pCity, pImprove) {
-    if (pImprove->sabotage > 0) {
+  process_diplomat_arrival(NULL, 0);
+}
+
+/****************************************************************
+...
+*****************************************************************/
+static void spy_sabotage_callback(Widget w, XtPointer client_data, 
+				  XtPointer call_data)
+{  
+  XtDestroyWidget(spy_sabotage_shell);
+  spy_sabotage_shell = 0l;
+  
+  if (sabotage_improvement < -1) {
+    log_error("Bug in spy sabotage code");
+    process_diplomat_arrival(NULL, 0);
+    return;
+  }
+
+  if (NULL != game_unit_by_number(diplomat_id)
+      && NULL != game_city_by_number(diplomat_target_id)) {
+    request_diplomat_action(DIPLOMAT_SABOTAGE, diplomat_id,
+                            diplomat_target_id, sabotage_improvement + 1);
+  }
+
+  process_diplomat_arrival(NULL, 0);
+}
+
+/****************************************************************
+...
+*****************************************************************/
+static int create_advances_list(struct player *pplayer,
+				struct player *pvictim, bool make_modal)
+{  
+  Widget spy_tech_form;
+  Widget close_command;
+  Dimension width1, width2; 
+  int j;
+
+  static const char *advances_can_steal[A_LAST+1]; 
+
+  spy_tech_shell =
+    I_T(XtVaCreatePopupShell("spystealtechpopup", 
+			     (make_modal ? transientShellWidgetClass :
+			      topLevelShellWidgetClass),
+			     toplevel, NULL));  
+  
+  spy_tech_form = XtVaCreateManagedWidget("spystealtechform", 
+					     formWidgetClass,
+					     spy_tech_shell,
+					     NULL);   
+
+  spy_advances_list_label =
+    I_L(XtVaCreateManagedWidget("spystealtechlistlabel", labelWidgetClass, 
+				spy_tech_form, NULL));
+
+  spy_advances_list = XtVaCreateManagedWidget("spystealtechlist", 
+					      listWidgetClass,
+					      spy_tech_form,
+					      NULL);
+
+  close_command =
+    I_L(XtVaCreateManagedWidget("spystealtechclosecommand", commandWidgetClass,
+				spy_tech_form, NULL));
+  
+  spy_steal_command =
+    I_L(XtVaCreateManagedWidget("spystealtechcommand", commandWidgetClass,
+				spy_tech_form,
+				XtNsensitive, False,
+				NULL));
+  
+
+  XtAddCallback(spy_advances_list, XtNcallback, spy_select_tech_callback, NULL);
+  XtAddCallback(close_command, XtNcallback, spy_close_tech_callback, NULL);
+  XtAddCallback(spy_steal_command, XtNcallback, spy_steal_callback, NULL);
+  XtRealizeWidget(spy_tech_shell);
+
+  /* Now populate the list */
+  
+  j = 0;
+  advances_can_steal[j] = _("NONE");
+  advance_type[j] = -1;
+
+  if (pvictim) { /* you don't want to know what lag can do -- Syela */
+    advance_index_iterate(A_FIRST, i) {
+      if(player_invention_state(pvictim, i)==TECH_KNOWN && 
+         (player_invention_state(pplayer, i)==TECH_UNKNOWN || 
+          player_invention_state(pplayer, i)==TECH_PREREQS_KNOWN)) {
       
-      create_active_iconlabel(pBuf, pWindow->dst, pStr,
-	      (char *) city_improvement_name_translation(pCity, pImprove),
-				      sabotage_impr_callback);
-      pBuf->data.cont = pCont;
-      set_wstate(pBuf , FC_WS_NORMAL);
-  
-      add_to_gui_list(MAX_ID - improvement_number(pImprove), pBuf);
-    
-      area.w = MAX(area.w , pBuf->size.w);
-      imp_h += pBuf->size.h;
-    
-      if (n > 9) {
-        set_wflag(pBuf, WF_HIDDEN);
+        advances_can_steal[j] = advance_name_translation(advance_by_number(i));
+        advance_type[j++] = i;
       }
-      
-      n++;    
-      /* ----------- */
+    }
+    {
+      static struct astring str = ASTRING_INIT;
+      /* TRANS: %s is a unit name, e.g., Spy */
+      astr_set(&str, _("At %s's Discretion"),
+               unit_name_translation(game_unit_by_number(diplomat_id)));
+      advances_can_steal[j] = astr_str(&str);
+      advance_type[j++] = A_UNSET;
+    }
+  } advance_index_iterate_end;
+
+  if(j == 0) j++;
+  advances_can_steal[j] = NULL; 
+  
+  XtSetSensitive(spy_steal_command, FALSE);
+  
+  XawListChange(spy_advances_list, (char **)advances_can_steal, 0, 0, 1);
+  XtVaGetValues(spy_advances_list, XtNwidth, &width1, NULL);
+  XtVaGetValues(spy_advances_list_label, XtNwidth, &width2, NULL);
+  XtVaSetValues(spy_advances_list, XtNwidth, MAX(width1,width2), NULL); 
+  XtVaSetValues(spy_advances_list_label, XtNwidth, MAX(width1,width2), NULL); 
+
+  return j;
+}
+
+/****************************************************************
+...
+*****************************************************************/
+static int create_improvements_list(struct player *pplayer,
+				    struct city *pcity, bool make_modal)
+{  
+  Widget spy_sabotage_form;
+  Widget close_command;
+  Dimension width1, width2; 
+  int j;
+
+  static const char *improvements_can_sabotage[B_LAST+1]; 
+  
+  spy_sabotage_shell =
+    I_T(XtVaCreatePopupShell("spysabotageimprovementspopup", 
+			     (make_modal ? transientShellWidgetClass :
+			      topLevelShellWidgetClass),
+			     toplevel, NULL));  
+  
+  spy_sabotage_form = XtVaCreateManagedWidget("spysabotageimprovementsform", 
+					     formWidgetClass,
+					     spy_sabotage_shell,
+					     NULL);   
+
+  spy_improvements_list_label =
+    I_L(XtVaCreateManagedWidget("spysabotageimprovementslistlabel", 
+				labelWidgetClass, 
+				spy_sabotage_form,
+				NULL));
+
+  spy_improvements_list = XtVaCreateManagedWidget("spysabotageimprovementslist", 
+					      listWidgetClass,
+					      spy_sabotage_form,
+					      NULL);
+
+  close_command =
+    I_L(XtVaCreateManagedWidget("spysabotageimprovementsclosecommand", 
+				commandWidgetClass,
+				spy_sabotage_form,
+				NULL));
+  
+  spy_sabotage_command =
+    I_L(XtVaCreateManagedWidget("spysabotageimprovementscommand", 
+				commandWidgetClass,
+				spy_sabotage_form,
+				XtNsensitive, False,
+				NULL));
+  
+
+  XtAddCallback(spy_improvements_list, XtNcallback, spy_select_improvement_callback, NULL);
+  XtAddCallback(close_command, XtNcallback, spy_close_sabotage_callback, NULL);
+  XtAddCallback(spy_sabotage_command, XtNcallback, spy_sabotage_callback, NULL);
+  XtRealizeWidget(spy_sabotage_shell);
+
+  /* Now populate the list */
+  
+  j = 0;
+  improvements_can_sabotage[j] = _("City Production");
+  improvement_type[j++] = -1;
+
+  city_built_iterate(pcity, pimprove) {
+    if (pimprove->sabotage > 0) {
+      improvements_can_sabotage[j] = city_improvement_name_translation(pcity, pimprove);
+      improvement_type[j++] = improvement_number(pimprove);
     }  
   } city_built_iterate_end;
 
-  pDiplomat_Dlg->pdialog->pBeginActiveWidgetList = pBuf;
-  
-  if (n > 0) {
-    /* separator */
-    pBuf = create_iconlabel(NULL, pWindow->dst, NULL, WF_FREE_THEME);
-    
-    add_to_gui_list(ID_SEPARATOR, pBuf);
-    area.h += pBuf->next->size.h;
-  /* ------------------ */
-  }
-  
-  {
-    struct astring str = ASTRING_INIT;
+  if(j > 1) {
+    static struct astring str = ASTRING_INIT;
     /* TRANS: %s is a unit name, e.g., Spy */
-    astr_set(&str, _("At %s's Discretion"), unit_name_translation(pUnit));
-    create_active_iconlabel(pBuf, pWindow->dst, pStr, astr_str(&str),
-                            sabotage_impr_callback);
-    astr_free(&str);
-  }
-  pBuf->data.cont = pCont;  
-  set_wstate(pBuf, FC_WS_NORMAL);
-  
-  add_to_gui_list(MAX_ID - B_LAST, pBuf);
-    
-  area.w = MAX(area.w, pBuf->size.w);
-  area.h += pBuf->size.h;
-  /* ----------- */
-  
-  pLast = pBuf;
-  pDiplomat_Dlg->pdialog->pBeginWidgetList = pLast;
-  pDiplomat_Dlg->pdialog->pActiveWidgetList = pDiplomat_Dlg->pdialog->pEndActiveWidgetList;
-  
-  /* ---------- */
-  if (n > 10)
-  {
-    imp_h = 10 * pBuf->size.h;
-    
-    n = create_vertical_scrollbar(pDiplomat_Dlg->pdialog,
-		  1, 10, TRUE, TRUE);
-    area.w += n;
+    astr_set(&str, _("At %s's Discretion"),
+             unit_name_translation(game_unit_by_number(diplomat_id)));
+    improvements_can_sabotage[j] = astr_str(&str);
+    improvement_type[j++] = B_LAST;
   } else {
-    n = 0;
+    improvement_type[0] = B_LAST; /* fake "discretion", since must be production */
   }
-  /* ---------- */
-  
-  
-  area.h += imp_h;
 
-  resize_window(pWindow, NULL, NULL, 
-                (pWindow->size.w - pWindow->area.w) + area.w,
-                (pWindow->size.h - pWindow->area.h) + area.h);
+  improvements_can_sabotage[j] = NULL;
   
-  area = pWindow->area;
+  XtSetSensitive(spy_sabotage_command, FALSE);
   
-  auto_center_on_focus_unit();
-  put_window_near_map_tile(pWindow, pWindow->size.w, pWindow->size.h,
-                           unit_tile(pUnit));
-  
-  w = area.w;
-  
-  /* exit button */
-  pBuf = pWindow->prev;
-  pBuf->size.x = area.x + area.w - pBuf->size.w - 1;
-  pBuf->size.y = pWindow->size.y + adj_size(2);
-  
-  /* Production sabotage */
-  pBuf = pBuf->prev;
-  
-  pBuf->size.x = area.x;
-  pBuf->size.y = y = area.y + 1;
-  pBuf->size.w = w;
-  h = pBuf->size.h;
-  
-  area2.x = adj_size(10);
-  area2.h = adj_size(2);
-  
-  pBuf = pBuf->prev;
-  while(pBuf)
-  {
-    
-    if (pBuf == pDiplomat_Dlg->pdialog->pEndActiveWidgetList) {
-      w -= n;
-    }
-    
-    pBuf->size.w = w;
-    pBuf->size.x = pBuf->next->size.x;
-    pBuf->size.y = y = y + pBuf->next->size.h;
-    
-    if (pBuf->ID == ID_SEPARATOR)
-    {
-      FREESURFACE(pBuf->theme);
-      pBuf->size.h = h;
-      pBuf->theme = create_surf(w, h, SDL_SWSURFACE);
-    
-      area2.y = pBuf->size.h / 2 - 1;
-      area2.w = pBuf->size.w - adj_size(20);
-      
-      SDL_FillRect(pBuf->theme , &area2, map_rgba(pBuf->theme->format, *get_theme_color(COLOR_THEME_SABOTAGEDLG_SEPARATOR)));
-    }
-    
-    if (pBuf == pLast) {
-      break;
-    }
-    if (pBuf == pDiplomat_Dlg->pdialog->pBeginActiveWidgetList) {
-      /* Reset to end of scrolling area */
-      y = MIN(y, pDiplomat_Dlg->pdialog->pEndActiveWidgetList->size.y
-              + 9 * pBuf->size.h);
-      w += n;
-    }
-    pBuf = pBuf->prev;  
-  }
-  
-  if (pDiplomat_Dlg->pdialog->pScroll)
-  {
-    setup_vertical_scrollbar_area(pDiplomat_Dlg->pdialog->pScroll,
-        area.x + area.w,
-        pDiplomat_Dlg->pdialog->pEndActiveWidgetList->size.y,
-        pDiplomat_Dlg->pdialog->pBeginActiveWidgetList->prev->size.y
-          - pDiplomat_Dlg->pdialog->pEndActiveWidgetList->size.y,
-        TRUE);
-  }
-  
-  /* -------------------- */
-  /* redraw */
-  redraw_group(pDiplomat_Dlg->pdialog->pBeginWidgetList, pWindow, 0);
+  XawListChange(spy_improvements_list, (String *) improvements_can_sabotage,
+		0, 0, 1);
+  XtVaGetValues(spy_improvements_list, XtNwidth, &width1, NULL);
+  XtVaGetValues(spy_improvements_list_label, XtNwidth, &width2, NULL);
+  XtVaSetValues(spy_improvements_list, XtNwidth, MAX(width1,width2), NULL); 
+  XtVaSetValues(spy_improvements_list_label, XtNwidth, MAX(width1,width2), NULL); 
 
-  widget_flush(pWindow);
-  
-}
-
-/* ====================================================================== */
-/* ============================== INCITE DIALOG ========================= */
-/* ====================================================================== */
-static struct small_diplomat_dialog *pIncite_Dlg = NULL;
-
-/****************************************************************
-  User interacted with Incite Revolt dialog window.
-*****************************************************************/
-static int incite_dlg_window_callback(struct widget *pWindow)
-{
-  if (Main.event.button.button == SDL_BUTTON_LEFT) {
-    move_window_group(pIncite_Dlg->pdialog->pBeginWidgetList, pWindow);
-  }
-  return -1;
+  return j;
 }
 
 /****************************************************************
-  User confirmed incite
+...
 *****************************************************************/
-static int diplomat_incite_yes_callback(struct widget *pWidget)
+static void spy_steal_popup(Widget w, XtPointer client_data,
+                            XtPointer call_data)
 {
-  if (Main.event.button.button == SDL_BUTTON_LEFT) {
-    if (NULL != game_unit_by_number(pIncite_Dlg->diplomat_id)
-        && NULL != game_city_by_number(pIncite_Dlg->diplomat_target_id)) {
-      request_diplomat_action(DIPLOMAT_INCITE, pIncite_Dlg->diplomat_id,
-                              pIncite_Dlg->diplomat_target_id, 0);
-    }
-    popdown_incite_dialog();
-  }  
-  return -1;
-}
+  struct city *pvcity = game_city_by_number(diplomat_target_id);
+  struct player *pvictim = NULL;
 
-/****************************************************************
-  Close incite dialog.
-*****************************************************************/
-static int exit_incite_dlg_callback(struct widget *pWidget)
-{
-  if (Main.event.button.button == SDL_BUTTON_LEFT) {
-    popdown_incite_dialog();
-  }
-  return -1;
-}
+  if(pvcity)
+    pvictim = city_owner(pvcity);
 
-/**************************************************************************
-  Popdown a window asking a diplomatic unit if it wishes to incite the
-  given enemy city.
-**************************************************************************/
-void popdown_incite_dialog(void)
-{
-  if (pIncite_Dlg) {
-    is_unit_move_blocked = FALSE;
-    popdown_window_group_dialog(pIncite_Dlg->pdialog->pBeginWidgetList,
-				pIncite_Dlg->pdialog->pEndWidgetList);
-    FC_FREE(pIncite_Dlg->pdialog);
-    FC_FREE(pIncite_Dlg);
-    flush_dirty();
+/* it is concievable that pvcity will not be found, because something
+has happened to the city during latency.  Therefore we must initialize
+pvictim to NULL and account for !pvictim in create_advances_list. -- Syela */
+  
+  destroy_message_dialog(w);
+  diplomat_dialog = NULL;
+
+  if(!spy_tech_shell){
+    Position x, y;
+    Dimension width, height;
+    spy_tech_shell_is_modal=1;
+
+    create_advances_list(client.conn.playing, pvictim, spy_tech_shell_is_modal);
+    
+    XtVaGetValues(toplevel, XtNwidth, &width, XtNheight, &height, NULL);
+    
+    XtTranslateCoords(toplevel, (Position) width/10, (Position) height/10,
+		      &x, &y);
+    XtVaSetValues(spy_tech_shell, XtNx, x, XtNy, y, NULL);
+    
+    XtPopup(spy_tech_shell, XtGrabNone);
   }
 }
 
 /**************************************************************************
-  Popup a window asking a diplomatic unit if it wishes to incite the
-  given enemy city.
+  Requests up-to-date list of improvements, the return of
+  which will trigger the popup_sabotage_dialog() function.
 **************************************************************************/
-void popup_incite_dialog(struct unit *actor, struct city *pCity, int cost)
+static void spy_request_sabotage_list(Widget w, XtPointer client_data,
+				      XtPointer call_data)
 {
-  struct widget *pWindow = NULL, *pBuf = NULL;
-  SDL_String16 *pStr;
-  struct unit *pUnit;
-  char tBuf[255], cBuf[255];
-  bool exit = FALSE;
-  SDL_Rect area;
-  
-  if (pIncite_Dlg) {
-    return;
-  }
-  
-  /* ugly hack */
-  pUnit = head_of_units_in_focus();
-  
-  if (!pUnit || !is_diplomat_unit(pUnit)) {
-    return;
-  }
-  
-  is_unit_move_blocked = TRUE;
-  
-  pIncite_Dlg = fc_calloc(1, sizeof(struct small_diplomat_dialog));
-  pIncite_Dlg->diplomat_id = pUnit->id;
-  pIncite_Dlg->diplomat_target_id = pCity->id;
-  pIncite_Dlg->pdialog = fc_calloc(1, sizeof(struct SMALL_DLG));  
+  destroy_message_dialog(w);
+  diplomat_dialog = NULL;
 
-  fc_snprintf(tBuf, ARRAY_SIZE(tBuf), PL_("Treasury contains %d gold.",
+  if (NULL != game_unit_by_number(diplomat_id)
+      && NULL != game_city_by_number(diplomat_target_id)) {
+    request_diplomat_answer(DIPLOMAT_SABOTAGE, diplomat_id,
+			    diplomat_target_id, 0);
+  }
+}
+
+/**************************************************************************
+  Pops-up the Spy sabotage dialog, upon return of list of
+  available improvements requested by the above function.
+**************************************************************************/
+void popup_sabotage_dialog(struct unit *actor, struct city *pcity)
+{  
+  if(!spy_sabotage_shell){
+    Position x, y;
+    Dimension width, height;
+    spy_sabotage_shell_is_modal=1;
+
+    create_improvements_list(client.conn.playing, pcity, spy_sabotage_shell_is_modal);
+    
+    XtVaGetValues(toplevel, XtNwidth, &width, XtNheight, &height, NULL);
+    
+    XtTranslateCoords(toplevel, (Position) width/10, (Position) height/10,
+		      &x, &y);
+    XtVaSetValues(spy_sabotage_shell, XtNx, x, XtNy, y, NULL);
+    
+    XtPopup(spy_sabotage_shell, XtGrabNone);
+  }
+}
+
+/****************************************************************
+...
+*****************************************************************/
+static void diplomat_incite_yes_callback(Widget w, XtPointer client_data, 
+					 XtPointer call_data)
+{
+  request_diplomat_action(DIPLOMAT_INCITE, diplomat_id,
+			  diplomat_target_id, 0);
+
+  destroy_message_dialog(w);
+
+  process_diplomat_arrival(NULL, 0);
+}
+
+/****************************************************************
+...
+*****************************************************************/
+static void diplomat_incite_no_callback(Widget w, XtPointer client_data, 
+					XtPointer call_data)
+{
+  destroy_message_dialog(w);
+
+  process_diplomat_arrival(NULL, 0);
+}
+
+
+/**************************************************************************
+  Asks the server how much the revolt is going to cost us
+**************************************************************************/
+static void diplomat_incite_callback(Widget w, XtPointer client_data, 
+				     XtPointer call_data)
+{
+  destroy_message_dialog(w);
+  diplomat_dialog = NULL;
+
+  if (NULL != game_unit_by_number(diplomat_id)
+      && NULL != game_city_by_number(diplomat_target_id)) {
+    request_diplomat_answer(DIPLOMAT_INCITE, diplomat_id,
+			    diplomat_target_id, 0);
+  }
+}
+
+/**************************************************************************
+  Popup the yes/no dialog for inciting, since we know the cost now
+**************************************************************************/
+void popup_incite_dialog(struct unit *actor, struct city *pcity, int cost)
+{
+  char tbuf[128], buf[128];
+
+  fc_snprintf(tbuf, ARRAY_SIZE(tbuf), PL_("Treasury contains %d gold.",
                                           "Treasury contains %d gold.",
                                           client_player()->economic.gold),
               client_player()->economic.gold);
 
-  /* window */
-  pStr = create_str16_from_char(_("Incite a Revolt!"), adj_font(12));
-    
-  pStr->style |= TTF_STYLE_BOLD;
-  
-  pWindow = create_window_skeleton(NULL, pStr, 0);
-    
-  pWindow->action = incite_dlg_window_callback;
-  set_wstate(pWindow, FC_WS_NORMAL);
-  
-  add_to_gui_list(ID_INCITE_DLG_WINDOW, pWindow);
-  pIncite_Dlg->pdialog->pEndWidgetList = pWindow;
-  
-  area = pWindow->area;
-  area.w  =MAX(area.w, adj_size(8));
-  area.h = MAX(area.h, adj_size(2));
-  
   if (INCITE_IMPOSSIBLE_COST == cost) {
-    
-    /* exit button */
-    pBuf = create_themeicon(pTheme->Small_CANCEL_Icon, pWindow->dst,
-                            WF_WIDGET_HAS_INFO_LABEL
-                            | WF_RESTORE_BACKGROUND);
-    pBuf->info_label = create_str16_from_char(_("Close Dialog (Esc)"),
-                                              adj_font(12));
-    area.w += pBuf->size.w + adj_size(10);
-    pBuf->action = exit_incite_dlg_callback;
-    set_wstate(pBuf, FC_WS_NORMAL);
-    pBuf->key = SDLK_ESCAPE;
-  
-    add_to_gui_list(ID_INCITE_DLG_EXIT_BUTTON, pBuf);
-    exit = TRUE;
-    /* --------------- */
-    
-    fc_snprintf(cBuf, sizeof(cBuf), _("You can't incite a revolt in %s."),
-		city_name(pCity));
-
-    create_active_iconlabel(pBuf, pWindow->dst, pStr, cBuf, NULL);
-        
-    add_to_gui_list(ID_LABEL , pBuf);
-    
-    area.w = MAX(area.w , pBuf->size.w);
-    area.h += pBuf->size.h;
-    /*------------*/
-    create_active_iconlabel(pBuf, pWindow->dst, pStr,
-	    _("City can't be incited!"), NULL);
-        
-    add_to_gui_list(ID_LABEL , pBuf);
-    
-    area.w = MAX(area.w , pBuf->size.w);
-    area.h += pBuf->size.h;
-    
+    fc_snprintf(buf, sizeof(buf), _("You can't incite a revolt in %s."),
+		city_name(pcity));
+    popup_message_dialog(toplevel, "diplomatnogolddialog", buf,
+			 diplomat_incite_no_callback, 0, 0, NULL);
   } else if (cost <= client_player()->economic.gold) {
-    fc_snprintf(cBuf, sizeof(cBuf),
+    fc_snprintf(buf, sizeof(buf),
                 /* TRANS: %s is pre-pluralised "Treasury contains %d gold." */
                 PL_("Incite a revolt for %d gold?\n%s",
-                    "Incite a revolt for %d gold?\n%s", cost), cost, tBuf);
-
-    create_active_iconlabel(pBuf, pWindow->dst, pStr, cBuf, NULL);
-        
-  
-    add_to_gui_list(ID_LABEL , pBuf);
-    
-    area.w = MAX(area.w, pBuf->size.w);
-    area.h += pBuf->size.h;
-    
-    /*------------*/
-    create_active_iconlabel(pBuf, pWindow->dst, pStr,
-	    _("Yes") , diplomat_incite_yes_callback);
-    
-    pBuf->data.city = pCity;
-    set_wstate(pBuf, FC_WS_NORMAL);
-  
-    add_to_gui_list(MAX_ID - pUnit->id, pBuf);
-    
-    area.w = MAX(area.w, pBuf->size.w);
-    area.h += pBuf->size.h;
-    /* ------- */
-    create_active_iconlabel(pBuf, pWindow->dst, pStr,
-	    _("No") , exit_incite_dlg_callback);
-    
-    set_wstate(pBuf, FC_WS_NORMAL);
-    pBuf->key = SDLK_ESCAPE;
-    
-    add_to_gui_list(ID_LABEL, pBuf);
-    
-    area.w = MAX(area.w, pBuf->size.w);
-    area.h += pBuf->size.h;
-    
+                    "Incite a revolt for %d gold?\n%s", cost), cost, tbuf);
+    diplomat_target_id = pcity->id;
+    popup_message_dialog(toplevel, "diplomatrevoltdialog", buf,
+                         diplomat_incite_yes_callback, 0, 0,
+                         diplomat_incite_no_callback, 0, 0,
+                         NULL);
   } else {
-    /* exit button */
-    pBuf = create_themeicon(pTheme->Small_CANCEL_Icon, pWindow->dst,
-                            WF_WIDGET_HAS_INFO_LABEL
-                            | WF_RESTORE_BACKGROUND);
-    pBuf->info_label = create_str16_from_char(_("Close Dialog (Esc)"),
-                                              adj_font(12));
-    area.w += pBuf->size.w + adj_size(10);
-    pBuf->action = exit_incite_dlg_callback;
-    set_wstate(pBuf, FC_WS_NORMAL);
-    pBuf->key = SDLK_ESCAPE;
-  
-    add_to_gui_list(ID_INCITE_DLG_EXIT_BUTTON, pBuf);
-    exit = TRUE;
-    /* --------------- */
-
-    fc_snprintf(cBuf, sizeof(cBuf),
+    fc_snprintf(buf, sizeof(buf),
                 /* TRANS: %s is pre-pluralised "Treasury contains %d gold." */
                 PL_("Inciting a revolt costs %d gold.\n%s",
-                    "Inciting a revolt costs %d gold.\n%s", cost), cost, tBuf);
-
-    create_active_iconlabel(pBuf, pWindow->dst, pStr, cBuf, NULL);
-        
-  
-    add_to_gui_list(ID_LABEL, pBuf);
-    
-    area.w = MAX(area.w, pBuf->size.w);
-    area.h += pBuf->size.h;
-    
-    /*------------*/
-    create_active_iconlabel(pBuf, pWindow->dst, pStr,
-	    _("Traitors Demand Too Much!"), NULL);
-        
-    add_to_gui_list(ID_LABEL , pBuf);
-    
-    area.w = MAX(area.w, pBuf->size.w);
-    area.h += pBuf->size.h;
+                    "Inciting a revolt costs %d gold.\n%s", cost), cost, tbuf);
+    popup_message_dialog(toplevel, "diplomatnogolddialog", buf,
+                         diplomat_incite_no_callback, 0, 0,
+                         NULL);
   }
-  pIncite_Dlg->pdialog->pBeginWidgetList = pBuf;
-  
-  /* setup window size and start position */
-
-  resize_window(pWindow, NULL, NULL,
-                (pWindow->size.w - pWindow->area.w) + area.w,
-                (pWindow->size.h - pWindow->area.h) + area.h);
-  
-  area = pWindow->area;
-  
-  auto_center_on_focus_unit();
-  put_window_near_map_tile(pWindow, pWindow->size.w, pWindow->size.h,
-                           pCity->tile);
-  
-  /* setup widget size and start position */
-  pBuf = pWindow;
-  
-  if (exit)
-  {/* exit button */
-    pBuf = pBuf->prev;
-    pBuf->size.x = area.x + area.w - pBuf->size.w - 1;
-    pBuf->size.y = pWindow->size.y + adj_size(2);
-  }
-  
-  pBuf = pBuf->prev;
-  setup_vertical_widgets_position(1,
-	area.x,
-  	area.y + 1, area.w, 0,
-	pIncite_Dlg->pdialog->pBeginWidgetList, pBuf);
-    
-  /* --------------------- */
-  /* redraw */
-  redraw_group(pIncite_Dlg->pdialog->pBeginWidgetList, pWindow, 0);
-
-  widget_flush(pWindow);
-  
 }
 
-/* ====================================================================== */
-/* ============================ BRIBE DIALOG ========================== */
-/* ====================================================================== */
-static struct small_diplomat_dialog *pBribe_Dlg = NULL;
 
 /**************************************************************************
-  User interacted with bribe dialog window.
+  Callback from diplomat/spy dialog for "keep moving".
+  (This should only occur when entering allied city.)
 **************************************************************************/
-static int bribe_dlg_window_callback(struct widget *pWindow)
+static void diplomat_keep_moving_callback(Widget w, XtPointer client_data, 
+					  XtPointer call_data)
 {
-  if (Main.event.button.button == SDL_BUTTON_LEFT) {
-    move_window_group(pBribe_Dlg->pdialog->pBeginWidgetList, pWindow);
+  struct unit *punit;
+  struct city *pcity;
+  
+  destroy_message_dialog(w);
+  diplomat_dialog = NULL;
+
+  if ((punit = game_unit_by_number(diplomat_id))
+      && (pcity = game_city_by_number(diplomat_target_id))
+      && !same_pos(unit_tile(punit), city_tile(pcity))) {
+    request_diplomat_action(DIPLOMAT_MOVE, diplomat_id,
+                            diplomat_target_id, 0);
   }
-  return -1;
+  process_diplomat_arrival(NULL, 0);
 }
 
-/**************************************************************************
-  User confirmed bribe.
-**************************************************************************/
-static int diplomat_bribe_yes_callback(struct widget *pWidget)
+/****************************************************************
+...
+*****************************************************************/
+static void diplomat_cancel_callback(Widget w, XtPointer a, XtPointer b)
 {
-  if (Main.event.button.button == SDL_BUTTON_LEFT) {
-    if (NULL != game_unit_by_number(pBribe_Dlg->diplomat_id)
-        && NULL != game_unit_by_number(pBribe_Dlg->diplomat_target_id)) {
-      request_diplomat_action(DIPLOMAT_BRIBE, pBribe_Dlg->diplomat_id,
-                              pBribe_Dlg->diplomat_target_id, 0);
+  destroy_message_dialog(w);
+  diplomat_dialog = NULL;
+
+  process_diplomat_arrival(NULL, 0);
+}
+
+
+/****************************************************************
+  Popups the diplomat dialog
+*****************************************************************/
+void popup_diplomat_dialog(struct unit *punit, struct tile *dest_tile)
+{
+  struct city *pcity;
+  struct unit *ptunit;
+  struct astring text = ASTRING_INIT;
+
+  diplomat_id=punit->id;
+
+  if((pcity=tile_city(dest_tile))){
+    /* Spy/Diplomat acting against a city */
+
+    diplomat_target_id=pcity->id;
+    astr_set(&text,
+             _("Your %s has arrived at %s.\nWhat is your command?"),
+             unit_name_translation(punit),
+             city_name(pcity));
+
+    if (!unit_has_type_flag(punit, UTYF_SPY)) {
+      diplomat_dialog =
+        popup_message_dialog(toplevel, "diplomatdialog", astr_str(&text),
+			       diplomat_embassy_callback, 0, 1,
+			       diplomat_investigate_callback, 0, 1,
+			       diplomat_sabotage_callback, 0, 1,
+			       diplomat_steal_callback, 0, 1,
+			       diplomat_incite_callback, 0, 1,
+			       diplomat_keep_moving_callback, 0, 1,
+			       diplomat_cancel_callback, 0, 0,
+			       NULL);
+      
+      if(!diplomat_can_do_action(punit, DIPLOMAT_EMBASSY, dest_tile))
+	XtSetSensitive(XtNameToWidget(diplomat_dialog, "*button0"), FALSE);
+      if(!diplomat_can_do_action(punit, DIPLOMAT_INVESTIGATE, dest_tile))
+	XtSetSensitive(XtNameToWidget(diplomat_dialog, "*button1"), FALSE);
+      if(!diplomat_can_do_action(punit, DIPLOMAT_SABOTAGE, dest_tile))
+	XtSetSensitive(XtNameToWidget(diplomat_dialog, "*button2"), FALSE);
+      if(!diplomat_can_do_action(punit, DIPLOMAT_STEAL, dest_tile))
+	XtSetSensitive(XtNameToWidget(diplomat_dialog, "*button3"), FALSE);
+      if(!diplomat_can_do_action(punit, DIPLOMAT_INCITE, dest_tile))
+	XtSetSensitive(XtNameToWidget(diplomat_dialog, "*button4"), FALSE);
+      if (!unit_can_move_to_tile(punit, dest_tile, FALSE)) {
+	XtSetSensitive(XtNameToWidget(diplomat_dialog, "*button5"), FALSE);
+      }
+    } else {
+      diplomat_dialog =
+        popup_message_dialog(toplevel, "spydialog", astr_str(&text),
+			       diplomat_embassy_callback, 0,  1,
+			       diplomat_investigate_callback, 0, 1,
+			       spy_poison_callback,0, 1,
+			       spy_request_sabotage_list, 0, 1,
+			       spy_steal_popup, 0, 1,
+			       diplomat_incite_callback, 0, 1,
+			       diplomat_keep_moving_callback, 0, 1,
+			       diplomat_cancel_callback, 0, 0,
+			       NULL);
+      
+      if(!diplomat_can_do_action(punit, DIPLOMAT_EMBASSY, dest_tile))
+	XtSetSensitive(XtNameToWidget(diplomat_dialog, "*button0"), FALSE);
+      if(!diplomat_can_do_action(punit, DIPLOMAT_INVESTIGATE, dest_tile))
+	XtSetSensitive(XtNameToWidget(diplomat_dialog, "*button1"), FALSE);
+      if(!diplomat_can_do_action(punit, SPY_POISON, dest_tile))
+	XtSetSensitive(XtNameToWidget(diplomat_dialog, "*button2"), FALSE);
+      if(!diplomat_can_do_action(punit, DIPLOMAT_SABOTAGE, dest_tile))
+	XtSetSensitive(XtNameToWidget(diplomat_dialog, "*button3"), FALSE);
+      if(!diplomat_can_do_action(punit, DIPLOMAT_STEAL, dest_tile))
+	XtSetSensitive(XtNameToWidget(diplomat_dialog, "*button4"), FALSE);
+      if(!diplomat_can_do_action(punit, DIPLOMAT_INCITE, dest_tile))
+	XtSetSensitive(XtNameToWidget(diplomat_dialog, "*button5"), FALSE);
+      if (!unit_can_move_to_tile(punit, dest_tile, FALSE)) {
+	XtSetSensitive(XtNameToWidget(diplomat_dialog, "*button6"), FALSE);
+      }
     }
-    popdown_bribe_dialog();
-  }  
-  return -1;
+  } else { 
+    if ((ptunit = unit_list_get(dest_tile->units, 0))) {
+      /* Spy/Diplomat acting against a unit */
+      
+      Widget shl;
+
+      astr_set(&text,
+               _("Your %s is waiting for your command."),
+               unit_name_translation(punit));
+      
+      diplomat_target_id=ptunit->id;
+
+      shl=popup_message_dialog(toplevel, "spybribedialog",
+			       astr_str(&text),
+			       diplomat_bribe_callback, 0, 0,
+			       spy_sabotage_unit_callback, 0, 0,
+			       diplomat_cancel_callback, 0, 0,
+			       NULL);
+	
+      if(!diplomat_can_do_action(punit, DIPLOMAT_BRIBE, dest_tile))
+	XtSetSensitive(XtNameToWidget(shl, "*button0"), FALSE);
+      if(!diplomat_can_do_action(punit, SPY_SABOTAGE_UNIT, dest_tile))
+	XtSetSensitive(XtNameToWidget(shl, "*button1"), FALSE);
+    }
+  }
+  astr_free(&text);
 }
 
 /**************************************************************************
-  Close bribe dialog.
+  Returns id of a diplomat currently handled in diplomat dialog
 **************************************************************************/
-static int exit_bribe_dlg_callback(struct widget *pWidget)
+int diplomat_handled_in_diplomat_dialog(void)
 {
-  if (Main.event.button.button == SDL_BUTTON_LEFT) {
-    popdown_bribe_dialog();
+  if (diplomat_dialog == NULL) {
+    return -1;
   }
-  return -1;
+  return diplomat_id;
 }
 
 /**************************************************************************
-  Popdown a dialog asking a diplomatic unit if it wishes to bribe the
-  given enemy unit.
+  Closes the diplomat dialog
 **************************************************************************/
-void popdown_bribe_dialog(void)
+void close_diplomat_dialog(void)
 {
-  if (pBribe_Dlg) {
-    is_unit_move_blocked = FALSE;
-    popdown_window_group_dialog(pBribe_Dlg->pdialog->pBeginWidgetList,
-				pBribe_Dlg->pdialog->pEndWidgetList);
-    FC_FREE(pBribe_Dlg->pdialog);
-    FC_FREE(pBribe_Dlg);
-    flush_dirty();
+  if (diplomat_dialog != NULL) {
+    XtDestroyWidget(diplomat_dialog);
   }
-}
-
-/**************************************************************************
-  Popup a dialog asking a diplomatic unit if it wishes to bribe the
-  given enemy unit.
-**************************************************************************/
-void popup_bribe_dialog(struct unit *actor, struct unit *pUnit, int cost)
-{
-  struct widget *pWindow = NULL, *pBuf = NULL;
-  SDL_String16 *pStr;
-  struct unit *pDiplomatUnit;
-  char tBuf[255], cBuf[255];
-  bool exit = FALSE;
-  SDL_Rect area;
-  
-  if (pBribe_Dlg) {
-    return;
-  }
-    
-  /* ugly hack */
-  pDiplomatUnit = head_of_units_in_focus();
-  
-  if (!pDiplomatUnit || !is_diplomat_unit(pDiplomatUnit)) {
-    return;
-  }
-  
-  is_unit_move_blocked = TRUE;
-  
-  pBribe_Dlg = fc_calloc(1, sizeof(struct small_diplomat_dialog));
-  pBribe_Dlg->diplomat_id = pDiplomatUnit->id;
-  pBribe_Dlg->diplomat_target_id = pUnit->id;
-  pBribe_Dlg->pdialog = fc_calloc(1, sizeof(struct SMALL_DLG));
-
-  fc_snprintf(tBuf, ARRAY_SIZE(tBuf), PL_("Treasury contains %d gold.",
-                                          "Treasury contains %d gold.",
-                                          client_player()->economic.gold),
-              client_player()->economic.gold);
-
-  /* window */
-  pStr = create_str16_from_char(_("Bribe Enemy Unit"), adj_font(12));
-    
-  pStr->style |= TTF_STYLE_BOLD;
-  
-  pWindow = create_window_skeleton(NULL, pStr, 0);
-    
-  pWindow->action = bribe_dlg_window_callback;
-  set_wstate(pWindow, FC_WS_NORMAL);
-
-  add_to_gui_list(ID_BRIBE_DLG_WINDOW, pWindow);
-  pBribe_Dlg->pdialog->pEndWidgetList = pWindow;
-  
-  area = pWindow->area;
-  area.w = MAX(area.w, adj_size(8));
-  area.h = MAX(area.h, adj_size(2));
-  
-  if (cost <= client_player()->economic.gold) {
-    fc_snprintf(cBuf, sizeof(cBuf),
-                /* TRANS: %s is pre-pluralised "Treasury contains %d gold." */
-                PL_("Bribe unit for %d gold?\n%s",
-                    "Bribe unit for %d gold?\n%s", cost), cost, tBuf);
-
-    create_active_iconlabel(pBuf, pWindow->dst, pStr, cBuf, NULL);
-  
-    add_to_gui_list(ID_LABEL, pBuf);
-    
-    area.w = MAX(area.w, pBuf->size.w);
-    area.h += pBuf->size.h;
-    
-    /*------------*/
-    create_active_iconlabel(pBuf, pWindow->dst, pStr,
-	    _("Yes"), diplomat_bribe_yes_callback);
-    pBuf->data.unit = pUnit;
-    set_wstate(pBuf, FC_WS_NORMAL);
-  
-    add_to_gui_list(MAX_ID - pDiplomatUnit->id, pBuf);
-    
-    area.w = MAX(area.w, pBuf->size.w);
-    area.h += pBuf->size.h;
-    /* ------- */
-    create_active_iconlabel(pBuf, pWindow->dst, pStr,
-	    _("No") , exit_bribe_dlg_callback);
-    
-    set_wstate(pBuf , FC_WS_NORMAL);
-    pBuf->key = SDLK_ESCAPE;
-    
-    add_to_gui_list(ID_LABEL, pBuf);
-    
-    area.w = MAX(area.w, pBuf->size.w);
-    area.h += pBuf->size.h;
-    
-  } else {
-    /* exit button */
-    pBuf = create_themeicon(pTheme->Small_CANCEL_Icon, pWindow->dst,
-                            WF_WIDGET_HAS_INFO_LABEL
-                            | WF_RESTORE_BACKGROUND);
-    pBuf->info_label = create_str16_from_char(_("Close Dialog (Esc)"),
-                                              adj_font(12));
-    area.w += pBuf->size.w + adj_size(10);
-    pBuf->action = exit_bribe_dlg_callback;
-    set_wstate(pBuf, FC_WS_NORMAL);
-    pBuf->key = SDLK_ESCAPE;
-  
-    add_to_gui_list(ID_BRIBE_DLG_EXIT_BUTTON, pBuf);
-    exit = TRUE;
-    /* --------------- */
-
-    fc_snprintf(cBuf, sizeof(cBuf),
-                /* TRANS: %s is pre-pluralised "Treasury contains %d gold." */
-                PL_("Bribing the unit costs %d gold.\n%s",
-                    "Bribing the unit costs %d gold.\n%s", cost), cost, tBuf);
-
-    create_active_iconlabel(pBuf, pWindow->dst, pStr, cBuf, NULL);
-  
-    add_to_gui_list(ID_LABEL, pBuf);
-    
-    area.w = MAX(area.w, pBuf->size.w);
-    area.h += pBuf->size.h;
-    
-    /*------------*/
-    create_active_iconlabel(pBuf, pWindow->dst, pStr,
-	    _("Traitors Demand Too Much!"), NULL);
-        
-    add_to_gui_list(ID_LABEL, pBuf);
-    
-    area.w = MAX(area.w, pBuf->size.w);
-    area.h += pBuf->size.h;
-  }
-  pBribe_Dlg->pdialog->pBeginWidgetList = pBuf;
-  
-  /* setup window size and start position */
-
-  resize_window(pWindow, NULL, NULL,
-                (pWindow->size.w - pWindow->area.w) + area.w,
-                (pWindow->size.h - pWindow->area.h) + area.h);
-  
-  area = pWindow->area;
-  
-  auto_center_on_focus_unit();
-  put_window_near_map_tile(pWindow, pWindow->size.w, pWindow->size.h,
-                           unit_tile(pDiplomatUnit));
-
-  /* setup widget size and start position */
-  pBuf = pWindow;
-  
-  if (exit)
-  {/* exit button */
-    pBuf = pBuf->prev;
-    pBuf->size.x = area.x + area.w - pBuf->size.w - 1;
-    pBuf->size.y = pWindow->size.y + adj_size(2);
-  }
-  
-  pBuf = pBuf->prev;
-  setup_vertical_widgets_position(1,
-	area.x,
-  	area.y + 1, area.w, 0,
-	pBribe_Dlg->pdialog->pBeginWidgetList, pBuf);
-  
-  /* --------------------- */
-  /* redraw */
-  redraw_group(pBribe_Dlg->pdialog->pBeginWidgetList, pWindow, 0);
-
-  widget_flush(pWindow);
 }

@@ -13,8 +13,11 @@
 #ifndef FC__INTELDLG_H
 #define FC__INTELDLG_H
 
+#include <X11/Intrinsic.h>
+
 #include "inteldlg_g.h"
 
-/* nothing to add */
+void intel_dialog_msg_close(Widget w);
+void intel_diplo_dialog_msg_close(Widget w);
 
 #endif				/* FC__INTELDLG_H */

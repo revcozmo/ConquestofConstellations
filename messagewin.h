@@ -10,11 +10,16 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 ***********************************************************************/
-
 #ifndef FC__MESSAGEWIN_H
 #define FC__MESSAGEWIN_H
 
+#include <X11/Intrinsic.h>
+
 #include "messagewin_g.h"
 
+void meswin_dialog_popdown(void);
 
-#endif				/* FC__MESSAGEWIN_H */
+void meswin_msg_close(Widget w);
+
+
+#endif  /* FC__MESSAGEWIN_H */

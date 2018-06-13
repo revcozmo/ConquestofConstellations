@@ -10,11 +10,15 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 ***********************************************************************/
-
 #ifndef FC__CHATLINE_H
 #define FC__CHATLINE_H
+
+#include <X11/Intrinsic.h>
 
 #include "chatline_g.h"
 
 
-#endif				/* FC__CHATLINE_H */
+void chatline_key_send(Widget w);
+
+
+#endif  /* FC__CHATLINE_H */

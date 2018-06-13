@@ -1,160 +1,225 @@
-/********************************************************************** 
- Freeciv - Copyright (C) 1996-2005 - Freeciv Development Team
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
+/*
 
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-***********************************************************************/
+    Canvas.c - a widget that allows programmer-specified refresh procedures.
+    Copyright (C) 1990,93,94 Robert H. Forsman Jr.
+
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Library General Public
+    License as published by the Free Software Foundation; either
+    version 2 of the License, or (at your option) any later version.
+
+    This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+    Library General Public License for more details.
+
+    You should have received a copy of the GNU Library General Public
+    License along with this library; if not, write to the Free
+    Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+ */
 
 #ifdef HAVE_CONFIG_H
 #include <fc_config.h>
 #endif
 
-/* gui main header */
-#include "gui_stub.h"
+#include <stdio.h>
 
-#include "canvas.h"
+#include <X11/IntrinsicP.h>
+#include <X11/StringDefs.h>
+#include <X11/Xaw/XawInit.h>
 
-/****************************************************************************
-  Create a canvas of the given size.
-****************************************************************************/
-struct canvas *gui_canvas_create(int width, int height)
+#include "gui_main.h"
+#include "gui_stuff.h"
+#include "canvasp.h"
+
+#define offset(field) XtOffset(CanvasWidget, canvas.field)
+
+static XtResource resources[] = {
+  {XtNexposeProc, XtCExposeProc, XtRFunction, sizeof(XfwfCanvasExposeProc),
+     offset(redraw),	XtRFunction, NULL},
+  {XtNexposeProcData, XtCExposeProcData, XtRPointer, sizeof(XtPointer),
+     offset(redraw_data), XtRFunction, NULL},
+  {XtNresizeProc, XtCResizeProc, XtRFunction, sizeof(XfwfCanvasResizeProc),
+     offset(resize),	XtRFunction, NULL},
+  {XtNresizeProcData, XtCResizeProcData, XtRPointer, sizeof(XtPointer),
+     offset(resize_data), XtRFunction, NULL},
+  {XtNvisual, XtCVisual, XtRVisual, sizeof(Visual*),
+      offset(visual), XtRImmediate, CopyFromParent},
+  {XtNBackPixmap, XtCBackPixmap, XtRBitmap, sizeof(Pixmap),
+     offset(pixmap), XtRBitmap, NULL}
+};
+
+
+static void CanvasRealize(Widget widget, XtValueMask *value_mask, 
+			  XSetWindowAttributes *attributes);
+static void Redisplay(Widget w, XEvent *event, Region region);
+static void ClassInitialize(void);
+static void Resize(Widget w);
+static void Destroy(Widget w);
+static Boolean SetValues(Widget current,
+			 Widget request,
+			 Widget New,
+			 ArgList args, Cardinal *nargs);
+
+CanvasClassRec canvasClassRec = {
+    {
+    /* core_class fields	 */
+    /* superclass	  	 */ (WidgetClass) &simpleClassRec,
+    /* class_name	  	 */ "Canvas",
+    /* widget_size	  	 */ sizeof(CanvasRec),
+    /* class_initialize   	 */ ClassInitialize,
+    /* class_part_initialize	 */ NULL,
+    /* class_inited       	 */ False,
+    /* initialize	  	 */ NULL,
+    /* initialize_hook		 */ NULL,
+    /* realize		  	 */ CanvasRealize,
+    /* actions		  	 */ NULL,
+    /* num_actions	  	 */ 0,
+    /* resources	  	 */ resources,
+    /* num_resources	  	 */ XtNumber(resources),
+    /* xrm_class	  	 */ NULLQUARK,
+    /* compress_motion	  	 */ True,
+    /* compress_exposure  	 */ XtExposeCompressMultiple,
+    /* compress_enterleave	 */ True,
+    /* visible_interest	  	 */ True,
+    /* destroy		  	 */ Destroy,
+    /* resize		  	 */ Resize,
+    /* expose		  	 */ Redisplay,
+    /* set_values	  	 */ SetValues,
+    /* set_values_hook		 */ NULL,
+    /* set_values_almost	 */ XtInheritSetValuesAlmost,
+    /* get_values_hook		 */ NULL,
+    /* accept_focus	 	 */ NULL,
+    /* version			 */ XtVersion,
+    /* callback_private   	 */ NULL,
+    /* tm_table		   	 */ NULL,
+    /* query_geometry		 */ NULL,
+    /* display_accelerator       */ XtInheritDisplayAccelerator,
+    /* extension                 */ NULL
+    },
+    {
+      XtInheritChangeSensitive            /* change_sensitive       */ 
+    },  /* SimpleClass fields initialization */
+    {
+      0 /* some stupid compilers barf on empty structures */
+    },
+};
+
+WidgetClass xfwfcanvasWidgetClass = (WidgetClass) & canvasClassRec;
+
+
+static void CanvasRealize(Widget widget, XtValueMask *value_mask, 
+			  XSetWindowAttributes *attributes)
 {
-  /* PORTME */
-  return NULL;
-}
+  CanvasWidget	cw = (CanvasWidget)widget;
+  cw->canvas.is_visible=0;
+  
+  XtCreateWindow(widget, (unsigned int) InputOutput,
+	(Visual *) cw->canvas.visual, *value_mask, attributes);
 
-/****************************************************************************
-  Free any resources associated with this canvas and the canvas struct
-  itself.
-****************************************************************************/
-void gui_canvas_free(struct canvas *store)
-{
-  /* PORTME */
-}
+  cw->canvas.pixmap=XCreatePixmap(display, root_window, 
+				  cw->core.width, cw->core.height, 
+				  display_depth);  
 
-/****************************************************************************
-  Copies an area from the source canvas to the destination canvas.
-****************************************************************************/
-void gui_canvas_copy(struct canvas *dest, struct canvas *src,
-                     int src_x, int src_y, int dest_x, int dest_y, int width,
-                     int height)
-{
-  /* PORTME */
-}
+} /* CoreRealize */
 
-/****************************************************************************
-  Draw some or all of a sprite onto the canvas.
-****************************************************************************/
-void gui_canvas_put_sprite(struct canvas *pcanvas,
-                           int canvas_x, int canvas_y,
-                           struct sprite *sprite,
-                           int offset_x, int offset_y, int width, int height)
+static void Redisplay(Widget w, XEvent *event, Region region)
 {
-  /* PORTME */
-}
+  XExposeEvent *exposeEvent = (XExposeEvent *)event;
+  CanvasWidget	cw = (CanvasWidget)w;
 
-/****************************************************************************
-  Draw a full sprite onto the canvas.
-****************************************************************************/
-void gui_canvas_put_sprite_full(struct canvas *pcanvas,
-                                int canvas_x, int canvas_y,
-                                struct sprite *sprite)
-{
-  /* PORTME */
-}
+  if (!XtIsRealized(w))
+    return;
 
-/****************************************************************************
-  Draw a full sprite onto the canvas.  If "fog" is specified draw it with
-  fog.
-****************************************************************************/
-void gui_canvas_put_sprite_fogged(struct canvas *pcanvas,
-                                  int canvas_x, int canvas_y,
-                                  struct sprite *psprite,
-                                  bool fog, int fog_x, int fog_y)
-{
-  /* PORTME */
-}
-
-/****************************************************************************
-  Draw a filled-in colored rectangle onto canvas.
-****************************************************************************/
-void gui_canvas_put_rectangle(struct canvas *pcanvas,
-                              struct color *pcolor,
-                              int canvas_x, int canvas_y, int width, int height)
-{
-  /* PORTME */
-}
-
-/****************************************************************************
-  Fill the area covered by the sprite with the given color.
-****************************************************************************/
-void gui_canvas_fill_sprite_area(struct canvas *pcanvas,
-                                 struct sprite *psprite, struct color *pcolor,
-                                 int canvas_x, int canvas_y)
-{
-  /* PORTME */
-}
-
-/****************************************************************************
-  Fill the area covered by the sprite with the given color.
-****************************************************************************/
-void gui_canvas_fog_sprite_area(struct canvas *pcanvas, struct sprite *psprite,
-                                int canvas_x, int canvas_y)
-{
-  /* PORTME */
-}
-
-/****************************************************************************
-  Draw a 1-pixel-width colored line onto the canvas.
-****************************************************************************/
-void gui_canvas_put_line(struct canvas *pcanvas, struct color *pcolor,
-                         enum line_type ltype, int start_x, int start_y,
-                         int dx, int dy)
-{
-  /* PORTME */
-}
-
-/****************************************************************************
-  Draw a 1-pixel-width colored curved line onto the canvas.
-****************************************************************************/
-void gui_canvas_put_curved_line(struct canvas *pcanvas, struct color *pcolor,
-                                enum line_type ltype, int start_x, int start_y,
-                                int dx, int dy)
-{
-  /* PORTME */
-}
-
-/****************************************************************************
-  Return the size of the given text in the given font.  This size should
-  include the ascent and descent of the text.  Either of width or height
-  may be NULL in which case those values simply shouldn't be filled out.
-****************************************************************************/
-void gui_get_text_size(int *width, int *height,
-                       enum client_font font, const char *text)
-{
-  /* PORTME */
-  if (width) {
-    *width = 0;
+  if(cw->canvas.redraw) {
+    (cw->canvas.redraw)((Widget)cw,exposeEvent,region,cw->canvas.redraw_data);
   }
-  if (height) {
-    *height = 0;
+  else {
+    if(cw->canvas.is_visible)
+      XCopyArea(display, cw->canvas.pixmap, XtWindow(w),
+		civ_gc,
+		0, 0,
+		cw->core.width, cw->core.height,
+		0, 0);
+    else {
+      XSetForeground(display, fill_bg_gc, cw->core.background_pixel);
+      XFillRectangle(display, XtWindow(w), fill_bg_gc, 
+		     0, 0, cw->core.width, cw->core.height);
+    }
   }
 }
 
-/****************************************************************************
-  Draw the text onto the canvas in the given color and font.  The canvas
-  position does not account for the ascent of the text; this function must
-  take care of this manually.  The text will not be NULL but may be empty.
-****************************************************************************/
-void gui_canvas_put_text(struct canvas *pcanvas, int canvas_x, int canvas_y,
-                         enum client_font font, struct color *pcolor,
-                         const char *text)
+static Boolean SetValues(Widget current,
+			 Widget request,
+			 Widget New,
+			 ArgList args, Cardinal *nargs)
 {
-  /* PORTME */
+  int	i;
+  for(i=0; i<*nargs; i++) {
+    if (strcmp(XtNexposeProc,args[i].name)==0 ||
+	strcmp(XtNexposeProcData,args[i].name)==0)
+      return True;
+  }
+  return False;
+}
+
+
+static void Resize(Widget w)
+{
+  CanvasWidget cw = (CanvasWidget)w;
+  if (cw->canvas.resize)
+    (cw->canvas.resize)((Widget)cw, cw->canvas.resize_data);
+
+  XFreePixmap(display, cw->canvas.pixmap);
+  
+  cw->canvas.pixmap=XCreatePixmap(display, root_window, 
+				  cw->core.width, cw->core.height, 
+				  display_depth);
+}
+
+static void Destroy(Widget w)
+{
+  CanvasWidget	cw = (CanvasWidget)w;
+  XFreePixmap(display, cw->canvas.pixmap);
+}
+
+static void ClassInitialize(void)
+{
+    XawInitializeWidgetSet();
+}
+
+
+Pixmap canvas_get_backpixmap(Widget w)
+{
+  CanvasWidget	cw = (CanvasWidget)w;
+  return XtIsRealized(w) ? cw->canvas.pixmap : 0;
+}
+
+void canvas_copy_to_backpixmap(Widget w, Pixmap src)
+{
+  CanvasWidget cw = (CanvasWidget)w;
+ 
+  XCopyArea(display, src, cw->canvas.pixmap, 
+	    civ_gc,
+	    0, 0,
+	    cw->core.width, cw->core.height,
+	    0, 0);
+  cw->canvas.is_visible=1;
+  xaw_expose_now(w);
+}
+
+
+void canvas_show(Widget w)
+{
+  CanvasWidget	cw = (CanvasWidget)w;
+  cw->canvas.is_visible=1;
+  xaw_expose_now(w);
+}
+
+void canvas_hide(Widget w)
+{
+  CanvasWidget	cw = (CanvasWidget)w;
+  cw->canvas.is_visible=0;
+  xaw_expose_now(w);
 }

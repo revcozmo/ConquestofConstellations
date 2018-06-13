@@ -10,11 +10,21 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 ***********************************************************************/
-
 #ifndef FC__REPODLGS_H
 #define FC__REPODLGS_H
 
+#include <X11/Intrinsic.h>
+
 #include "repodlgs_g.h"
 
+void science_report_dialog_popdown(void);
+void economy_report_dialog_popdown(void);
+void units_report_dialog_popdown(void);
 
-#endif				/* FC__REPODLGS_H */
+void activeunits_msg_close(Widget w);
+void sciencereport_msg_close(Widget w);
+void economyreport_msg_close(Widget w);
+const char *get_centered_report_title(const char *report_name);
+
+
+#endif  /* FC__REPODLGS_H */

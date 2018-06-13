@@ -10,11 +10,28 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 ***********************************************************************/
-
 #ifndef FC__GRAPHICS_H
 #define FC__GRAPHICS_H
 
+#include <X11/Xlib.h>
+
 #include "graphics_g.h"
 
+struct sprite {
+  Pixmap pixmap, mask;
+  int width, height, ncols;
+  unsigned long *pcolorarray;
+  int has_mask;
+};
 
-#endif				/* FC__GRAPHICS_H */
+struct canvas {
+  Pixmap pixmap;
+};
+
+Pixmap create_overlay_unit(const struct unit_type *punittype);
+
+extern struct sprite *intro_gfx_sprite;
+extern struct sprite *radar_gfx_sprite;
+extern Cursor cursors[];
+
+#endif  /* FC__GRAPHICS_H */

@@ -10,11 +10,16 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 ***********************************************************************/
-
 #ifndef FC__SPACESHIPDLG_H
 #define FC__SPACESHIPDLG_H
+
+#include <X11/Intrinsic.h>
 
 #include "spaceshipdlg_g.h"
 
 
-#endif				/* FC__SPACESHIPDLG_H */
+void spaceshipdlg_key_close(Widget w);
+void spaceshipdlg_msg_close(Widget w);
+
+
+#endif  /* FC__SPACESHIPDLG_H */

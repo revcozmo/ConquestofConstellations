@@ -10,16 +10,13 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 ***********************************************************************/
-#ifndef FC__CITYREP_H
-#define FC__CITYREP_H
+#ifndef FC__ACTIONS_H
+#define FC__ACTIONS_H
 
 #include <X11/Intrinsic.h>
 
-#include "cityrep_g.h"
 
-void city_report_dialog_popdown(void);
-
-void cityrep_msg_close(Widget w);
+extern void InitializeActions (XtAppContext app_context);
 
 
-#endif  /* FC__CITYREP_H */
+#endif  /* FC__ACTIONS_H */

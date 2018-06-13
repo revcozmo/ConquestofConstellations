@@ -10,12 +10,28 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 ***********************************************************************/
-
 #ifndef FC__DIALOGS_H
 #define FC__DIALOGS_H
 
+#include <X11/Intrinsic.h>
+
 #include "dialogs_g.h"
 
-void popup_revolution_dialog(void);
+void popup_revolution_dialog(struct government *pgovernment);
+Widget popup_message_dialog(Widget parent, const char *shellname,
+			    const char *text, ...);
+void destroy_message_dialog(Widget button);
 
-#endif				/* FC__DIALOGS_H */
+void popup_about_dialog(void);
+void racesdlg_key_ok(Widget w);
+
+enum help_type_dialog {HELP_COPYING_DIALOG, HELP_KEYS_DIALOG};
+
+void free_bitmap_destroy_callback(Widget w, XtPointer client_data, 
+				  XtPointer call_data);
+void destroy_me_callback(Widget w, XtPointer client_data, 
+			 XtPointer call_data);
+
+void taxrates_callback(Widget w, XtPointer client_data, XtPointer call_data);
+
+#endif  /* FC__DIALOGS_H */

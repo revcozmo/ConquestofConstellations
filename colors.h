@@ -10,15 +10,27 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 ***********************************************************************/
-
 #ifndef FC__COLORS_H
 #define FC__COLORS_H
+
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <X11/Xos.h>
 
 #include "colors_g.h"
 
 struct color {
-  /* PORTME: color structure */
-  int r, g, b;
+  XColor color;
 };
 
-#endif				/* FC__COLORS_H */
+enum Display_color_type {
+  BW_DISPLAY, GRAYSCALE_DISPLAY, COLOR_DISPLAY
+};
+
+void alloc_colors(XColor *colors, int ncols);
+void free_colors(unsigned long *pixels, int ncols);
+enum Display_color_type get_visual(void);
+
+extern Colormap cmap;
+
+#endif  /* FC__COLORS_H */

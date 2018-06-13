@@ -13,5 +13,21 @@
 #ifndef FC__INPUTDLG_H
 #define FC__INPUTDLG_H
 
+#include <X11/Intrinsic.h>
+#include <X11/StringDefs.h>
 
-#endif				/* FC__INPUTDLG_H */
+
+Widget input_dialog_create(Widget parent, const char *dialogname, 
+			   const char *text, const char *postinputtest,
+			   XtCallbackProc ok_callback,
+			   XtPointer ok_cli_data, 
+			   XtCallbackProc cancel_callback,
+			   XtPointer cancel_cli_data);
+
+void input_dialog_destroy(Widget button);
+char *input_dialog_get_input(Widget button);
+
+void inputdlg_key_ok(Widget w);
+
+
+#endif  /* FC__INPUTDLG_H */

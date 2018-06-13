@@ -10,11 +10,19 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 ***********************************************************************/
-
 #ifndef FC__MAPCTRL_H
 #define FC__MAPCTRL_H
 
+#include <X11/Intrinsic.h>
+
 #include "mapctrl_g.h"
 
+void mapctrl_key_city_workers(XEvent *event);
 
-#endif				/* FC__MAPCTRL_H */
+void mapctrl_btn_mapcanvas(XEvent *event);
+void mapctrl_btn_overviewcanvas(XEvent *event);
+void mapctrl_btn_wakeup(XEvent *event);
+
+void center_on_unit(void);
+
+#endif  /* FC__MAPCTRL_H */

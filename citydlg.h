@@ -10,11 +10,18 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 ***********************************************************************/
-
 #ifndef FC__CITYDLG_H
 #define FC__CITYDLG_H
+
+#include <X11/Intrinsic.h>
+#include <X11/StringDefs.h>
 
 #include "citydlg_g.h"
 
 
-#endif				/* FC__CITYDLG_H */
+void citydlg_btn_select_citymap(Widget w, XEvent *event);
+void citydlg_key_close(Widget w);
+void citydlg_msg_close(Widget w);
+
+
+#endif  /* FC__CITYDLG_H */

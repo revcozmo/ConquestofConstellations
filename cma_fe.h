@@ -1,5 +1,5 @@
-/**********************************************************************
- Freeciv - Copyright (C) 2001 - R. Falke
+/********************************************************************** 
+ Freeciv - Copyright (C) 2003 - The Freeciv Project
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
@@ -10,14 +10,14 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 ***********************************************************************/
+#ifndef FC__XAW_CMA_H
+#define FC__XAW_CMA_H
 
-#ifndef FC__SDL_CMA_H
-#define FC__SDL_CMA_H
+#include <X11/Intrinsic.h>
 
 #include "cma_core.h"
 
-void update_city_cma_dialog(void);
-void popup_city_cma_dialog(struct city *pCity);
-void popdown_city_cma_dialog(void);
+void show_cma_dialog(struct city *pcity, Widget citydlg);
+void popdown_cma_dialog(void);
 
-#endif
+#endif   /* FC__XAW_CMA_H */

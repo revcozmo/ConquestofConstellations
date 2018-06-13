@@ -10,11 +10,14 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 ***********************************************************************/
-
 #ifndef FC__OPTIONDLG_H
 #define FC__OPTIONDLG_H
 
+#include <X11/Intrinsic.h>
+
 #include "optiondlg_g.h"
 
+void popup_option_dialog(const char *name);
+void toggle_callback(Widget w, XtPointer client_data, XtPointer call_data);
 
-#endif /* FC__OPTIONDLG_H */
+#endif  /* FC__OPTIONDLG_H */

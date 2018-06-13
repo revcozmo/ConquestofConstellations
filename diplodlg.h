@@ -10,11 +10,15 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 ***********************************************************************/
-
 #ifndef FC__DIPLODLG_H
 #define FC__DIPLODLG_H
+
+#include <X11/Intrinsic.h>
 
 #include "diplodlg_g.h"
 
 
-#endif				/* FC__DIPLODLG_H */
+void diplodlg_key_gold(Widget w);
+
+
+#endif  /* FC__DIPLODLG_H */

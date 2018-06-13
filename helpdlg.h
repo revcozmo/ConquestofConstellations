@@ -10,11 +10,15 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 ***********************************************************************/
-
 #ifndef FC__HELPDLG_H
 #define FC__HELPDLG_H
+
+#include <X11/Intrinsic.h>
 
 #include "helpdlg_g.h"
 
 
-#endif				/* FC__HELPDLG_H */
+void helpdlg_msg_close(Widget w);
+
+
+#endif  /* FC__HELPDLG_H */
