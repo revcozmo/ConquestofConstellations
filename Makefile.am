@@ -1,45 +1,48 @@
 ## Process this file with automake to produce Makefile.in
 
 ## Override automake so that "make install" puts these in proper place:
-pkgdatadir = $(datadir)/$(PACKAGE)/amplio2
+pkgdatadir = $(datadir)/$(PACKAGE)/buildings
 
 pkgdata_DATA =          	\
-	ancientcities.png	\
-	ancientcities.spec	\
-	explosions.png		\
-	explosions.spec		\
-	fog.png			\
-	fog.spec		\
-	grid.png		\
-	grid.spec		\
-	hills.png		\
-	hills.spec		\
-	maglev.png		\
-	maglev.spec		\
-	medievalcities.png	\
-	medievalcities.spec	\
-	moderncities.png	\
-	moderncities.spec	\
-	mountains.png		\
-	mountains.spec		\
-	nuke.png		\
-	nuke.spec		\
-	ocean.png		\
-	ocean.spec		\
-	select-alpha.png	\
-	select.png		\
-	select.spec		\
-	terrain1.png		\
-	terrain1.spec		\
-	terrain2.png		\
-	terrain2.spec		\
-	tiles.png		\
-	tiles.spec		\
-	units.png		\
-	units.spec		\
-	veterancy.png		\
-	veterancy.spec		\
-	water.png		\
-	water.spec
+	airport.png		\
+	aqueduct.png		\
+	bank.png		\
+	barracks_i.png		\
+	barracks_ii.png		\
+	barracks_iii.png	\
+	capitalization.png	\
+	cathedral.png		\
+	city_walls.png		\
+	coastal_defense.png	\
+	colosseum.png		\
+	courthouse.png		\
+	factory.png		\
+	granary.png		\
+	harbor.png		\
+	hydro_plant.png		\
+	library.png		\
+	marketplace.png		\
+	mass_transit.png	\
+	mfg_plant.png		\
+	nuclear_plant.png	\
+	offshore_platform.png	\
+	palace.png		\
+	police_station.png	\
+	port_facility.png	\
+	power_plant.png		\
+	recycling_center.png	\
+	research_lab.png	\
+	sam_battery.png		\
+	sdi_defense.png		\
+	sewer_system.png	\
+	solar_plant.png		\
+	space_component.png	\
+	space_modules.png	\
+	space_structural.png	\
+	stock_exchange.png	\
+	super_highways.png	\
+	supermarket.png		\
+	temple.png		\
+	university.png
 
 EXTRA_DIST = $(pkgdata_DATA)
