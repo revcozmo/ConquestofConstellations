@@ -78,7 +78,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-subdir = ai/classic
+subdir = ai/default
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/bootstrap/depcomp
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -117,57 +117,18 @@ mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/fc_config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
-am__vpath_adj = case $$p in \
-    $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
-    *) f=$$p;; \
-  esac;
-am__strip_dir = f=`echo $$p | sed -e 's|^.*/||'`;
-am__install_max = 40
-am__nobase_strip_setup = \
-  srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*|]/\\\\&/g'`
-am__nobase_strip = \
-  for p in $$list; do echo "$$p"; done | sed -e "s|$$srcdirstrip/||"
-am__nobase_list = $(am__nobase_strip_setup); \
-  for p in $$list; do echo "$$p $$p"; done | \
-  sed "s| $$srcdirstrip/| |;"' / .*\//!s/ .*/ ./; s,\( .*\)/[^/]*$$,\1,' | \
-  $(AWK) 'BEGIN { files["."] = "" } { files[$$2] = files[$$2] " " $$1; \
-    if (++n[$$2] == $(am__install_max)) \
-      { print $$2, files[$$2]; n[$$2] = 0; files[$$2] = "" } } \
-    END { for (dir in files) print dir, files[dir] }'
-am__base_list = \
-  sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
-  sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
-am__uninstall_files_from_dir = { \
-  test -z "$$files" \
-    || { test ! -d "$$dir" && test ! -f "$$dir" && test ! -r "$$dir"; } \
-    || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
-         $(am__cd) "$$dir" && rm -f $$files; }; \
-  }
-am__installdirs = "$(DESTDIR)$(aimoduledir)"
-LTLIBRARIES = $(aimodule_LTLIBRARIES) $(noinst_LTLIBRARIES)
-fc_ai_classic_la_LIBADD =
-am__fc_ai_classic_la_SOURCES_DIST = classicai.c classicai.h
-am__objects_1 = classicai.lo
-@AI_MOD_STATIC_CLASSIC_FALSE@am_fc_ai_classic_la_OBJECTS =  \
-@AI_MOD_STATIC_CLASSIC_FALSE@	$(am__objects_1)
-fc_ai_classic_la_OBJECTS = $(am_fc_ai_classic_la_OBJECTS)
+LTLIBRARIES = $(noinst_LTLIBRARIES)
+libdefaultai_la_DEPENDENCIES =
+am_libdefaultai_la_OBJECTS = advdomestic.lo advmilitary.lo \
+	advdiplomacy.lo aiair.lo aicity.lo aidata.lo aiferry.lo \
+	aiguard.lo aihand.lo aihunt.lo ailog.lo aiparatrooper.lo \
+	aiplayer.lo aisettler.lo aitech.lo aitools.lo aiunit.lo \
+	aidiplomat.lo
+libdefaultai_la_OBJECTS = $(am_libdefaultai_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
 am__v_lt_1 = 
-fc_ai_classic_la_LINK = $(LIBTOOL) $(AM_V_lt) --tag=CC \
-	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link $(CCLD) \
-	$(AM_CFLAGS) $(CFLAGS) $(fc_ai_classic_la_LDFLAGS) $(LDFLAGS) \
-	-o $@
-@AI_MOD_STATIC_CLASSIC_FALSE@am_fc_ai_classic_la_rpath = -rpath \
-@AI_MOD_STATIC_CLASSIC_FALSE@	$(aimoduledir)
-libclassicai_la_LIBADD =
-am__libclassicai_la_SOURCES_DIST = classicai.c classicai.h
-@AI_MOD_STATIC_CLASSIC_TRUE@am_libclassicai_la_OBJECTS =  \
-@AI_MOD_STATIC_CLASSIC_TRUE@	$(am__objects_1)
-libclassicai_la_OBJECTS = $(am_libclassicai_la_OBJECTS)
-@AI_MOD_STATIC_CLASSIC_TRUE@am_libclassicai_la_rpath =
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -202,9 +163,8 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(fc_ai_classic_la_SOURCES) $(libclassicai_la_SOURCES)
-DIST_SOURCES = $(am__fc_ai_classic_la_SOURCES_DIST) \
-	$(am__libclassicai_la_SOURCES_DIST)
+SOURCES = $(libdefaultai_la_SOURCES)
+DIST_SOURCES = $(libdefaultai_la_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -585,16 +545,47 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-@AI_MOD_STATIC_CLASSIC_TRUE@noinst_LTLIBRARIES = libclassicai.la
-@AI_MOD_STATIC_CLASSIC_FALSE@aimodule_LTLIBRARIES = fc_ai_classic.la
-AM_CPPFLAGS = -I$(top_srcdir)/utility -I$(top_srcdir)/common -I$(top_srcdir)/common/aicore -I$(top_srcdir)/server/advisors -I$(top_srcdir)/ai/default
-da_sources = \
-	classicai.c	\
-	classicai.h
+noinst_LTLIBRARIES = libdefaultai.la
+AM_CPPFLAGS = -I$(top_srcdir)/utility -I$(top_srcdir)/common -I$(top_srcdir)/common/aicore -I$(top_srcdir)/server -I$(top_srcdir)/server/advisors -I$(top_srcdir)/ai -I$(top_srcdir)/server/generator
+libdefaultai_la_SOURCES = \
+		advdomestic.c	\
+		advdomestic.h	\
+		advmilitary.c	\
+		advmilitary.h	\
+		advdiplomacy.c	\
+		advdiplomacy.h	\
+		aiair.c		\
+		aiair.h		\
+		aicity.c	\
+		aicity.h	\
+		aidata.c	\
+		aidata.h	\
+		aiferry.c	\
+		aiferry.h	\
+		aiguard.c	\
+		aiguard.h	\
+		aihand.c	\
+		aihand.h	\
+		aihunt.c	\
+		aihunt.h	\
+		ailog.c		\
+		ailog.h		\
+		aiparatrooper.c \
+		aiparatrooper.h \
+		aiplayer.c	\
+		aiplayer.h	\
+		aisettler.c	\
+		aisettler.h	\
+		aitech.c	\
+		aitech.h	\
+		aitools.c	\
+		aitools.h	\
+		aiunit.c	\
+		aiunit.h	\
+		aidiplomat.c	\
+		aidiplomat.h
 
-@AI_MOD_STATIC_CLASSIC_FALSE@fc_ai_classic_la_SOURCES = $(da_sources)
-@AI_MOD_STATIC_CLASSIC_FALSE@fc_ai_classic_la_LDFLAGS = -module
-@AI_MOD_STATIC_CLASSIC_TRUE@libclassicai_la_SOURCES = $(da_sources)
+libdefaultai_la_LIBADD = -lm
 all: all-am
 
 .SUFFIXES:
@@ -608,9 +599,9 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu ai/classic/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu ai/default/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu ai/classic/Makefile
+	  $(AUTOMAKE) --gnu ai/default/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
@@ -630,41 +621,6 @@ $(ACLOCAL_M4):  $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(am__aclocal_m4_deps):
 
-install-aimoduleLTLIBRARIES: $(aimodule_LTLIBRARIES)
-	@$(NORMAL_INSTALL)
-	@list='$(aimodule_LTLIBRARIES)'; test -n "$(aimoduledir)" || list=; \
-	list2=; for p in $$list; do \
-	  if test -f $$p; then \
-	    list2="$$list2 $$p"; \
-	  else :; fi; \
-	done; \
-	test -z "$$list2" || { \
-	  echo " $(MKDIR_P) '$(DESTDIR)$(aimoduledir)'"; \
-	  $(MKDIR_P) "$(DESTDIR)$(aimoduledir)" || exit 1; \
-	  echo " $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=install $(INSTALL) $(INSTALL_STRIP_FLAG) $$list2 '$(DESTDIR)$(aimoduledir)'"; \
-	  $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=install $(INSTALL) $(INSTALL_STRIP_FLAG) $$list2 "$(DESTDIR)$(aimoduledir)"; \
-	}
-
-uninstall-aimoduleLTLIBRARIES:
-	@$(NORMAL_UNINSTALL)
-	@list='$(aimodule_LTLIBRARIES)'; test -n "$(aimoduledir)" || list=; \
-	for p in $$list; do \
-	  $(am__strip_dir) \
-	  echo " $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=uninstall rm -f '$(DESTDIR)$(aimoduledir)/$$f'"; \
-	  $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=uninstall rm -f "$(DESTDIR)$(aimoduledir)/$$f"; \
-	done
-
-clean-aimoduleLTLIBRARIES:
-	-test -z "$(aimodule_LTLIBRARIES)" || rm -f $(aimodule_LTLIBRARIES)
-	@list='$(aimodule_LTLIBRARIES)'; \
-	locs=`for p in $$list; do echo $$p; done | \
-	      sed 's|^[^/]*$$|.|; s|/[^/]*$$||; s|$$|/so_locations|' | \
-	      sort -u`; \
-	test -z "$$locs" || { \
-	  echo rm -f $${locs}; \
-	  rm -f $${locs}; \
-	}
-
 clean-noinstLTLIBRARIES:
 	-test -z "$(noinst_LTLIBRARIES)" || rm -f $(noinst_LTLIBRARIES)
 	@list='$(noinst_LTLIBRARIES)'; \
@@ -676,11 +632,8 @@ clean-noinstLTLIBRARIES:
 	  rm -f $${locs}; \
 	}
 
-fc_ai_classic.la: $(fc_ai_classic_la_OBJECTS) $(fc_ai_classic_la_DEPENDENCIES) $(EXTRA_fc_ai_classic_la_DEPENDENCIES) 
-	$(AM_V_CCLD)$(fc_ai_classic_la_LINK) $(am_fc_ai_classic_la_rpath) $(fc_ai_classic_la_OBJECTS) $(fc_ai_classic_la_LIBADD) $(LIBS)
-
-libclassicai.la: $(libclassicai_la_OBJECTS) $(libclassicai_la_DEPENDENCIES) $(EXTRA_libclassicai_la_DEPENDENCIES) 
-	$(AM_V_CCLD)$(LINK) $(am_libclassicai_la_rpath) $(libclassicai_la_OBJECTS) $(libclassicai_la_LIBADD) $(LIBS)
+libdefaultai.la: $(libdefaultai_la_OBJECTS) $(libdefaultai_la_DEPENDENCIES) $(EXTRA_libdefaultai_la_DEPENDENCIES) 
+	$(AM_V_CCLD)$(LINK)  $(libdefaultai_la_OBJECTS) $(libdefaultai_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -688,7 +641,24 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/classicai.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/advdiplomacy.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/advdomestic.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/advmilitary.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/aiair.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/aicity.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/aidata.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/aidiplomat.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/aiferry.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/aiguard.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/aihand.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/aihunt.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ailog.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/aiparatrooper.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/aiplayer.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/aisettler.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/aitech.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/aitools.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/aiunit.Plo@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -803,9 +773,6 @@ check-am: all-am
 check: check-am
 all-am: Makefile $(LTLIBRARIES)
 installdirs:
-	for dir in "$(DESTDIR)$(aimoduledir)"; do \
-	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
-	done
 install: install-am
 install-exec: install-exec-am
 install-data: install-data-am
@@ -838,8 +805,8 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-am
 
-clean-am: clean-aimoduleLTLIBRARIES clean-generic clean-libtool \
-	clean-noinstLTLIBRARIES mostlyclean-am
+clean-am: clean-generic clean-libtool clean-noinstLTLIBRARIES \
+	mostlyclean-am
 
 distclean: distclean-am
 	-rm -rf ./$(DEPDIR)
@@ -859,7 +826,7 @@ info: info-am
 
 info-am:
 
-install-data-am: install-aimoduleLTLIBRARIES
+install-data-am:
 
 install-dvi: install-dvi-am
 
@@ -905,16 +872,15 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-aimoduleLTLIBRARIES
+uninstall-am:
 
 .MAKE: install-am install-strip
 
-.PHONY: CTAGS GTAGS TAGS all all-am check check-am clean \
-	clean-aimoduleLTLIBRARIES clean-generic clean-libtool \
-	clean-noinstLTLIBRARIES cscopelist-am ctags ctags-am distclean \
-	distclean-compile distclean-generic distclean-libtool \
-	distclean-tags distdir dvi dvi-am html html-am info info-am \
-	install install-aimoduleLTLIBRARIES install-am install-data \
+.PHONY: CTAGS GTAGS TAGS all all-am check check-am clean clean-generic \
+	clean-libtool clean-noinstLTLIBRARIES cscopelist-am ctags \
+	ctags-am distclean distclean-compile distclean-generic \
+	distclean-libtool distclean-tags distdir dvi dvi-am html \
+	html-am info info-am install install-am install-data \
 	install-data-am install-dvi install-dvi-am install-exec \
 	install-exec-am install-html install-html-am install-info \
 	install-info-am install-man install-pdf install-pdf-am \
@@ -922,8 +888,7 @@ uninstall-am: uninstall-aimoduleLTLIBRARIES
 	installcheck-am installdirs maintainer-clean \
 	maintainer-clean-generic mostlyclean mostlyclean-compile \
 	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
-	tags tags-am uninstall uninstall-aimoduleLTLIBRARIES \
-	uninstall-am
+	tags tags-am uninstall uninstall-am
 
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
