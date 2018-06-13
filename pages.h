@@ -1,5 +1,5 @@
-/********************************************************************** 
- Freeciv - Copyright (C) 1996 - A Kjeldberg, L Gregersen, P Unold
+/**********************************************************************
+ Freeciv - Copyright (C) 1996-2004 - The Freeciv Team
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
@@ -13,30 +13,24 @@
 #ifndef FC__PAGES_H
 #define FC__PAGES_H
 
-#include <gtk/gtk.h>
-
-#include "support.h"            /* bool type */
-
+extern "C" {
 #include "pages_g.h"
+}
 
-extern GtkWidget *start_message_area;
+// Qt
+#include <QMenuBar>
+#include <QtGui>
+#include <QSizePolicy>
 
-GtkWidget *create_main_page(void);
-GtkWidget *create_start_page(void);
-GtkWidget *create_scenario_page(void);
-GtkWidget *create_load_page(void);
-GtkWidget *create_network_page(void);
+// gui-qt
+#include "fc_client.h"
+#include "qtg_cxxside.h"
 
-GtkWidget *create_statusbar(void);
-void append_network_statusbar(const char *text, bool force);
+struct player;
+struct connection;
+struct server_scan;
 
-void save_game_dialog_popup(void);
-void save_scenario_dialog_popup(void);
-void save_mapimg_dialog_popup(void);
-void mapimg_client_save(const char *filename);
-
-void ai_fill_changed_by_server(int aifill);
-
-void destroy_server_scans(void);
+void create_conn_menu (player*, connection*);
+void server_scan_error (server_scan*, const char*);
 
 #endif  /* FC__PAGES_H */

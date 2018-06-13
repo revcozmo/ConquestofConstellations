@@ -10,24 +10,12 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 ***********************************************************************/
+
 #ifndef FC__MAPCTRL_H
 #define FC__MAPCTRL_H
 
-#include <gtk/gtk.h>
-
-#include "fc_types.h"
-
+extern "C" {
 #include "mapctrl_g.h"
+}
 
-gboolean butt_release_mapcanvas(GtkWidget *w, GdkEventButton *ev, gpointer data);
-gboolean butt_down_mapcanvas(GtkWidget *w, GdkEventButton *ev, gpointer data);
-gboolean butt_down_overviewcanvas(GtkWidget *w, GdkEventButton *ev, gpointer data);
-gboolean move_mapcanvas(GtkWidget *w, GdkEventMotion *ev, gpointer data);
-gboolean leave_mapcanvas(GtkWidget *widget, GdkEventCrossing *event);
-gboolean move_overviewcanvas(GtkWidget *w, GdkEventMotion *ev, gpointer data);
-
-void center_on_unit(void);
-
-void popupinfo_popdown_callback(GtkWidget *w, gpointer data);
-
-#endif  /* FC__MAPCTRL_H */
+#endif /* FC__MAPCTRL_H */

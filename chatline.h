@@ -10,33 +10,63 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 ***********************************************************************/
+
 #ifndef FC__CHATLINE_H
 #define FC__CHATLINE_H
 
-#include <gtk/gtk.h>
+#ifdef HAVE_CONFIG_H
+#include <fc_config.h>
+#endif
 
-/* include */
+extern "C" {
 #include "chatline_g.h"
+}
 
-void chatline_init(void);
+//Qt
+#include <QEvent>
+#include <QTextBrowser>
+#include <QLineEdit>
+#include <QCheckBox>
 
-void inputline_make_chat_link(struct tile *ptile, bool unit);
-bool inputline_has_focus(void);
-void inputline_grab_focus(void);
-bool inputline_is_visible(void);
+class QPushButton;
 
-void set_output_window_text(const char *text);
-bool chatline_is_scrolled_to_bottom(void);
-void chatline_scroll_to_bottom(bool delayed);
+QString apply_tags(QString str, const struct text_tag_list *tags,
+                   bool colors_change);
+/***************************************************************************
+  Class for chat widget
+***************************************************************************/
+class chatwdg : public QWidget
+{
+  Q_OBJECT
+public:
+  chatwdg(QWidget *parent);
+  void append(QString str);
+  QLineEdit *chat_line;
+  void make_link(struct tile *ptile);
+  void update_font();
+  void update_widgets();
+private slots:
+  void send();
+  void state_changed(int state);
+  void rm_links();
+  void anchor_clicked(const QUrl &link);
+protected:
+  void paint(QPainter *painter, QPaintEvent *event);
+  void paintEvent(QPaintEvent *event);
+  bool eventFilter(QObject *obj, QEvent *event);
+private:
+  QTextBrowser *chat_output;
+  QPushButton *remove_links;
+  QCheckBox *cb;
 
-void set_message_buffer_view_link_handlers(GtkWidget *view);
+};
 
-GtkWidget *inputline_toolkit_view_new(void);
-void inputline_toolkit_view_append_button(GtkWidget *toolkit_view,
-                                          GtkWidget *button);
+class version_message_event : public QEvent
+{
+  QString message;
+public:
+  explicit version_message_event(const QString &message);
+  QString get_message() const { return message; }
+};
 
-void apply_text_tag(const struct text_tag *ptag, GtkTextBuffer *buf,
-                    ft_offset_t text_start_offset, const char *text);
-void scroll_if_necessary(GtkTextView *textview, GtkTextMark *scroll_target);
-
-#endif  /* FC__CHATLINE_H */
+#endif                        /* FC__CHATLINE_H */

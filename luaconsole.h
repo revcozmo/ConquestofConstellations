@@ -13,11 +13,8 @@
 #ifndef FC__LUACONSOLE_H
 #define FC__LUACONSOLE_H
 
+extern "C" {
 #include "luaconsole_g.h"
-
-void luaconsole_dialog_init(void);
-void luaconsole_dialog_done(void);
-
-void luaconsole_dialog_popdown(void);
+}
 
 #endif  /* FC__LUACONSOLE_H */

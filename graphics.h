@@ -10,23 +10,12 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 ***********************************************************************/
+
 #ifndef FC__GRAPHICS_H
 #define FC__GRAPHICS_H
 
-#include <gtk/gtk.h>
-
+extern "C" {
 #include "graphics_g.h"
-#include "mapview_common.h"
+}
 
-#include "canvas.h"
-#include "sprite.h"
-
-extern struct sprite *intro_gfx_sprite;
-extern struct sprite *radar_gfx_sprite;
-
-/* This name is to avoid a naming conflict with a global 'cursors'
- * variable in GTK+-2.6.  See PR#12459. */
-extern GdkCursor *fc_cursors[CURSOR_LAST][NUM_CURSOR_FRAMES];
-
-#endif  /* FC__GRAPHICS_H */
-
+#endif /* FC__GRAPHICS_H */

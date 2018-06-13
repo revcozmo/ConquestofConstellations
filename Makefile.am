@@ -1,97 +1,103 @@
 ## Process this file with automake to produce Makefile.in
 
-noinst_LTLIBRARIES = libgui-gtk3.la
-AM_CPPFLAGS = -I$(srcdir)/.. -I$(srcdir)/../include \
-	-I$(top_srcdir)/utility -I$(top_srcdir)/common \
-	-I$(top_srcdir)/common/aicore -I$(top_srcdir)/common/scriptcore \
-	-I$(srcdir)/../agents  -I$(srcdir)/../luascript \
-	$(gui_gtk3_cflags) $(GGZ_GTK_INCLUDES) $(SOUND_CFLAGS)
+MOCCMD=@MOCCMD@
 
-libgui_gtk3_la_SOURCES = \
-	canvas.c	\
+include $(top_srcdir)/bootstrap/Makerules.mk
+
+noinst_LTLIBRARIES = libgui-qt.la
+AM_CPPFLAGS = -I. -I$(srcdir)/.. -I$(srcdir)/../include -I$(top_srcdir)/utility \
+        -I$(top_srcdir)/common -I$(srcdir)/../agents -I$(top_srcdir)/common/aicore \
+        $(gui_qt_cppflags) $(SOUND_CFLAGS)
+
+AM_CFLAGS = $(gui_qt_cflags)
+
+AM_CXXFLAGS = $(gui_qt_cxxflags)
+
+MOC_FILES = \
+	meta_fc_client.cpp	\
+	meta_helpdlg.cpp	\
+	meta_ratesdlg.cpp	\
+	meta_mapview.cpp	\
+	meta_menu.cpp		\
+	meta_repodlgs.cpp	\
+	meta_dialogs.cpp	\
+	meta_optiondlg.cpp	\
+	meta_citydlg.cpp	\
+	meta_cityrep.cpp	\
+	meta_plrdlg.cpp		\
+	meta_diplodlg.cpp	\
+	meta_spaceshipdlg.cpp	\
+	meta_messagewin.cpp	\
+	meta_chatline.cpp	\
+	meta_messagedlg.cpp	\
+	meta_voteinfo_bar.cpp	\
+	meta_gotodlg.cpp
+
+libgui_qt_la_SOURCES = \
+	canvas.cpp	\
 	canvas.h	\
-	caravan_dialog.c \
+	chatline.cpp	\
 	chatline.h	\
-	chatline.c	\
-	choice_dialog.c	\
-	choice_dialog.h \
-	citizensinfo.c	\
-	citizensinfo.h	\
-	citydlg.c	\
+	citydlg.cpp	\
 	citydlg.h	\
-	cityrep.c	\
+	cityrep.cpp	\
 	cityrep.h	\
-	cma_fe.c	\
-	cma_fe.h	\
-	colors.c	\
+	colors.cpp	\
 	colors.h	\
-	connectdlg.c	\
+	connectdlg.cpp	\
 	connectdlg.h	\
-	dialogs.c	\
+	dialogs.cpp	\
 	dialogs.h	\
-	diplodlg.c	\
+	diplodlg.cpp	\
 	diplodlg.h	\
-	editgui.c	\
-	editgui.h	\
-	editprop.c	\
-	editprop.h	\
-	embedggz.c	\
-	diplomat_dialog.c \
-	finddlg.c	\
+	fc_client.cpp	\
+	fc_client.h	\
+	finddlg.cpp	\
 	finddlg.h	\
-	gamedlgs.c	\
-	gotodlg.c	\
+	gotodlg.cpp	\
 	gotodlg.h	\
-	graphics.c	\
+	graphics.cpp	\
 	graphics.h	\
-	gtkpixcomm.c	\
-	gtkpixcomm.h	\
-	gui_main.c	\
+	gui_main.cpp	\
 	gui_main.h	\
-	gui_stuff.c	\
-	gui_stuff.h	\
-	happiness.c	\
-	happiness.h	\
-	helpdlg.c	\
+	helpdlg.cpp	\
 	helpdlg.h	\
-	inputdlg.c	\
-	inputdlg.h	\
-	inteldlg.c	\
+	inteldlg.cpp	\
 	inteldlg.h	\
-	luaconsole.c	\
+	luaconsole.cpp	\
 	luaconsole.h	\
-	mapctrl.c	\
+	mapctrl.cpp	\
 	mapctrl.h	\
-	mapview.c	\
+	mapview.cpp	\
 	mapview.h	\
-	menu.c		\
+	menu.cpp	\
 	menu.h		\
-	messagedlg.c	\
+	messagedlg.cpp	\
 	messagedlg.h	\
-	messagewin.c	\
+	messagewin.cpp	\
 	messagewin.h	\
-	optiondlg.c	\
+	optiondlg.cpp	\
 	optiondlg.h	\
-	pages.c		\
+	pages.cpp	\
 	pages.h		\
-	plrdlg.c	\
+	plrdlg.cpp	\
 	plrdlg.h	\
+	qtg_cxxside.cpp \
+	qtg_cxxside.h	\
+	ratesdlg.cpp	\
 	ratesdlg.h	\
-	repodlgs.c	\
+	repodlgs.cpp	\
 	repodlgs.h	\
-	soundset_dlg.c	\
-	spaceshipdlg.c	\
-	spaceshipdlg.h  \
-	sprite.c	\
+	spaceshipdlg.cpp \
+	spaceshipdlg.h	\
+	sprite.cpp	\
 	sprite.h	\
-	theme_dlg.c	\
-	themes.c	\
-	tileset_dlg.c	\
-	unitselect.h	\
-	unitselect.c	\
-	voteinfo_bar.c	\
+	themes.cpp	\
+	voteinfo_bar.cpp \
 	voteinfo_bar.h	\
-	wldlg.c		\
-	wldlg.h	
+	wldlg.cpp	\
+	wldlg.h
 
-libgui_gtk3_la_LIBADD = -lm
+nodist_libgui_qt_la_SOURCES = $(MOC_FILES)
+
+CLEANFILES = $(MOC_FILES)

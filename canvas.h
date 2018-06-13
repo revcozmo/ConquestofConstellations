@@ -1,5 +1,5 @@
-/********************************************************************** 
- Freeciv - Copyright (C) 1996-2005 - Freeciv Development Team
+/**********************************************************************
+ Freeciv - Copyright (C) 1996 - A Kjeldberg, L Gregersen, P Unold
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
@@ -10,21 +10,26 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 ***********************************************************************/
+
 #ifndef FC__CANVAS_H
 #define FC__CANVAS_H
 
-#include <gtk/gtk.h>
-
+extern "C" {
 #include "canvas_g.h"
+}
 
-#include "gtkpixcomm.h"
+// Qt
+#include <QPixmap>
 
-struct canvas
-{
-  cairo_surface_t *surface;
-  cairo_t *drawable;
+// gui-qt
+#include "qtg_cxxside.h"
+
+struct canvas {
+  QPixmap map_pixmap;
 };
 
-#define FC_STATIC_CANVAS_INIT { NULL, NULL }
+struct canvas *qtg_canvas_create(int width, int height);
+void pixmap_copy(QPixmap *dest, QPixmap *src, int src_x, int src_y,
+                 int dest_x, int dest_y, int width, int height);
 
-#endif  /* FC__CANVAS_H */
+#endif /* FC__CANVAS_H */

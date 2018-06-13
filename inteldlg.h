@@ -13,9 +13,8 @@
 #ifndef FC__INTELDLG_H
 #define FC__INTELDLG_H
 
+extern "C" {
 #include "inteldlg_g.h"
+}
 
-void intel_dialog_init(void);
-void intel_dialog_done(void);
-
-#endif				/* FC__INTELDLG_H */
+#endif /* FC__INTELDLG_H */

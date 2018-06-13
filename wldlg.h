@@ -10,28 +10,12 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 ***********************************************************************/
+
 #ifndef FC__WLDLG_H
 #define FC__WLDLG_H
 
-#include <gtk/gtk.h>
-
-#include "worklist.h"
-#include "improvement.h"
-#include "unittype.h"
-#include "climisc.h"
-
+extern "C" {
 #include "wldlg_g.h"
+}
 
-/* the global worklist view. */
-void popup_worklists_report(void);
-
-/* an individual worklist. */
-GtkWidget *create_worklist(void);
-void reset_city_worklist(GtkWidget *editor, struct city *pcity);
-void refresh_worklist(GtkWidget *editor);
-
-void add_worklist_dnd_target(GtkWidget *w);
-
-void blank_max_unit_size(void);
-
-#endif				/* FC__WLDLG_H */
+#endif /* FC__WLDLG_H */

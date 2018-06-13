@@ -13,8 +13,8 @@
 #ifndef FC__FINDDLG_H
 #define FC__FINDDLG_H
 
+extern "C" {
 #include "finddlg_g.h"
-
-/* nothing to add */
+}
 
 #endif  /* FC__FINDDLG_H */

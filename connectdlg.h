@@ -10,9 +10,12 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 ***********************************************************************/
+
 #ifndef FC__CONNECTDLG_H
 #define FC__CONNECTDLG_H
 
+extern "C" {
 #include "connectdlg_g.h"
+}
 
-#endif  /* FC__CONNECTDLG_H */
+#endif /* FC__CONNECTDLG_H */

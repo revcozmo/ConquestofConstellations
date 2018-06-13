@@ -13,8 +13,33 @@
 #ifndef FC__MESSAGEDLG_H
 #define FC__MESSAGEDLG_H
 
+extern "C" {
 #include "messagedlg_g.h"
+}
 
-/* nothing to add */
+//Qt
+#include <QWidget>
 
-#endif				/* FC__MESSAGEDLG_H */
+class QTableWidget;
+class QGridLayout;
+
+/**************************************************************************
+  Widget for displaying messages options
+**************************************************************************/
+class message_dlg : public QWidget
+{
+  Q_OBJECT
+  QTableWidget *msgtab;
+  QGridLayout *layout;
+public:
+  message_dlg();
+  ~message_dlg();
+  void fill_data();
+private slots:
+  void apply_changes();
+  void cancel_changes();
+};
+
+void popup_messageopt_dialog(void);
+
+#endif /* FC__MESSAGEDLG_H */

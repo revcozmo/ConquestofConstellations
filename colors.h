@@ -10,21 +10,19 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 ***********************************************************************/
+
 #ifndef FC__COLORS_H
 #define FC__COLORS_H
 
-#include <gtk/gtk.h>
-
+extern "C" {
 #include "colors_g.h"
+}
+
+// Qt
+#include "QColor"
 
 struct color {
-  GdkRGBA color;
+  QColor qcolor;
 };
 
-enum Display_color_type {
-  BW_DISPLAY, GRAYSCALE_DISPLAY, COLOR_DISPLAY
-};
-
-enum Display_color_type get_visual(void);
-
-#endif  /* FC__COLORS_H */
+#endif /* FC__COLORS_H */

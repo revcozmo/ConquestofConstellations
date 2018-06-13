@@ -14,6 +14,21 @@
 
 @SET_MAKE@
 
+#/********************************************************************** 
+#   Freeciv - Copyright (C) 1996 - A Kjeldberg, L Gregersen, P Unold
+#
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 2, or (at your option)
+#   any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#
+#***********************************************************************/
+
 VPATH = @srcdir@
 am__is_gnu_make = test -n '$(MAKEFILE_LIST)' && test -n '$(MAKELEVEL)'
 am__make_running_with_option = \
@@ -78,9 +93,10 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-subdir = client/gui-gtk-3.0
-DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
+DIST_COMMON = $(top_srcdir)/bootstrap/Makerules.mk \
+	$(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/bootstrap/depcomp
+subdir = client/gui-qt
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/dependencies/m4/mkstemp.m4 \
 	$(top_srcdir)/dependencies/m4/stdlib_h.m4 \
@@ -118,19 +134,23 @@ CONFIG_HEADER = $(top_builddir)/fc_config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 LTLIBRARIES = $(noinst_LTLIBRARIES)
-libgui_gtk3_la_DEPENDENCIES =
-am_libgui_gtk3_la_OBJECTS = canvas.lo caravan_dialog.lo chatline.lo \
-	choice_dialog.lo citizensinfo.lo citydlg.lo cityrep.lo \
-	cma_fe.lo colors.lo connectdlg.lo dialogs.lo diplodlg.lo \
-	editgui.lo editprop.lo embedggz.lo diplomat_dialog.lo \
-	finddlg.lo gamedlgs.lo gotodlg.lo graphics.lo gtkpixcomm.lo \
-	gui_main.lo gui_stuff.lo happiness.lo helpdlg.lo inputdlg.lo \
+libgui_qt_la_LIBADD =
+am_libgui_qt_la_OBJECTS = canvas.lo chatline.lo citydlg.lo cityrep.lo \
+	colors.lo connectdlg.lo dialogs.lo diplodlg.lo fc_client.lo \
+	finddlg.lo gotodlg.lo graphics.lo gui_main.lo helpdlg.lo \
 	inteldlg.lo luaconsole.lo mapctrl.lo mapview.lo menu.lo \
 	messagedlg.lo messagewin.lo optiondlg.lo pages.lo plrdlg.lo \
-	repodlgs.lo soundset_dlg.lo spaceshipdlg.lo sprite.lo \
-	theme_dlg.lo themes.lo tileset_dlg.lo unitselect.lo \
-	voteinfo_bar.lo wldlg.lo
-libgui_gtk3_la_OBJECTS = $(am_libgui_gtk3_la_OBJECTS)
+	qtg_cxxside.lo ratesdlg.lo repodlgs.lo spaceshipdlg.lo \
+	sprite.lo themes.lo voteinfo_bar.lo wldlg.lo
+am__objects_1 = meta_fc_client.lo meta_helpdlg.lo meta_ratesdlg.lo \
+	meta_mapview.lo meta_menu.lo meta_repodlgs.lo meta_dialogs.lo \
+	meta_optiondlg.lo meta_citydlg.lo meta_cityrep.lo \
+	meta_plrdlg.lo meta_diplodlg.lo meta_spaceshipdlg.lo \
+	meta_messagewin.lo meta_chatline.lo meta_messagedlg.lo \
+	meta_voteinfo_bar.lo meta_gotodlg.lo
+nodist_libgui_qt_la_OBJECTS = $(am__objects_1)
+libgui_qt_la_OBJECTS = $(am_libgui_qt_la_OBJECTS) \
+	$(nodist_libgui_qt_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
@@ -151,6 +171,24 @@ DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/bootstrap/depcomp
 am__depfiles_maybe = depfiles
 am__mv = mv -f
+CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
+LTCXXCOMPILE = $(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=compile $(CXX) $(DEFS) \
+	$(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) \
+	$(AM_CXXFLAGS) $(CXXFLAGS)
+AM_V_CXX = $(am__v_CXX_@AM_V@)
+am__v_CXX_ = $(am__v_CXX_@AM_DEFAULT_V@)
+am__v_CXX_0 = @echo "  CXX     " $@;
+am__v_CXX_1 = 
+CXXLD = $(CXX)
+CXXLINK = $(LIBTOOL) $(AM_V_lt) --tag=CXX $(AM_LIBTOOLFLAGS) \
+	$(LIBTOOLFLAGS) --mode=link $(CXXLD) $(AM_CXXFLAGS) \
+	$(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+AM_V_CXXLD = $(am__v_CXXLD_@AM_V@)
+am__v_CXXLD_ = $(am__v_CXXLD_@AM_DEFAULT_V@)
+am__v_CXXLD_0 = @echo "  CXXLD   " $@;
+am__v_CXXLD_1 = 
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 LTCOMPILE = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \
@@ -169,8 +207,8 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(libgui_gtk3_la_SOURCES)
-DIST_SOURCES = $(libgui_gtk3_la_SOURCES)
+SOURCES = $(libgui_qt_la_SOURCES) $(nodist_libgui_qt_la_SOURCES)
+DIST_SOURCES = $(libgui_qt_la_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -551,106 +589,105 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-noinst_LTLIBRARIES = libgui-gtk3.la
-AM_CPPFLAGS = -I$(srcdir)/.. -I$(srcdir)/../include \
-	-I$(top_srcdir)/utility -I$(top_srcdir)/common \
-	-I$(top_srcdir)/common/aicore -I$(top_srcdir)/common/scriptcore \
-	-I$(srcdir)/../agents  -I$(srcdir)/../luascript \
-	$(gui_gtk3_cflags) $(GGZ_GTK_INCLUDES) $(SOUND_CFLAGS)
+noinst_LTLIBRARIES = libgui-qt.la
+AM_CPPFLAGS = -I. -I$(srcdir)/.. -I$(srcdir)/../include -I$(top_srcdir)/utility \
+        -I$(top_srcdir)/common -I$(srcdir)/../agents -I$(top_srcdir)/common/aicore \
+        $(gui_qt_cppflags) $(SOUND_CFLAGS)
 
-libgui_gtk3_la_SOURCES = \
-	canvas.c	\
+AM_CFLAGS = $(gui_qt_cflags)
+AM_CXXFLAGS = $(gui_qt_cxxflags)
+MOC_FILES = \
+	meta_fc_client.cpp	\
+	meta_helpdlg.cpp	\
+	meta_ratesdlg.cpp	\
+	meta_mapview.cpp	\
+	meta_menu.cpp		\
+	meta_repodlgs.cpp	\
+	meta_dialogs.cpp	\
+	meta_optiondlg.cpp	\
+	meta_citydlg.cpp	\
+	meta_cityrep.cpp	\
+	meta_plrdlg.cpp		\
+	meta_diplodlg.cpp	\
+	meta_spaceshipdlg.cpp	\
+	meta_messagewin.cpp	\
+	meta_chatline.cpp	\
+	meta_messagedlg.cpp	\
+	meta_voteinfo_bar.cpp	\
+	meta_gotodlg.cpp
+
+libgui_qt_la_SOURCES = \
+	canvas.cpp	\
 	canvas.h	\
-	caravan_dialog.c \
+	chatline.cpp	\
 	chatline.h	\
-	chatline.c	\
-	choice_dialog.c	\
-	choice_dialog.h \
-	citizensinfo.c	\
-	citizensinfo.h	\
-	citydlg.c	\
+	citydlg.cpp	\
 	citydlg.h	\
-	cityrep.c	\
+	cityrep.cpp	\
 	cityrep.h	\
-	cma_fe.c	\
-	cma_fe.h	\
-	colors.c	\
+	colors.cpp	\
 	colors.h	\
-	connectdlg.c	\
+	connectdlg.cpp	\
 	connectdlg.h	\
-	dialogs.c	\
+	dialogs.cpp	\
 	dialogs.h	\
-	diplodlg.c	\
+	diplodlg.cpp	\
 	diplodlg.h	\
-	editgui.c	\
-	editgui.h	\
-	editprop.c	\
-	editprop.h	\
-	embedggz.c	\
-	diplomat_dialog.c \
-	finddlg.c	\
+	fc_client.cpp	\
+	fc_client.h	\
+	finddlg.cpp	\
 	finddlg.h	\
-	gamedlgs.c	\
-	gotodlg.c	\
+	gotodlg.cpp	\
 	gotodlg.h	\
-	graphics.c	\
+	graphics.cpp	\
 	graphics.h	\
-	gtkpixcomm.c	\
-	gtkpixcomm.h	\
-	gui_main.c	\
+	gui_main.cpp	\
 	gui_main.h	\
-	gui_stuff.c	\
-	gui_stuff.h	\
-	happiness.c	\
-	happiness.h	\
-	helpdlg.c	\
+	helpdlg.cpp	\
 	helpdlg.h	\
-	inputdlg.c	\
-	inputdlg.h	\
-	inteldlg.c	\
+	inteldlg.cpp	\
 	inteldlg.h	\
-	luaconsole.c	\
+	luaconsole.cpp	\
 	luaconsole.h	\
-	mapctrl.c	\
+	mapctrl.cpp	\
 	mapctrl.h	\
-	mapview.c	\
+	mapview.cpp	\
 	mapview.h	\
-	menu.c		\
+	menu.cpp	\
 	menu.h		\
-	messagedlg.c	\
+	messagedlg.cpp	\
 	messagedlg.h	\
-	messagewin.c	\
+	messagewin.cpp	\
 	messagewin.h	\
-	optiondlg.c	\
+	optiondlg.cpp	\
 	optiondlg.h	\
-	pages.c		\
+	pages.cpp	\
 	pages.h		\
-	plrdlg.c	\
+	plrdlg.cpp	\
 	plrdlg.h	\
+	qtg_cxxside.cpp \
+	qtg_cxxside.h	\
+	ratesdlg.cpp	\
 	ratesdlg.h	\
-	repodlgs.c	\
+	repodlgs.cpp	\
 	repodlgs.h	\
-	soundset_dlg.c	\
-	spaceshipdlg.c	\
-	spaceshipdlg.h  \
-	sprite.c	\
+	spaceshipdlg.cpp \
+	spaceshipdlg.h	\
+	sprite.cpp	\
 	sprite.h	\
-	theme_dlg.c	\
-	themes.c	\
-	tileset_dlg.c	\
-	unitselect.h	\
-	unitselect.c	\
-	voteinfo_bar.c	\
+	themes.cpp	\
+	voteinfo_bar.cpp \
 	voteinfo_bar.h	\
-	wldlg.c		\
-	wldlg.h	
+	wldlg.cpp	\
+	wldlg.h
 
-libgui_gtk3_la_LIBADD = -lm
+nodist_libgui_qt_la_SOURCES = $(MOC_FILES)
+CLEANFILES = $(MOC_FILES)
 all: all-am
 
 .SUFFIXES:
-.SUFFIXES: .c .lo .o .obj
-$(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
+.SUFFIXES: .cpp .lo .o .obj
+$(srcdir)/Makefile.in:  $(srcdir)/Makefile.am $(top_srcdir)/bootstrap/Makerules.mk $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
 	    *$$dep*) \
@@ -659,9 +696,9 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu client/gui-gtk-3.0/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu client/gui-qt/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu client/gui-gtk-3.0/Makefile
+	  $(AUTOMAKE) --gnu client/gui-qt/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
@@ -671,6 +708,7 @@ Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	    echo ' cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@ $(am__depfiles_maybe)'; \
 	    cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@ $(am__depfiles_maybe);; \
 	esac;
+$(top_srcdir)/bootstrap/Makerules.mk:
 
 $(top_builddir)/config.status: $(top_srcdir)/configure $(CONFIG_STATUS_DEPENDENCIES)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
@@ -692,8 +730,8 @@ clean-noinstLTLIBRARIES:
 	  rm -f $${locs}; \
 	}
 
-libgui-gtk3.la: $(libgui_gtk3_la_OBJECTS) $(libgui_gtk3_la_DEPENDENCIES) $(EXTRA_libgui_gtk3_la_DEPENDENCIES) 
-	$(AM_V_CCLD)$(LINK)  $(libgui_gtk3_la_OBJECTS) $(libgui_gtk3_la_LIBADD) $(LIBS)
+libgui-qt.la: $(libgui_qt_la_OBJECTS) $(libgui_qt_la_DEPENDENCIES) $(EXTRA_libgui_qt_la_DEPENDENCIES) 
+	$(AM_V_CXXLD)$(CXXLINK)  $(libgui_qt_la_OBJECTS) $(libgui_qt_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -702,31 +740,19 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/canvas.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/caravan_dialog.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/chatline.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/choice_dialog.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/citizensinfo.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/citydlg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cityrep.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cma_fe.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/colors.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/connectdlg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dialogs.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/diplodlg.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/diplomat_dialog.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/editgui.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/editprop.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/embedggz.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fc_client.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/finddlg.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gamedlgs.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gotodlg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/graphics.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gtkpixcomm.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gui_main.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gui_stuff.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/happiness.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/helpdlg.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/inputdlg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/inteldlg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/luaconsole.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mapctrl.Plo@am__quote@
@@ -734,40 +760,56 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/menu.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/messagedlg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/messagewin.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/meta_chatline.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/meta_citydlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/meta_cityrep.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/meta_dialogs.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/meta_diplodlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/meta_fc_client.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/meta_gotodlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/meta_helpdlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/meta_mapview.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/meta_menu.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/meta_messagedlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/meta_messagewin.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/meta_optiondlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/meta_plrdlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/meta_ratesdlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/meta_repodlgs.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/meta_spaceshipdlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/meta_voteinfo_bar.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/optiondlg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pages.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/plrdlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/qtg_cxxside.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ratesdlg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/repodlgs.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/soundset_dlg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/spaceshipdlg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sprite.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/theme_dlg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/themes.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tileset_dlg.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/unitselect.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/voteinfo_bar.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/wldlg.Plo@am__quote@
 
-.c.o:
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ $<
+.cpp.o:
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXXCOMPILE) -c -o $@ $<
 
-.c.obj:
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ `$(CYGPATH_W) '$<'`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(COMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
+.cpp.obj:
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ `$(CYGPATH_W) '$<'`
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(CXXCOMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
 
-.c.lo:
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(LTCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Plo
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(LTCOMPILE) -c -o $@ $<
+.cpp.lo:
+@am__fastdepCXX_TRUE@	$(AM_V_CXX)$(LTCXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
+@am__fastdepCXX_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Plo
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	$(AM_V_CXX)source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCXX_FALSE@	$(AM_V_CXX@am__nodep@)$(LTCXXCOMPILE) -c -o $@ $<
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -883,6 +925,7 @@ install-strip:
 mostlyclean-generic:
 
 clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
@@ -978,6 +1021,10 @@ uninstall-am:
 	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
 	tags tags-am uninstall uninstall-am
 
+
+# Generate Qt meta object source from header
+$(MOC_FILES) : meta_%.cpp: %.h
+	$(MOCCMD) -o $@ $<
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
