@@ -1,5 +1,5 @@
 /********************************************************************** 
- Freeciv - Copyright (C) 2005 The Freeciv Team
+ Freeciv - Copyright (C) 1996 - A Kjeldberg, L Gregersen, P Unold
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
@@ -14,14 +14,7 @@
 #ifndef FC__CANVAS_H
 #define FC__CANVAS_H
 
-#include "SDL/SDL.h"
-
 #include "canvas_g.h"
 
-struct canvas {
-  SDL_Surface *surf;
-};
 
-struct canvas *canvas_create_with_alpha(int width, int height);
-    
 #endif				/* FC__CANVAS_H */

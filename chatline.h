@@ -11,24 +11,10 @@
    GNU General Public License for more details.
 ***********************************************************************/
 
-/**********************************************************************
-                          chatline.h  -  description
-                             -------------------
-    begin                : Sun Jun 30 2002
-    copyright            : (C) 2002 by Rafał Bursig
-    email                : Rafał Bursig <bursig@poczta.fm>
- **********************************************************************/
-
 #ifndef FC__CHATLINE_H
 #define FC__CHATLINE_H
 
 #include "chatline_g.h"
 
-void popup_input_line(void);
-bool popdown_conn_list_dialog(void);
-void popdown_load_game_dialog(void);
 
-#define set_output_window_text( pString )	\
-	output_window_append( ftc_any, pString )
-
-#endif	/* FC__CHATLINE_H */
+#endif				/* FC__CHATLINE_H */

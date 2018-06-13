@@ -15,8 +15,11 @@
 #include <fc_config.h>
 #endif
 
-/* utility */
-#include "log.h"
+/* gui main header */
+#include "gui_stub.h"
+
+/* client */
+#include "options.h"
 
 #include "messagedlg.h"
 
@@ -25,5 +28,5 @@
 **************************************************************************/
 void popup_messageopt_dialog(void)
 {
-  log_debug("popup_messageopt_dialog : PORT ME");
+  /* PORTME */
 }

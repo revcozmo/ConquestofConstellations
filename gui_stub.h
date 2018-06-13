@@ -11,10 +11,10 @@
    GNU General Public License for more details.
 ***********************************************************************/
 
-#ifndef FC__MAPCTRL_H
-#define FC__MAPCTRL_H
+#ifndef FC__GUI_STUB_H
+#define FC__GUI_STUB_H
 
-#include "mapctrl_g.h"
+/* gui-stub is implemented through callback interface */
+#define GUI_CB_MODE 1
 
-
-#endif				/* FC__MAPCTRL_H */
+#endif  /* FC__GUI_STUB_H */

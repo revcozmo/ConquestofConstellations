@@ -11,25 +11,10 @@
    GNU General Public License for more details.
 ***********************************************************************/
 
-/***************************************************************************
-                          menu.h  -  description
-                             -------------------
-    begin                : Wed Sep 04 2002
-    copyright            : (C) 2002 by Rafał Bursig
-    email                : Rafał Bursig <bursig@poczta.fm>
- ***************************************************************************/
-
 #ifndef FC__MENU_H
 #define FC__MENU_H
 
 #include "menu_g.h"
 
-void create_units_order_widgets(void);
-void delete_units_order_widgets(void);
-void update_order_widgets(void);
-void undraw_order_widgets(void);
-void free_bcgd_order_widgets(void);
-void disable_order_buttons(void);
-void enable_order_buttons(void);
 
 #endif				/* FC__MENU_H */

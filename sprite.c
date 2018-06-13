@@ -1,5 +1,5 @@
 /********************************************************************** 
- Freeciv - Copyright (C) 2005 The Freeciv Team
+ Freeciv - Copyright (C) 1996 - A Kjeldberg, L Gregersen, P Unold
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
@@ -15,21 +15,12 @@
 #include <fc_config.h>
 #endif
 
-#include "SDL/SDL.h"
-#include "SDL/SDL_image.h"
+#include <stdlib.h>
 
-/* utility */
-#include "fcintl.h"
-#include "log.h"
-#include "mem.h"
-
-/* client/gui-sdl */
-#include "colors.h"
-#include "graphics.h"
+/* gui main header */
+#include "gui_stub.h"
 
 #include "sprite.h"
-
-static struct sprite *ctor_sprite(SDL_Surface *pSurface);
 
 /****************************************************************************
   Return a NULL-terminated, permanently allocated array of possible
@@ -38,9 +29,12 @@ static struct sprite *ctor_sprite(SDL_Surface *pSurface);
 ****************************************************************************/
 const char **gfx_fileextensions(void)
 {
+  /* PORTME */
+
+  /* hack to allow stub to run */
   static const char *ext[] = {
-    "png",
-    "xpm",
+    "png",	/* png should be the default. */
+    /* ...etc... */
     NULL
   };
 
@@ -52,27 +46,10 @@ const char **gfx_fileextensions(void)
   entire image file, which may later be broken up into individual sprites
   with crop_sprite.
 ****************************************************************************/
-struct sprite * load_gfxfile(const char *filename)
+struct sprite *gui_load_gfxfile(const char *filename)
 {
-  SDL_Surface *pNew = NULL;
-  SDL_Surface *pBuf = NULL;
-
-  if ((pBuf = IMG_Load(filename)) == NULL) {
-    log_error(_("load_gfxfile: Unable to load graphic file %s!"), filename);
-    return NULL;		/* Should I use abotr() ? */
-  }
-
-  if (pBuf->flags & SDL_SRCCOLORKEY) {
-    /* convert colorkey to alpha */
-    SDL_SetColorKey(pBuf, SDL_SRCCOLORKEY, pBuf->format->colorkey);
-    pNew = SDL_DisplayFormatAlpha(pBuf);
-    FREESURFACE(pBuf);
-    pBuf = pNew;
-  }
-
-  pNew = pBuf;
-  
-  return ctor_sprite(pNew);
+  /* PORTME */
+  return NULL;
 }
 
 /****************************************************************************
@@ -96,74 +73,40 @@ struct sprite * load_gfxfile(const char *filename)
   in the mask image will be used to clip pixel (0,0) in the source image
   which is pixel (-x,-y) in the new image.
 ****************************************************************************/
-struct sprite *crop_sprite(struct sprite *source,
-			   int x, int y, int width, int height,
-			   struct sprite *mask,
-			   int mask_offset_x, int mask_offset_y)
+struct sprite *gui_crop_sprite(struct sprite *source,
+                               int x, int y, int width, int height,
+                               struct sprite *mask,
+                               int mask_offset_x, int mask_offset_y)
 {
-  SDL_Rect src_rect = {(Sint16) x, (Sint16) y, (Uint16) width, (Uint16) height};
-  SDL_Surface *pSrc = crop_rect_from_surface(GET_SURF(source), &src_rect);
-  SDL_Surface *pDest = NULL;
-
-  if (mask) {
-    pDest = mask_surface(pSrc, mask->psurface, x - mask_offset_x, y - mask_offset_y);
-    FREESURFACE(pSrc);    
-    return ctor_sprite(pDest);
-  }
-
-  return ctor_sprite(pSrc);
+  /* PORTME */
+  return NULL;
 }
 
 /****************************************************************************
-  Create a sprite with the given height, width and color.
+  Create a new sprite with the given height, width and color.
 ****************************************************************************/
-struct sprite *create_sprite(int width, int height, struct color *pcolor)
+struct sprite *gui_create_sprite(int width, int height, struct color *pcolor)
 {
-  SDL_Surface *mypixbuf = NULL;
-  SDL_Surface *pmask = NULL;
-
-  fc_assert_ret_val(width > 0, NULL);
-  fc_assert_ret_val(height > 0, NULL);
-  fc_assert_ret_val(pcolor != NULL, NULL);
-
-  mypixbuf = SDL_CreateRGBSurface(SDL_SWSURFACE, width, height, 32,
-                                  0x00ff0000, 0x0000ff00, 0x000000ff,
-                                  0xff000000);
-  pmask = SDL_DisplayFormatAlpha(mypixbuf);
-  SDL_FillRect(mypixbuf, NULL, map_rgba(pmask->format, *pcolor->color));
-
-  return ctor_sprite(mypixbuf);
+  /* PORTME */
+  return NULL;
 }
 
 /****************************************************************************
   Find the dimensions of the sprite.
 ****************************************************************************/
-void get_sprite_dimensions(struct sprite *sprite, int *width, int *height)
+void gui_get_sprite_dimensions(struct sprite *sprite, int *width, int *height)
 {
-  *width = GET_SURF(sprite)->w;
-  *height = GET_SURF(sprite)->h;
+  /* PORTME */
+#if 0
+  *width = sprite->width;
+  *height = sprite->height;
+#endif
 }
 
 /****************************************************************************
   Free a sprite and all associated image data.
 ****************************************************************************/
-void free_sprite(struct sprite *s)
+void gui_free_sprite(struct sprite *s)
 {
-  fc_assert_ret(s != NULL);
-  FREESURFACE(GET_SURF_REAL(s));
-  FC_FREE(s);
-}
-
-/*************************************************************************/
-
-/**************************************************************************
-  Create a sprite struct and fill it with SDL_Surface pointer
-**************************************************************************/
-static struct sprite * ctor_sprite(SDL_Surface *pSurface)
-{
-  struct sprite *result = fc_malloc(sizeof(struct sprite));
-
-  result->psurface = pSurface;
-
-  return result;
+  /* PORTME */
 }

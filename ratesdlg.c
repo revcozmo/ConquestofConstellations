@@ -11,10 +11,19 @@
    GNU General Public License for more details.
 ***********************************************************************/
 
-#ifndef FC__MAPCTRL_H
-#define FC__MAPCTRL_H
+#ifdef HAVE_CONFIG_H
+#include <fc_config.h>
+#endif
 
-#include "mapctrl_g.h"
+/* gui main header */
+#include "gui_stub.h"
 
+#include "ratesdlg.h"
 
-#endif				/* FC__MAPCTRL_H */
+/**************************************************************************
+  Popup (or raise) the (tax/science/luxury) rates selection dialog.
+**************************************************************************/
+void popup_rates_dialog(void)
+{
+  /* PORTME */
+}

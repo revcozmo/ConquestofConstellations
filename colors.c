@@ -11,93 +11,44 @@
    GNU General Public License for more details.
 ***********************************************************************/
 
-/**********************************************************************
-                          colors.c  -  description
-                             -------------------
-    begin                : Mon Jul 15 2002
-    copyright            : (C) 2002 by Rafał Bursig
-    email                : Rafał Bursig <bursig@poczta.fm>
- **********************************************************************/
-
 #ifdef HAVE_CONFIG_H
 #include <fc_config.h>
 #endif
 
-#include "SDL/SDL.h"
+/* utility */
+#include "mem.h"
 
-/* client */
-#include "tilespec.h"
+/* common */
+#include "rgbcolor.h"
 
-/* gui-sdl */
-#include "themespec.h"
+/* gui main header */
+#include "gui_stub.h"
 
 #include "colors.h"
 
-/**************************************************************************
-  Get color from theme.
-**************************************************************************/
-SDL_Color *get_theme_color(enum theme_color themecolor)
+/****************************************************************************
+  Allocate a color (adjusting it for our colormap if necessary on paletted
+  systems) and return a pointer to it.
+****************************************************************************/
+struct color *gui_color_alloc(int r, int g, int b)
 {
-  return theme_get_color(theme, themecolor)->color;
+  struct color *color = fc_malloc(sizeof(*color));
+
+  /* PORTME */
+  color->r = r;
+  color->g = g;
+  color->b = b;
+
+  return color;
 }
 
-/**************************************************************************
-  Get color for some game object instance.
-**************************************************************************/
-SDL_Color *get_game_color(enum color_std stdcolor)
+/****************************************************************************
+  Free a previously allocated color.  See color_alloc.
+****************************************************************************/
+void gui_color_free(struct color *color)
 {
-  return get_color(tileset, stdcolor)->color;
-}
-
-/****************************************************************************
-  Allocate a color with alpha channel and return a pointer to it. Alpha
-  channel is not really used yet.
-****************************************************************************/
-struct color *color_alloc_rgba(int r, int g, int b, int a) {
-
-  struct color *result = fc_malloc(sizeof(*result));	
-	
-  SDL_Color *pcolor = fc_malloc(sizeof(*pcolor));
-  pcolor->r = r;
-  pcolor->g = g;
-  pcolor->b = b;
-  pcolor->unused = a;
-	
-  result->color = pcolor;
-  
-  return result;
-}
-
-/****************************************************************************
-  Allocate a solid color and return a pointer to it.
-****************************************************************************/
-struct color *color_alloc(int r, int g, int b) {
-
-  struct color *result = fc_malloc(sizeof(*result));	
-	
-  SDL_Color *pcolor = fc_malloc(sizeof(*pcolor));
-  pcolor->r = r;
-  pcolor->g = g;
-  pcolor->b = b;
-  pcolor->unused = 255;
-	
-  result->color = pcolor;
-  
-  return result;
-}
-
-/****************************************************************************
-  Free resources allocated for color.
-****************************************************************************/
-void color_free(struct color *pcolor) {
-  if (!pcolor) {
-    return;
-  }
-
-  if (pcolor->color) {
-    free(pcolor->color);
-  }
-  free(pcolor);
+  /* PORTME */
+  free(color);
 }
 
 /****************************************************************************
@@ -106,9 +57,10 @@ void color_free(struct color *pcolor) {
 ****************************************************************************/
 int color_brightness_score(struct color *pcolor)
 {
-  struct rgbcolor *prgb = rgbcolor_new(pcolor->color->r,
-                                       pcolor->color->g,
-                                       pcolor->color->b);
+  /* PORTME */
+  /* Can use GUI-specific colorspace functions here. This is a fallback
+   * using platform-independent code */
+  struct rgbcolor *prgb = rgbcolor_new(pcolor->r, pcolor->g, pcolor->b);
   int score = rgbcolor_brightness_score(prgb);
 
   rgbcolor_destroy(prgb);

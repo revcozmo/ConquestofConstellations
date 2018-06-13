@@ -11,28 +11,10 @@
    GNU General Public License for more details.
 ***********************************************************************/
 
-/**********************************************************************
-                          optiondlg.h  -  description
-                             -------------------
-    begin                : Sun Aug 11 2002
-    copyright            : (C) 2002 by Rafał Bursig
-    email                : Rafał Bursig <bursig@poczta.fm>
- **********************************************************************/
-
 #ifndef FC__OPTIONDLG_H
 #define FC__OPTIONDLG_H
 
 #include "optiondlg_g.h"
 
-struct widget *pOptions_Button;
 
-void popup_optiondlg(void);
-void popdown_optiondlg(bool leave_game);
-
-void init_options_button(void);
-void enable_options_button(void);
-void disable_options_button(void);
-
-int optiondlg_callback(struct widget *pButton);
-
-#endif				/* FC__OPTIONDLG_H */
+#endif /* FC__OPTIONDLG_H */

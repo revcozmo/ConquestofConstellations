@@ -16,7 +16,5 @@
 
 #include "gotodlg_g.h"
 
-void popdown_goto_airlift_dialog(void);
-void popup_airlift_dialog(void);
 
 #endif				/* FC__GOTODLG_H */

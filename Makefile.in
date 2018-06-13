@@ -78,7 +78,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-subdir = client/gui-sdl
+subdir = client/gui-stub
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/bootstrap/depcomp
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -118,21 +118,15 @@ CONFIG_HEADER = $(top_builddir)/fc_config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 LTLIBRARIES = $(noinst_LTLIBRARIES)
-libgui_sdl_la_LIBADD =
-am_libgui_sdl_la_OBJECTS = alphablit.lo canvas.lo caravan_dialog.lo \
-	chatline.lo citydlg.lo cityrep.lo cma_fe.lo colors.lo \
-	connectdlg.lo dialogs.lo diplodlg.lo diplomat_dialog.lo \
-	finddlg.lo gotodlg.lo graphics.lo gui_iconv.lo gui_main.lo \
-	gui_mouse.lo gui_string.lo gui_tilespec.lo happiness.lo \
-	helpdlg.lo inputdlg.lo inteldlg.lo luaconsole.lo mapctrl.lo \
-	mapview.lo menu.lo messagedlg.lo messagewin.lo optiondlg.lo \
-	pages.lo plrdlg.lo repodlgs.lo spaceshipdlg.lo sprite.lo \
-	themebackgrounds.lo themecolors.lo themes.lo themespec.lo \
-	unistring.lo voteinfo_bar.lo widget.lo widget_button.lo \
-	widget_checkbox.lo widget_combo.lo widget_core.lo \
-	widget_edit.lo widget_icon.lo widget_label.lo \
-	widget_scrollbar.lo widget_window.lo wldlg.lo
-libgui_sdl_la_OBJECTS = $(am_libgui_sdl_la_OBJECTS)
+libgui_stub_la_LIBADD =
+am_libgui_stub_la_OBJECTS = canvas.lo chatline.lo citydlg.lo \
+	cityrep.lo colors.lo connectdlg.lo dialogs.lo diplodlg.lo \
+	finddlg.lo gotodlg.lo graphics.lo gui_main.lo helpdlg.lo \
+	inteldlg.lo luaconsole.lo mapctrl.lo mapview.lo menu.lo \
+	messagedlg.lo messagewin.lo optiondlg.lo pages.lo plrdlg.lo \
+	ratesdlg.lo repodlgs.lo spaceshipdlg.lo sprite.lo themes.lo \
+	voteinfo_bar.lo wldlg.lo
+libgui_stub_la_OBJECTS = $(am_libgui_stub_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
@@ -171,8 +165,8 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(libgui_sdl_la_SOURCES)
-DIST_SOURCES = $(libgui_sdl_la_SOURCES)
+SOURCES = $(libgui_stub_la_SOURCES)
+DIST_SOURCES = $(libgui_stub_la_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -553,24 +547,19 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-noinst_LTLIBRARIES = libgui-sdl.la
-AM_CPPFLAGS = -I$(srcdir)/.. -I$(srcdir)/../include -I$(top_srcdir)/utility \
-        -I$(top_srcdir)/common -I$(top_srcdir)/common/aicore -I$(srcdir)/../agents \
-        $(gui_sdl_cflags)
+noinst_LTLIBRARIES = libgui-stub.la
+AM_CPPFLAGS = -I. -I$(srcdir)/.. -I$(srcdir)/../include -I$(top_srcdir)/utility \
+        -I$(top_srcdir)/common $(gui_stub_cflags)
 
-libgui_sdl_la_SOURCES = \
-	alphablit.c	\
+libgui_stub_la_SOURCES = \
 	canvas.c	\
 	canvas.h	\
-	caravan_dialog.c \
 	chatline.c	\
 	chatline.h	\
 	citydlg.c	\
 	citydlg.h	\
 	cityrep.c	\
 	cityrep.h	\
-	cma_fe.c	\
-	cma_fe.h	\
 	colors.c	\
 	colors.h	\
 	connectdlg.c	\
@@ -579,30 +568,17 @@ libgui_sdl_la_SOURCES = \
 	dialogs.h	\
 	diplodlg.c	\
 	diplodlg.h	\
-	diplomat_dialog.c \
 	finddlg.c	\
 	finddlg.h	\
 	gotodlg.c	\
 	gotodlg.h	\
 	graphics.c	\
 	graphics.h	\
-	gui_iconv.c	\
-	gui_iconv.h	\
-	gui_id.h	\
 	gui_main.c	\
 	gui_main.h	\
-	gui_mouse.c	\
-	gui_mouse.h	\
-	gui_string.c	\
-	gui_string.h	\
-	gui_tilespec.c	\
-	gui_tilespec.h  \
-	happiness.c	\
-	happiness.h	\
+	gui_stub.h	\
 	helpdlg.c	\
 	helpdlg.h	\
-	inputdlg.c	\
-	inputdlg.h	\
 	inteldlg.c	\
 	inteldlg.h	\
 	luaconsole.c	\
@@ -617,51 +593,23 @@ libgui_sdl_la_SOURCES = \
 	messagedlg.h	\
 	messagewin.c	\
 	messagewin.h	\
-	mmx.h		\
-	optiondlg.h	\
 	optiondlg.c	\
+	optiondlg.h	\
 	pages.c		\
 	pages.h		\
 	plrdlg.c	\
 	plrdlg.h	\
+	ratesdlg.c	\
 	ratesdlg.h	\
 	repodlgs.c	\
 	repodlgs.h	\
 	spaceshipdlg.c	\
-	spaceshipdlg.h  \
+	spaceshipdlg.h	\
 	sprite.c	\
 	sprite.h	\
-	themebackgrounds.c \
-	themebackgrounds.h \
-	themecolors.c	\
-	themecolors.h	\
 	themes.c	\
-	themespec.c	\
-	themespec.h	\
-	unistring.c	\
-	unistring.h	\
 	voteinfo_bar.c	\
 	voteinfo_bar.h	\
-	widget.c	\
-	widget.h	\
-	widget_button.c \
-	widget_button.h \
-	widget_checkbox.c \
-	widget_checkbox.h \
-	widget_combo.c \
-	widget_combo.h \
-	widget_core.c	\
-	widget_edit.c	\
-	widget_edit.h	\
-	widget_icon.c	\
-	widget_icon.h	\
-	widget_label.c  \
-	widget_label.h  \
-	widget_p.h	\
-	widget_scrollbar.c	\
-	widget_scrollbar.h	\
-	widget_window.c \
-	widget_window.h \
 	wldlg.c		\
 	wldlg.h
 
@@ -678,9 +626,9 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu client/gui-sdl/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu client/gui-stub/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu client/gui-sdl/Makefile
+	  $(AUTOMAKE) --gnu client/gui-stub/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
@@ -711,8 +659,8 @@ clean-noinstLTLIBRARIES:
 	  rm -f $${locs}; \
 	}
 
-libgui-sdl.la: $(libgui_sdl_la_OBJECTS) $(libgui_sdl_la_DEPENDENCIES) $(EXTRA_libgui_sdl_la_DEPENDENCIES) 
-	$(AM_V_CCLD)$(LINK)  $(libgui_sdl_la_OBJECTS) $(libgui_sdl_la_LIBADD) $(LIBS)
+libgui-stub.la: $(libgui_stub_la_OBJECTS) $(libgui_stub_la_DEPENDENCIES) $(EXTRA_libgui_stub_la_DEPENDENCIES) 
+	$(AM_V_CCLD)$(LINK)  $(libgui_stub_la_OBJECTS) $(libgui_stub_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -720,29 +668,19 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/alphablit.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/canvas.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/caravan_dialog.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/chatline.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/citydlg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cityrep.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cma_fe.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/colors.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/connectdlg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dialogs.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/diplodlg.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/diplomat_dialog.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/finddlg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gotodlg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/graphics.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gui_iconv.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gui_main.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gui_mouse.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gui_string.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gui_tilespec.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/happiness.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/helpdlg.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/inputdlg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/inteldlg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/luaconsole.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mapctrl.Plo@am__quote@
@@ -753,25 +691,12 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/optiondlg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pages.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/plrdlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ratesdlg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/repodlgs.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/spaceshipdlg.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sprite.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/themebackgrounds.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/themecolors.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/themes.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/themespec.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/unistring.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/voteinfo_bar.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/widget.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/widget_button.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/widget_checkbox.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/widget_combo.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/widget_core.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/widget_edit.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/widget_icon.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/widget_label.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/widget_scrollbar.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/widget_window.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/wldlg.Plo@am__quote@
 
 .c.o:
