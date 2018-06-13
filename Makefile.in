@@ -78,7 +78,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-subdir = common/aicore
+subdir = common/scriptcore
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/bootstrap/depcomp
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -118,10 +118,16 @@ CONFIG_HEADER = $(top_builddir)/fc_config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 LTLIBRARIES = $(noinst_LTLIBRARIES)
-libaicore_la_LIBADD =
-am_libaicore_la_OBJECTS = aisupport.lo path_finding.lo pf_tools.lo \
-	cm.lo citymap.lo caravan.lo
-libaicore_la_OBJECTS = $(am_libaicore_la_OBJECTS)
+am__DEPENDENCIES_1 =
+libscriptcore_la_DEPENDENCIES = $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
+am_libscriptcore_la_OBJECTS = api_common_intl.lo \
+	api_common_utilities.lo api_game_effects.lo api_game_find.lo \
+	api_game_methods.lo api_game_specenum.lo api_signal_base.lo \
+	luascript.lo luascript_func.lo luascript_signal.lo \
+	tolua_common_a_gen.lo tolua_common_z_gen.lo tolua_game_gen.lo \
+	tolua_signal_gen.lo
+libscriptcore_la_OBJECTS = $(am_libscriptcore_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
@@ -160,8 +166,8 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(libaicore_la_SOURCES)
-DIST_SOURCES = $(libaicore_la_SOURCES)
+SOURCES = $(libscriptcore_la_SOURCES)
+DIST_SOURCES = $(libscriptcore_la_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -542,23 +548,81 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-noinst_LTLIBRARIES = libaicore.la
-AM_CPPFLAGS = -I$(top_srcdir)/utility -I.. -I$(top_srcdir)/common
-libaicore_la_SOURCES = \
-	aisupport.c		\
-	aisupport.h		\
-	path_finding.c		\
-	path_finding.h		\
-	pf_tools.c		\
-	pf_tools.h		\
-	cm.c	 		\
-	cm.h			\
-	citymap.c		\
-	citymap.h               \
-        caravan.c               \
-        caravan.h
+noinst_LTLIBRARIES = \
+	libscriptcore.la
 
-all: all-am
+AM_CPPFLAGS = \
+	-I$(top_srcdir)/utility \
+	-I$(top_srcdir)/common \
+	$(LUA_CFLAGS) $(LUASQL_CFLAGS) $(TOLUA_CFLAGS)
+
+
+# tolua_[common_a|common_z|game]_gen.[ch] are now distributed to aid in
+# cross-compiling.
+libscriptcore_la_SOURCES = \
+	api_common_intl.c	\
+	api_common_intl.h	\
+	api_common_utilities.c	\
+	api_common_utilities.h	\
+	api_game_effects.c	\
+	api_game_effects.h	\
+	api_game_find.c		\
+	api_game_find.h		\
+	api_game_methods.c	\
+	api_game_methods.h	\
+	api_game_specenum.c	\
+	api_game_specenum.h	\
+	api_signal_base.c	\
+	api_signal_base.h	\
+	luascript.c		\
+	luascript.h		\
+	luascript_func.c	\
+	luascript_func.h	\
+	luascript_signal.c	\
+	luascript_signal.h	\
+	luascript_types.h	\
+	tolua_common_a_gen.c	\
+	tolua_common_a_gen.h	\
+	tolua_common_z_gen.c	\
+	tolua_common_z_gen.h	\
+	tolua_game_gen.c	\
+	tolua_game_gen.h	\
+	tolua_signal_gen.c	\
+	tolua_signal_gen.h
+
+EXTRA_DIST = \
+	tolua_common_a.pkg	\
+	tolua_common_z.pkg	\
+	tolua_game.pkg		\
+	tolua_signal.pkg
+
+BUILT_SOURCES = \
+	tolua_common_a_gen.c	\
+	tolua_common_a_gen.h	\
+	tolua_common_z_gen.c	\
+	tolua_common_z_gen.h	\
+	tolua_game_gen.c	\
+	tolua_game_gen.h	\
+	tolua_signal_gen.c	\
+	tolua_signal_gen.h
+
+libscriptcore_la_LIBADD = \
+	$(LUA_LIBS) $(TOLUA_LIBS) $(LUASQL_LIBS)
+
+
+# These files are not generated to builddir, but to srcdir */
+MAINTAINERCLEANFILES = \
+	$(srcdir)/tolua_common_a_gen.c \
+	$(srcdir)/tolua_common_a_gen.h \
+	$(srcdir)/tolua_common_z_gen.c \
+	$(srcdir)/tolua_common_z_gen.h \
+	$(srcdir)/tolua_game_gen.c \
+	$(srcdir)/tolua_game_gen.h \
+	$(srcdir)/tolua_signal_gen.c \
+	$(srcdir)/tolua_signal_gen.h
+
+all: $(BUILT_SOURCES)
+	$(MAKE) $(AM_MAKEFLAGS) all-am
 
 .SUFFIXES:
 .SUFFIXES: .c .lo .o .obj
@@ -571,9 +635,9 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu common/aicore/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu common/scriptcore/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu common/aicore/Makefile
+	  $(AUTOMAKE) --gnu common/scriptcore/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
@@ -604,8 +668,8 @@ clean-noinstLTLIBRARIES:
 	  rm -f $${locs}; \
 	}
 
-libaicore.la: $(libaicore_la_OBJECTS) $(libaicore_la_DEPENDENCIES) $(EXTRA_libaicore_la_DEPENDENCIES) 
-	$(AM_V_CCLD)$(LINK)  $(libaicore_la_OBJECTS) $(libaicore_la_LIBADD) $(LIBS)
+libscriptcore.la: $(libscriptcore_la_OBJECTS) $(libscriptcore_la_DEPENDENCIES) $(EXTRA_libscriptcore_la_DEPENDENCIES) 
+	$(AM_V_CCLD)$(LINK)  $(libscriptcore_la_OBJECTS) $(libscriptcore_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -613,12 +677,20 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/aisupport.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/caravan.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/citymap.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cm.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/path_finding.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pf_tools.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/api_common_intl.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/api_common_utilities.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/api_game_effects.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/api_game_find.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/api_game_methods.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/api_game_specenum.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/api_signal_base.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/luascript.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/luascript_func.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/luascript_signal.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tolua_common_a_gen.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tolua_common_z_gen.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tolua_game_gen.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tolua_signal_gen.Plo@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -730,10 +802,12 @@ distdir: $(DISTFILES)
 	  fi; \
 	done
 check-am: all-am
-check: check-am
+check: $(BUILT_SOURCES)
+	$(MAKE) $(AM_MAKEFLAGS) check-am
 all-am: Makefile $(LTLIBRARIES)
 installdirs:
-install: install-am
+install: $(BUILT_SOURCES)
+	$(MAKE) $(AM_MAKEFLAGS) install-am
 install-exec: install-exec-am
 install-data: install-data-am
 uninstall: uninstall-am
@@ -763,6 +837,8 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
+	-test -z "$(BUILT_SOURCES)" || rm -f $(BUILT_SOURCES)
+	-test -z "$(MAINTAINERCLEANFILES)" || rm -f $(MAINTAINERCLEANFILES)
 clean: clean-am
 
 clean-am: clean-generic clean-libtool clean-noinstLTLIBRARIES \
@@ -834,7 +910,7 @@ ps-am:
 
 uninstall-am:
 
-.MAKE: install-am install-strip
+.MAKE: all check install install-am install-strip
 
 .PHONY: CTAGS GTAGS TAGS all all-am check check-am clean clean-generic \
 	clean-libtool clean-noinstLTLIBRARIES cscopelist-am ctags \
@@ -850,6 +926,22 @@ uninstall-am:
 	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
 	tags tags-am uninstall uninstall-am
 
+
+tolua_common_a_gen.c tolua_common_a_gen.h: tolua_common_a.pkg
+	$(TOLUA) -n common_a -o $(srcdir)/tolua_common_a_gen.c \
+	-H $(srcdir)/tolua_common_a_gen.h $(srcdir)/tolua_common_a.pkg
+
+tolua_common_z_gen.c tolua_common_z_gen.h: tolua_common_z.pkg
+	$(TOLUA) -n common_z -o $(srcdir)/tolua_common_z_gen.c \
+	-H $(srcdir)/tolua_common_z_gen.h $(srcdir)/tolua_common_z.pkg
+
+tolua_game_gen.c tolua_game_gen.h: tolua_game.pkg
+	$(TOLUA) -n game -o $(srcdir)/tolua_game_gen.c \
+	-H $(srcdir)/tolua_game_gen.h $(srcdir)/tolua_game.pkg
+
+tolua_signal_gen.c tolua_signal_gen.h: tolua_signal.pkg
+	$(TOLUA) -n signal -o $(srcdir)/tolua_signal_gen.c \
+	-H $(srcdir)/tolua_signal_gen.h $(srcdir)/tolua_signal.pkg
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
