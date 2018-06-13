@@ -1,36 +1,39 @@
 ## Process this file with automake to produce Makefile.in
 
-noinst_HEADERS = \
-	canvas_g.h		\
-	chatline_g.h	\
-	citydlg_g.h	\
-	cityrep_g.h	\
-	colors_g.h	\
-	connectdlg_g.h	\
-	dialogs_g.h	\
-	diplodlg_g.h	\
-	editgui_g.h	\
-	finddlg_g.h	\
-	ggz_g.h		\
-	gotodlg_g.h	\
-	graphics_g.h	\
-	gui_main_g.h	\
-	gui_proto_constructor.h \
-	helpdlg_g.h	\
-	inteldlg_g.h	\
-	luaconsole_g.h	\
-	mapctrl_g.h	\
-	mapview_g.h	\
-	menu_g.h	\
-	messagedlg_g.h	\
-	messagewin_g.h	\
-	optiondlg_g.h	\
-	pages_g.h	\
-	plrdlg_g.h	\
-	ratesdlg_g.h	\
-	repodlgs_g.h	\
-	spaceshipdlg_g.h	\
-	sprite_g.h		\
-	themes_g.h		\
-	voteinfo_bar_g.h	\
-	wldlg_g.h
+noinst_LTLIBRARIES = \
+	libscripting_client.la
+
+AM_CPPFLAGS = \
+	-I$(top_srcdir)/utility \
+	-I$(top_srcdir)/common \
+	-I$(top_srcdir)/common/scriptcore \
+	-I$(top_srcdir)/client \
+	$(LUA_CFLAGS) $(LUASQL_CFLAGS) $(TOLUA_CFLAGS)
+
+# tolua_client_gen.[ch] are now distributed to aid in cross-compiling.
+dist_libscripting_client_la_SOURCES = \
+	api_client_base.c	\
+	api_client_base.h	\
+	script_client.c		\
+	script_client.h		\
+	tolua_client_gen.c	\
+	tolua_client_gen.h
+
+EXTRA_DIST = \
+	tolua_client.pkg
+
+BUILT_SOURCES = \
+	tolua_client_gen.c	\
+	tolua_client_gen.h
+
+libscripting_client_la_LIBADD = \
+	$(LUA_LIBS) $(TOLUA_LIBS) $(LUASQL_LIBS)
+
+tolua_client_gen.c tolua_client_gen.h: tolua_client.pkg
+	$(TOLUA) -n client -o $(srcdir)/tolua_client_gen.c \
+	-H $(srcdir)/tolua_client_gen.h $(srcdir)/tolua_client.pkg
+
+# These files are not generated to builddir, but to srcdir */
+MAINTAINERCLEANFILES = \
+	$(srcdir)/tolua_client_gen.c \
+	$(srcdir)/tolua_client_gen.h
