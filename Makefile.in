@@ -78,7 +78,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-subdir = client/agents
+subdir = client/gui-gtk-2.0
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/bootstrap/depcomp
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -118,9 +118,18 @@ CONFIG_HEADER = $(top_builddir)/fc_config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 LTLIBRARIES = $(noinst_LTLIBRARIES)
-libagents_la_LIBADD =
-am_libagents_la_OBJECTS = agents.lo cma_core.lo cma_fec.lo sha.lo
-libagents_la_OBJECTS = $(am_libagents_la_OBJECTS)
+am_libgui_gtk2_la_OBJECTS = canvas.lo caravan_dialog.lo chatline.lo \
+	choice_dialog.lo citizensinfo.lo citydlg.lo cityrep.lo \
+	cma_fe.lo colors.lo connectdlg.lo dialogs.lo diplodlg.lo \
+	editgui.lo editprop.lo embedggz.lo diplomat_dialog.lo \
+	finddlg.lo gamedlgs.lo gotodlg.lo graphics.lo gtkpixcomm.lo \
+	gui_main.lo gui_stuff.lo happiness.lo helpdlg.lo inputdlg.lo \
+	inteldlg.lo luaconsole.lo mapctrl.lo mapview.lo menu.lo \
+	messagedlg.lo messagewin.lo optiondlg.lo pages.lo plrdlg.lo \
+	repodlgs.lo resources.lo soundset_dlg.lo spaceshipdlg.lo \
+	sprite.lo theme_dlg.lo themes.lo tileset_dlg.lo unitselect.lo \
+	voteinfo_bar.lo wldlg.lo
+libgui_gtk2_la_OBJECTS = $(am_libgui_gtk2_la_OBJECTS)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
@@ -159,8 +168,8 @@ AM_V_CCLD = $(am__v_CCLD_@AM_V@)
 am__v_CCLD_ = $(am__v_CCLD_@AM_DEFAULT_V@)
 am__v_CCLD_0 = @echo "  CCLD    " $@;
 am__v_CCLD_1 = 
-SOURCES = $(libagents_la_SOURCES)
-DIST_SOURCES = $(libagents_la_SOURCES)
+SOURCES = $(libgui_gtk2_la_SOURCES)
+DIST_SOURCES = $(libgui_gtk2_la_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -541,19 +550,114 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-noinst_LTLIBRARIES = libagents.la
-AM_CPPFLAGS = -I. -I$(srcdir)/.. -I$(top_srcdir)/common/aicore -I$(srcdir)/../include -I$(top_srcdir)/utility -I$(top_srcdir)/common $(CLIENT_CFLAGS)
-libagents_la_SOURCES = \
-	agents.c		\
-	agents.h		\
-	cma_core.c 		\
-	cma_core.h 		\
-	cma_fec.c		\
-	cma_fec.h		\
-	sha.c                   \
-	sha.h                   
+noinst_LTLIBRARIES = libgui-gtk2.la
+AM_CPPFLAGS = -I. -I$(srcdir)/.. -I$(srcdir)/../include \
+	-I$(top_srcdir)/utility -I$(top_srcdir)/common \
+	-I$(top_srcdir)/common/aicore -I$(top_srcdir)/common/scriptcore \
+	-I$(srcdir)/../agents  -I$(srcdir)/../luascript \
+	$(gui_gtk2_cflags) $(GGZ_GTK_INCLUDES) $(SOUND_CFLAGS)
 
-all: all-am
+
+# The AM_CPPFLAGS "-I." is so resources.c includes the locally generated 
+# Freeciv.h in the builddir, in preference to the one 
+# in the source dir (when compiling from another dir). --dwp
+BUILT_SOURCES = Freeciv.h
+CLEANFILES = Freeciv.h
+libgui_gtk2_la_DEPENDENCIES = rc2c
+libgui_gtk2_la_SOURCES = \
+	rc2c		\
+	Freeciv.h	\
+	canvas.c	\
+	canvas.h	\
+	caravan_dialog.c \
+	chatline.h	\
+	chatline.c	\
+	choice_dialog.c	\
+	choice_dialog.h \
+	citizensinfo.c	\
+	citizensinfo.h	\
+	citydlg.c	\
+	citydlg.h	\
+	cityrep.c	\
+	cityrep.h	\
+	cma_fe.c	\
+	cma_fe.h	\
+	colors.c	\
+	colors.h	\
+	connectdlg.c	\
+	connectdlg.h	\
+	dialogs.c	\
+	dialogs.h	\
+	diplodlg.c	\
+	diplodlg.h	\
+	editgui.c	\
+	editgui.h	\
+	editprop.c	\
+	editprop.h	\
+	embedggz.c	\
+	diplomat_dialog.c \
+	finddlg.c	\
+	finddlg.h	\
+	gamedlgs.c	\
+	gotodlg.c	\
+	gotodlg.h	\
+	graphics.c	\
+	graphics.h	\
+	gtkpixcomm.c	\
+	gtkpixcomm.h	\
+	gui_main.c	\
+	gui_main.h	\
+	gui_stuff.c	\
+	gui_stuff.h	\
+	happiness.c	\
+	happiness.h	\
+	helpdlg.c	\
+	helpdlg.h	\
+	inputdlg.c	\
+	inputdlg.h	\
+	inteldlg.c	\
+	inteldlg.h	\
+	luaconsole.c	\
+	luaconsole.h	\
+	mapctrl.c	\
+	mapctrl.h	\
+	mapview.c	\
+	mapview.h	\
+	menu.c		\
+	menu.h		\
+	messagedlg.c	\
+	messagedlg.h	\
+	messagewin.c	\
+	messagewin.h	\
+	optiondlg.c	\
+	optiondlg.h	\
+	pages.c		\
+	pages.h		\
+	plrdlg.c	\
+	plrdlg.h	\
+	ratesdlg.h	\
+	repodlgs.c	\
+	repodlgs.h	\
+	resources.c	\
+	resources.h	\
+	soundset_dlg.c	\
+	spaceshipdlg.c	\
+	spaceshipdlg.h  \
+	sprite.c	\
+	sprite.h	\
+	theme_dlg.c	\
+	themes.c	\
+	tileset_dlg.c	\
+	unitselect.h	\
+	unitselect.c	\
+	voteinfo_bar.c	\
+	voteinfo_bar.h	\
+	wldlg.c		\
+	wldlg.h	
+
+libgui_gtk2_la_LIBADD = -lm
+all: $(BUILT_SOURCES)
+	$(MAKE) $(AM_MAKEFLAGS) all-am
 
 .SUFFIXES:
 .SUFFIXES: .c .lo .o .obj
@@ -566,9 +670,9 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu client/agents/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu client/gui-gtk-2.0/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu client/agents/Makefile
+	  $(AUTOMAKE) --gnu client/gui-gtk-2.0/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
@@ -599,8 +703,8 @@ clean-noinstLTLIBRARIES:
 	  rm -f $${locs}; \
 	}
 
-libagents.la: $(libagents_la_OBJECTS) $(libagents_la_DEPENDENCIES) $(EXTRA_libagents_la_DEPENDENCIES) 
-	$(AM_V_CCLD)$(LINK)  $(libagents_la_OBJECTS) $(libagents_la_LIBADD) $(LIBS)
+libgui-gtk2.la: $(libgui_gtk2_la_OBJECTS) $(libgui_gtk2_la_DEPENDENCIES) $(EXTRA_libgui_gtk2_la_DEPENDENCIES) 
+	$(AM_V_CCLD)$(LINK)  $(libgui_gtk2_la_OBJECTS) $(libgui_gtk2_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -608,10 +712,53 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/agents.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cma_core.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cma_fec.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sha.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/canvas.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/caravan_dialog.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/chatline.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/choice_dialog.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/citizensinfo.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/citydlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cityrep.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cma_fe.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/colors.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/connectdlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dialogs.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/diplodlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/diplomat_dialog.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/editgui.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/editprop.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/embedggz.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/finddlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gamedlgs.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gotodlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/graphics.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gtkpixcomm.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gui_main.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gui_stuff.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/happiness.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/helpdlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/inputdlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/inteldlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/luaconsole.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mapctrl.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mapview.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/menu.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/messagedlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/messagewin.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/optiondlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pages.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/plrdlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/repodlgs.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/resources.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/soundset_dlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/spaceshipdlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sprite.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/theme_dlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/themes.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tileset_dlg.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/unitselect.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/voteinfo_bar.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/wldlg.Plo@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
@@ -723,10 +870,12 @@ distdir: $(DISTFILES)
 	  fi; \
 	done
 check-am: all-am
-check: check-am
+check: $(BUILT_SOURCES)
+	$(MAKE) $(AM_MAKEFLAGS) check-am
 all-am: Makefile $(LTLIBRARIES)
 installdirs:
-install: install-am
+install: $(BUILT_SOURCES)
+	$(MAKE) $(AM_MAKEFLAGS) install-am
 install-exec: install-exec-am
 install-data: install-data-am
 uninstall: uninstall-am
@@ -748,6 +897,7 @@ install-strip:
 mostlyclean-generic:
 
 clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
@@ -756,6 +906,7 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
+	-test -z "$(BUILT_SOURCES)" || rm -f $(BUILT_SOURCES)
 clean: clean-am
 
 clean-am: clean-generic clean-libtool clean-noinstLTLIBRARIES \
@@ -827,7 +978,7 @@ ps-am:
 
 uninstall-am:
 
-.MAKE: install-am install-strip
+.MAKE: all check install install-am install-strip
 
 .PHONY: CTAGS GTAGS TAGS all all-am check check-am clean clean-generic \
 	clean-libtool clean-noinstLTLIBRARIES cscopelist-am ctags \
@@ -843,6 +994,12 @@ uninstall-am:
 	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
 	tags tags-am uninstall uninstall-am
 
+
+Freeciv.h: $(top_srcdir)/data/freeciv.rc-2.0
+	echo '/*********************************************************/' > Freeciv.h
+	echo '/* DO NOT EDIT THIS FILE, EDIT ../../data/freeciv.rc-2.0 */' >> Freeciv.h
+	echo '/*********************************************************/' >> Freeciv.h
+	$(srcdir)/rc2c $(top_srcdir)/data/freeciv.rc-2.0 >> Freeciv.h
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
