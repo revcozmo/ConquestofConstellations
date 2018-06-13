@@ -60,6 +60,7 @@ am__make_running_with_option = \
   test $$has_opt = yes
 am__make_dryrun = (target_option=n; $(am__make_running_with_option))
 am__make_keepgoing = (target_option=k; $(am__make_running_with_option))
+pkgdatadir = $(datadir)/@PACKAGE@
 pkgincludedir = $(includedir)/@PACKAGE@
 pkglibdir = $(libdir)/@PACKAGE@
 pkglibexecdir = $(libexecdir)/@PACKAGE@
@@ -77,7 +78,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-subdir = data/hex2t
+subdir = data/icons
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/dependencies/m4/mkstemp.m4 \
@@ -161,11 +162,13 @@ am__uninstall_files_from_dir = { \
     || { echo " ( cd '$$dir' && rm -f" $$files ")"; \
          $(am__cd) "$$dir" && rm -f $$files; }; \
   }
-am__installdirs = "$(DESTDIR)$(pkgdatadir)"
-DATA = $(pkgdata_DATA)
+am__installdirs = "$(DESTDIR)$(icon128dir)" "$(DESTDIR)$(icon16dir)" \
+	"$(DESTDIR)$(icon32dir)" "$(DESTDIR)$(icon48dir)" \
+	"$(DESTDIR)$(icon64dir)"
+DATA = $(icon128_DATA) $(icon16_DATA) $(icon32_DATA) $(icon48_DATA) \
+	$(icon64_DATA)
 am__tagged_files = $(HEADERS) $(SOURCES) $(TAGS_FILES) $(LISP)
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
-pkgdatadir = $(datadir)/$(PACKAGE)/hex2t
 ACLOCAL = @ACLOCAL@
 AMTAR = @AMTAR@
 AM_DEFAULT_VERBOSITY = @AM_DEFAULT_VERBOSITY@
@@ -521,21 +524,100 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-pkgdata_DATA = \
-	grid.png	\
-	grid.spec	\
-	items.png	\
-	items.spec	\
-	overlays.png	\
-	overlays.spec	\
-	select.png	\
-	select.spec	\
-	tiles.png	\
-	tiles.spec	\
-	unitcost.png	\
-	unitcost.spec
+@CLIENT_FALSE@icons_16_c = 
+@CLIENT_TRUE@icons_16_c = \
+@CLIENT_TRUE@	16x16/freeciv-client.png
 
-EXTRA_DIST = $(pkgdata_DATA)
+@CLIENT_FALSE@icons_32_c = 
+@CLIENT_TRUE@icons_32_c = \
+@CLIENT_TRUE@	32x32/freeciv-client.png
+
+@CLIENT_FALSE@icons_48_c = 
+@CLIENT_TRUE@icons_48_c = \
+@CLIENT_TRUE@	48x48/freeciv-client.png
+
+@CLIENT_FALSE@icons_64_c = 
+@CLIENT_TRUE@icons_64_c = \
+@CLIENT_TRUE@	64x64/freeciv-client.png
+
+@CLIENT_FALSE@icons_128_c = 
+@CLIENT_TRUE@icons_128_c = \
+@CLIENT_TRUE@	128x128/freeciv-client.png
+
+@SERVER_FALSE@icons_16_s = 
+@SERVER_TRUE@icons_16_s = \
+@SERVER_TRUE@	16x16/freeciv-server.png
+
+@SERVER_FALSE@icons_32_s = 
+@SERVER_TRUE@icons_32_s = \
+@SERVER_TRUE@	32x32/freeciv-server.png
+
+@SERVER_FALSE@icons_48_s = 
+@SERVER_TRUE@icons_48_s = \
+@SERVER_TRUE@	48x48/freeciv-server.png
+
+@SERVER_FALSE@icons_64_s = 
+@SERVER_TRUE@icons_64_s = \
+@SERVER_TRUE@	64x64/freeciv-server.png
+
+@SERVER_FALSE@icons_128_s = 
+@SERVER_TRUE@icons_128_s = \
+@SERVER_TRUE@	128x128/freeciv-server.png
+
+@MODINST_FALSE@icons_16_m = 
+@MODINST_TRUE@icons_16_m = \
+@MODINST_TRUE@	16x16/freeciv-modpack.png
+
+@MODINST_FALSE@icons_32_m = 
+@MODINST_TRUE@icons_32_m = \
+@MODINST_TRUE@	32x32/freeciv-modpack.png
+
+@MODINST_FALSE@icons_48_m = 
+@MODINST_TRUE@icons_48_m = \
+@MODINST_TRUE@	48x48/freeciv-modpack.png
+
+@MODINST_FALSE@icons_64_m = 
+@MODINST_TRUE@icons_64_m = \
+@MODINST_TRUE@	64x64/freeciv-modpack.png
+
+@MODINST_FALSE@icons_128_m = 
+@MODINST_TRUE@icons_128_m = \
+@MODINST_TRUE@	128x128/freeciv-modpack.png
+
+
+#icons_svg = \
+#	scalable/freeciv-client.svg \
+#	scalable/freeciv-server.svg \
+#	scalable/freeciv-modpack.svg
+icon16dir = $(datadir)/icons/hicolor/16x16/apps
+icon32dir = $(datadir)/icons/hicolor/32x32/apps
+icon48dir = $(datadir)/icons/hicolor/48x48/apps
+icon64dir = $(datadir)/icons/hicolor/64x64/apps
+icon128dir = $(datadir)/icons/hicolor/128x128/apps
+#iconscalabledir = $(datadir)/icons/hicolor/scalable/apps
+icon16_DATA = $(icons_16_c) $(icons_16_s) $(icons_16_m)
+icon32_DATA = $(icons_32_c) $(icons_32_s) $(icons_32_m)
+icon48_DATA = $(icons_48_c) $(icons_48_s) $(icons_48_m)
+icon64_DATA = $(icons_64_c) $(icons_64_s) $(icons_64_m)
+icon128_DATA = $(icons_128_c) $(icons_128_s) $(icons_128_m)
+#iconscalable_DATA = $(icons_svg)
+EXTRA_DIST = \
+	$(icons_16_c)	\
+	$(icons_16_s)	\
+	$(icons_16_m)	\
+	$(icons_32_c)	\
+	$(icons_32_s)	\
+	$(icons_32_m)	\
+	$(icons_48_c)	\
+	$(icons_48_s)	\
+	$(icons_48_m)	\
+	$(icons_64_c)	\
+	$(icons_64_s)	\
+	$(icons_64_m)	\
+	$(icons_128_c)	\
+	$(icons_128_s)	\
+	$(icons_128_m)
+
 all: all-am
 
 .SUFFIXES:
@@ -548,9 +630,9 @@ $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu data/hex2t/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu data/icons/Makefile'; \
 	$(am__cd) $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu data/hex2t/Makefile
+	  $(AUTOMAKE) --gnu data/icons/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
@@ -575,27 +657,111 @@ mostlyclean-libtool:
 
 clean-libtool:
 	-rm -rf .libs _libs
-install-pkgdataDATA: $(pkgdata_DATA)
+install-icon128DATA: $(icon128_DATA)
 	@$(NORMAL_INSTALL)
-	@list='$(pkgdata_DATA)'; test -n "$(pkgdatadir)" || list=; \
+	@list='$(icon128_DATA)'; test -n "$(icon128dir)" || list=; \
 	if test -n "$$list"; then \
-	  echo " $(MKDIR_P) '$(DESTDIR)$(pkgdatadir)'"; \
-	  $(MKDIR_P) "$(DESTDIR)$(pkgdatadir)" || exit 1; \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(icon128dir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(icon128dir)" || exit 1; \
 	fi; \
 	for p in $$list; do \
 	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
 	  echo "$$d$$p"; \
 	done | $(am__base_list) | \
 	while read files; do \
-	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(pkgdatadir)'"; \
-	  $(INSTALL_DATA) $$files "$(DESTDIR)$(pkgdatadir)" || exit $$?; \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(icon128dir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(icon128dir)" || exit $$?; \
 	done
 
-uninstall-pkgdataDATA:
+uninstall-icon128DATA:
 	@$(NORMAL_UNINSTALL)
-	@list='$(pkgdata_DATA)'; test -n "$(pkgdatadir)" || list=; \
+	@list='$(icon128_DATA)'; test -n "$(icon128dir)" || list=; \
 	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
-	dir='$(DESTDIR)$(pkgdatadir)'; $(am__uninstall_files_from_dir)
+	dir='$(DESTDIR)$(icon128dir)'; $(am__uninstall_files_from_dir)
+install-icon16DATA: $(icon16_DATA)
+	@$(NORMAL_INSTALL)
+	@list='$(icon16_DATA)'; test -n "$(icon16dir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(icon16dir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(icon16dir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(icon16dir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(icon16dir)" || exit $$?; \
+	done
+
+uninstall-icon16DATA:
+	@$(NORMAL_UNINSTALL)
+	@list='$(icon16_DATA)'; test -n "$(icon16dir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(icon16dir)'; $(am__uninstall_files_from_dir)
+install-icon32DATA: $(icon32_DATA)
+	@$(NORMAL_INSTALL)
+	@list='$(icon32_DATA)'; test -n "$(icon32dir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(icon32dir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(icon32dir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(icon32dir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(icon32dir)" || exit $$?; \
+	done
+
+uninstall-icon32DATA:
+	@$(NORMAL_UNINSTALL)
+	@list='$(icon32_DATA)'; test -n "$(icon32dir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(icon32dir)'; $(am__uninstall_files_from_dir)
+install-icon48DATA: $(icon48_DATA)
+	@$(NORMAL_INSTALL)
+	@list='$(icon48_DATA)'; test -n "$(icon48dir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(icon48dir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(icon48dir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(icon48dir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(icon48dir)" || exit $$?; \
+	done
+
+uninstall-icon48DATA:
+	@$(NORMAL_UNINSTALL)
+	@list='$(icon48_DATA)'; test -n "$(icon48dir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(icon48dir)'; $(am__uninstall_files_from_dir)
+install-icon64DATA: $(icon64_DATA)
+	@$(NORMAL_INSTALL)
+	@list='$(icon64_DATA)'; test -n "$(icon64dir)" || list=; \
+	if test -n "$$list"; then \
+	  echo " $(MKDIR_P) '$(DESTDIR)$(icon64dir)'"; \
+	  $(MKDIR_P) "$(DESTDIR)$(icon64dir)" || exit 1; \
+	fi; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_DATA) $$files '$(DESTDIR)$(icon64dir)'"; \
+	  $(INSTALL_DATA) $$files "$(DESTDIR)$(icon64dir)" || exit $$?; \
+	done
+
+uninstall-icon64DATA:
+	@$(NORMAL_UNINSTALL)
+	@list='$(icon64_DATA)'; test -n "$(icon64dir)" || list=; \
+	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+	dir='$(DESTDIR)$(icon64dir)'; $(am__uninstall_files_from_dir)
 tags TAGS:
 
 ctags CTAGS:
@@ -637,7 +803,7 @@ check-am: all-am
 check: check-am
 all-am: Makefile $(DATA)
 installdirs:
-	for dir in "$(DESTDIR)$(pkgdatadir)"; do \
+	for dir in "$(DESTDIR)$(icon128dir)" "$(DESTDIR)$(icon16dir)" "$(DESTDIR)$(icon32dir)" "$(DESTDIR)$(icon48dir)" "$(DESTDIR)$(icon64dir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-am
@@ -690,7 +856,8 @@ info: info-am
 
 info-am:
 
-install-data-am: install-pkgdataDATA
+install-data-am: install-icon128DATA install-icon16DATA \
+	install-icon32DATA install-icon48DATA install-icon64DATA
 
 install-dvi: install-dvi-am
 
@@ -734,7 +901,8 @@ ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-pkgdataDATA
+uninstall-am: uninstall-icon128DATA uninstall-icon16DATA \
+	uninstall-icon32DATA uninstall-icon48DATA uninstall-icon64DATA
 
 .MAKE: install-am install-strip
 
@@ -743,12 +911,15 @@ uninstall-am: uninstall-pkgdataDATA
 	distclean-libtool distdir dvi dvi-am html html-am info info-am \
 	install install-am install-data install-data-am install-dvi \
 	install-dvi-am install-exec install-exec-am install-html \
-	install-html-am install-info install-info-am install-man \
-	install-pdf install-pdf-am install-pkgdataDATA install-ps \
-	install-ps-am install-strip installcheck installcheck-am \
-	installdirs maintainer-clean maintainer-clean-generic \
-	mostlyclean mostlyclean-generic mostlyclean-libtool pdf pdf-am \
-	ps ps-am tags-am uninstall uninstall-am uninstall-pkgdataDATA
+	install-html-am install-icon128DATA install-icon16DATA \
+	install-icon32DATA install-icon48DATA install-icon64DATA \
+	install-info install-info-am install-man install-pdf \
+	install-pdf-am install-ps install-ps-am install-strip \
+	installcheck installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-generic \
+	mostlyclean-libtool pdf pdf-am ps ps-am tags-am uninstall \
+	uninstall-am uninstall-icon128DATA uninstall-icon16DATA \
+	uninstall-icon32DATA uninstall-icon48DATA uninstall-icon64DATA
 
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
