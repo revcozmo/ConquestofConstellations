@@ -1,17 +1,15 @@
-## Process this file with automake to produce Makefile.in
+##########################################################
+#                                                        #
+# (c) 2011-2015 Marko Lindqvist                          #
+#                                                        #
+# Version contributed to Freeciv has been made available #
+# under GNU Public License; either version 2, or         #
+# (at your option) any later version.                    #
+#                                                        #
+##########################################################
 
-if SYS_LUA
-LUASUBDIR =
-else
-LUASUBDIR = lua-5.2
-endif
+noinst_LTLIBRARIES = libcvercmp.la
 
-SUBDIRS = $(LUASUBDIR) tolua-5.2 cvercmp
-
-if FCDB_DB
-SUBDIRS += luasql
-endif
-
-EXTRA_DIST = \
-		m4/mkstemp.m4 \
-		m4/stdlib_h.m4
+libcvercmp_la_SOURCES = \
+	cvercmp.c	\
+	cvercmp.h
