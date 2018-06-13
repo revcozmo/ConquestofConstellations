@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in
 
 ## Override automake so that "make install" puts these in proper place:
-pkgdatadir = $(datadir)/$(PACKAGE)/civ2
+pkgdatadir = $(datadir)/$(PACKAGE)/civ2civ3
 
 pkgdata_DATA =          \
 	buildings.ruleset \
@@ -10,7 +10,7 @@ pkgdata_DATA =          \
 	script.lua	\
 	game.ruleset	\
 	governments.ruleset \
-	nations.ruleset \
+	nations.ruleset	\
 	techs.ruleset	\
 	terrain.ruleset	\
 	units.ruleset
