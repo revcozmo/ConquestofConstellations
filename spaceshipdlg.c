@@ -42,7 +42,7 @@
 #include "text.h"
 #include "tilespec.h"
 
-/* gui-gtk-2.0 */
+/* client/gui-gtk-3.0 */
 #include "dialogs.h"
 #include "graphics.h"
 #include "gui_main.h"
@@ -168,13 +168,16 @@ void popdown_spaceship_dialog(struct player *pplayer)
   Spaceship dialog canvas got exposed
 *****************************************************************/
 static gboolean spaceship_image_canvas_expose(GtkWidget *widget,
-					      GdkEventExpose *ev,
+					      cairo_t *cr,
 					      gpointer data)
 {
-  struct spaceship_dialog *pdialog;
-  
-  pdialog=(struct spaceship_dialog *)data;
-  spaceship_dialog_update_image(pdialog);
+  struct spaceship_dialog *pdialog = (struct spaceship_dialog *)data;
+  struct canvas store = FC_STATIC_CANVAS_INIT;
+
+  store.drawable = cr;
+
+  put_spaceship(&store, 0, 0, pdialog->pplayer);
+
   return TRUE;
 }
 
@@ -225,38 +228,40 @@ struct spaceship_dialog *create_spaceship_dialog(struct player *pplayer)
   gui_dialog_set_title(pdialog->shell, player_name(pplayer));
 
   gui_dialog_add_button(pdialog->shell,
-      _("_Launch"), GTK_RESPONSE_ACCEPT);
-  gui_dialog_add_button(pdialog->shell,
       GTK_STOCK_CLOSE, GTK_RESPONSE_CLOSE);
+  gui_dialog_add_button(pdialog->shell,
+      _("_Launch"), GTK_RESPONSE_ACCEPT);
 
   g_signal_connect(pdialog->shell->vbox, "destroy",
 		   G_CALLBACK(spaceship_destroy_callback), pdialog);
   gui_dialog_response_set_callback(pdialog->shell, spaceship_response);
 
-  hbox=gtk_hbox_new(FALSE, 5);
-  gtk_box_pack_start(GTK_BOX(pdialog->shell->vbox), hbox, FALSE, FALSE, 0);
+  hbox=gtk_grid_new();
+  gtk_grid_set_column_spacing(GTK_GRID(hbox), 5);
+  gtk_container_add(GTK_CONTAINER(pdialog->shell->vbox), hbox);
 
   frame=gtk_frame_new(NULL);
-  gtk_box_pack_start(GTK_BOX(hbox), frame, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(hbox), frame);
 
   pdialog->image_canvas=gtk_drawing_area_new();
-  GTK_WIDGET_SET_FLAGS(pdialog->image_canvas, GTK_CAN_FOCUS);
+  gtk_widget_set_can_focus(pdialog->image_canvas, TRUE);
   get_spaceship_dimensions(&w, &h);
   gtk_widget_set_size_request(pdialog->image_canvas, w, h);
 
   gtk_widget_set_events(pdialog->image_canvas, GDK_EXPOSURE_MASK);
   gtk_container_add(GTK_CONTAINER(frame), pdialog->image_canvas);
   gtk_widget_realize(pdialog->image_canvas);
-  
-  g_signal_connect(pdialog->image_canvas, "expose_event",
+
+  g_signal_connect(pdialog->image_canvas, "draw",
 		   G_CALLBACK(spaceship_image_canvas_expose), pdialog);
 
   pdialog->info_label = gtk_label_new(get_spaceship_descr(NULL));
 
   gtk_label_set_justify(GTK_LABEL(pdialog->info_label), GTK_JUSTIFY_LEFT);
-  gtk_misc_set_alignment(GTK_MISC(pdialog->info_label), 0.0, 0.0);
+  gtk_widget_set_halign(pdialog->info_label, GTK_ALIGN_START);
+  gtk_widget_set_valign(pdialog->info_label, GTK_ALIGN_START);
 
-  gtk_box_pack_start(GTK_BOX(hbox), pdialog->info_label, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(hbox), pdialog->info_label);
   gtk_widget_set_name(pdialog->info_label, "spaceship_label");
 
   dialog_list_prepend(dialog_list, pdialog);
@@ -285,8 +290,5 @@ void spaceship_dialog_update_info(struct spaceship_dialog *pdialog)
 *****************************************************************/
 void spaceship_dialog_update_image(struct spaceship_dialog *pdialog)
 {
-  struct canvas store = {.type = CANVAS_PIXMAP,
-			 .v = {.pixmap = pdialog->image_canvas->window}};
-
-  put_spaceship(&store, 0, 0, pdialog->pplayer);
+  gtk_widget_queue_draw(pdialog->image_canvas);
 }

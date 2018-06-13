@@ -46,7 +46,7 @@
 #include "mapview_common.h"
 #include "options.h"
 
-/* gui-gtk-2.0 */
+/* client/gui-gtk-3.0 */
 #include "chatline.h"
 #include "citydlg.h"
 #include "gui_main.h"
@@ -400,7 +400,8 @@ static void append_impr_or_unit_to_menu_item(GtkMenuItem *parent_item,
     get_city_dialog_production_row(row, sizeof(buf[0]), target, NULL);
 
     menu_item = gtk_menu_item_new();
-    hbox = gtk_hbox_new(FALSE, 18);
+    hbox = gtk_grid_new();
+    gtk_grid_set_column_spacing(GTK_GRID(hbox), 18);
     gtk_container_add(GTK_CONTAINER(menu_item), hbox);
 
     for (i = 0; i < 3; i++) {
@@ -418,13 +419,20 @@ static void append_impr_or_unit_to_menu_item(GtkMenuItem *parent_item,
       label = gtk_label_new(NULL);
       gtk_label_set_markup(GTK_LABEL(label), txt);
 
-      if (i < 2) {
-	gtk_misc_set_alignment(GTK_MISC(label), 0.0, 0.5);
-      } else {
-	gtk_misc_set_alignment(GTK_MISC(label), 1.0, 0.5);
+      switch (i) {
+        case 0:
+          gtk_widget_set_halign(label, GTK_ALIGN_START);
+          gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
+        break;
+        case 2:
+          gtk_widget_set_halign(label, GTK_ALIGN_END);
+          gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
+          break;
+        default:
+          break;
       }
 
-      gtk_box_pack_start(GTK_BOX(hbox), label, TRUE, FALSE, 0);
+      gtk_container_add(GTK_CONTAINER(hbox), label);
       gtk_size_group_add_widget(group[i], label);
     }
 
@@ -559,7 +567,7 @@ static void sell_impr_iterate(GtkTreeModel *model, GtkTreePath *path,
 static void select_impr_or_unit_callback(GtkWidget *w, gpointer data)
 {
   struct universal target = cid_decode(GPOINTER_TO_INT(data));
-  GObject *parent = G_OBJECT(w->parent);
+  GObject *parent = G_OBJECT(gtk_widget_get_parent(w));
   TestCityFunc test_func = g_object_get_data(parent, "freeciv_test_func");
   enum city_operation_type city_operation = 
     GPOINTER_TO_INT(g_object_get_data(parent, "freeciv_city_operation"));
@@ -685,7 +693,7 @@ static void cma_iterate(GtkTreeModel *model, GtkTreePath *path,
 static void select_cma_callback(GtkWidget * w, gpointer data)
 {
   int idx = GPOINTER_TO_INT(data);
-  GObject *parent = G_OBJECT(w->parent);
+  GObject *parent = G_OBJECT(gtk_widget_get_parent(w));
   bool change_cma =
       GPOINTER_TO_INT(g_object_get_data(parent, "freeciv_change_cma"));
   struct cm_parameter parameter;
@@ -747,7 +755,7 @@ static void append_cma_to_menu_item(GtkMenuItem *parent_item, bool change_cma)
   GtkWidget *w;
 
   w = gtk_menu_item_get_submenu(parent_item);
-  if (w != NULL && GTK_WIDGET_VISIBLE(w)) {
+  if (w != NULL && gtk_widget_get_visible(w)) {
     return;
   }
 
@@ -938,7 +946,7 @@ static void production_menu_shown(GtkWidget *widget, gpointer data)
   fc_assert_ret(callback != NULL);
 
   menu = gtk_menu_item_get_submenu(parent_item);
-  if (menu != NULL && GTK_WIDGET_VISIBLE(menu)) {
+  if (menu != NULL && gtk_widget_get_visible(menu)) {
     gtk_menu_shell_deactivate(GTK_MENU_SHELL(menu));
   }
 
@@ -1031,12 +1039,14 @@ static GtkWidget *create_city_report_menubar(void)
 {
   GtkWidget *vbox, *sep, *menubar, *menu, *item;
 
-  vbox = gtk_vbox_new(FALSE, 0);
-  sep = gtk_hseparator_new();
-  gtk_box_pack_start(GTK_BOX(vbox), sep, FALSE, FALSE, 0);
+  vbox = gtk_grid_new();
+  gtk_orientable_set_orientation(GTK_ORIENTABLE(vbox),
+                                 GTK_ORIENTATION_VERTICAL);
+  sep = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+  gtk_container_add(GTK_CONTAINER(vbox), sep);
 
   menubar = gtk_aux_menu_bar_new();
-  gtk_box_pack_start(GTK_BOX(vbox), menubar, TRUE, TRUE, 0);
+  gtk_container_add(GTK_CONTAINER(vbox), menubar);
   
   item = gtk_menu_item_new_with_mnemonic(_("_Production"));
   city_production_command = item;
@@ -1145,26 +1155,27 @@ static void create_city_report_dialog(bool make_modal)
   gui_dialog_add_widget(city_dialog_shell, menubar);
 
   /* buttons */
-  w = gui_dialog_add_stockbutton(city_dialog_shell, GTK_STOCK_ZOOM_FIT,
-      _("Cen_ter"), CITY_CENTER);
-  city_center_command = w;
+  gui_dialog_add_button(city_dialog_shell,
+			GTK_STOCK_CLOSE, GTK_RESPONSE_CLOSE);
 
-  w = gui_dialog_add_stockbutton(city_dialog_shell, GTK_STOCK_ZOOM_IN,
-      _("_Inspect"), CITY_POPUP);
-  city_popup_command = w;
+  city_total_buy_cost_label = gtk_label_new(NULL);
+  gtk_widget_set_hexpand(city_total_buy_cost_label, TRUE);
+  gtk_label_set_ellipsize(GTK_LABEL(city_total_buy_cost_label),
+                          PANGO_ELLIPSIZE_START);
+  gtk_container_add(GTK_CONTAINER(city_dialog_shell->action_area),
+                    city_total_buy_cost_label);
 
   w = gui_dialog_add_stockbutton(city_dialog_shell, GTK_STOCK_EXECUTE,
       _("_Buy"), CITY_BUY);
   city_buy_command = w;
 
-  city_total_buy_cost_label = gtk_label_new(NULL);
-  gtk_label_set_ellipsize(GTK_LABEL(city_total_buy_cost_label),
-                          PANGO_ELLIPSIZE_START);
-  gtk_box_pack_end(GTK_BOX(city_dialog_shell->action_area),
-                   city_total_buy_cost_label, TRUE, TRUE, 0);
+  w = gui_dialog_add_stockbutton(city_dialog_shell, GTK_STOCK_ZOOM_IN,
+      _("_Inspect"), CITY_POPUP);
+  city_popup_command = w;
 
-  gui_dialog_add_button(city_dialog_shell,
-			GTK_STOCK_CLOSE, GTK_RESPONSE_CLOSE);
+  w = gui_dialog_add_stockbutton(city_dialog_shell, GTK_STOCK_ZOOM_FIT,
+      _("Cen_ter"), CITY_CENTER);
+  city_center_command = w;
 
   gui_dialog_set_default_response(city_dialog_shell,
 				  GTK_RESPONSE_CLOSE);
@@ -1180,6 +1191,8 @@ static void create_city_report_dialog(bool make_modal)
   city_model = city_report_dialog_store_new();
 
   city_view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(city_model));
+  gtk_widget_set_hexpand(city_view, TRUE);
+  gtk_widget_set_vexpand(city_view, TRUE);
   g_object_unref(city_model);
   gtk_widget_set_name(city_view, "small_font");
   g_signal_connect(city_view, "row_activated",
@@ -1218,8 +1231,7 @@ static void create_city_report_dialog(bool make_modal)
                                  GTK_POLICY_AUTOMATIC, GTK_POLICY_ALWAYS);
   gtk_container_add(GTK_CONTAINER(sw), city_view);
 
-  gtk_box_pack_start(GTK_BOX(city_dialog_shell->vbox),
-                     sw, TRUE, TRUE, 0);
+  gtk_container_add(GTK_CONTAINER(city_dialog_shell->vbox), sw);
 
   city_model_fill(city_model, NULL, NULL);
   gui_dialog_show_all(city_dialog_shell);
@@ -1414,6 +1426,8 @@ static void city_activated_callback(GtkTreeView *view, GtkTreePath *path,
 {
   GtkTreeModel *model;
   GtkTreeIter iter;
+  GdkWindow *win;
+  GdkDeviceManager *manager;
   GdkModifierType mask;
 
   model = gtk_tree_view_get_model(view);
@@ -1422,7 +1436,12 @@ static void city_activated_callback(GtkTreeView *view, GtkTreePath *path,
     return;
   }
 
-  gdk_window_get_pointer(NULL, NULL, NULL, &mask);
+  win = gdk_get_default_root_window();
+  manager = gdk_display_get_device_manager(gdk_window_get_display(win));
+
+  gdk_window_get_device_position(win,
+                                 gdk_device_manager_get_client_pointer(manager),
+                                 NULL, NULL, &mask);
 
   if (!(mask & GDK_CONTROL_MASK)) {
     popup_iterate(model, path, &iter, NULL);
@@ -1459,7 +1478,7 @@ void real_city_report_dialog_update(void)
   city_model_fill(city_model, city_selection, selected);
   g_hash_table_destroy(selected);
 
-  if (GTK_WIDGET_SENSITIVE(city_governor_command)) {
+  if (gtk_widget_get_sensitive(city_governor_command)) {
     append_cma_to_menu_item(GTK_MENU_ITEM(city_governor_command), TRUE);
   }
 

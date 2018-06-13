@@ -61,7 +61,7 @@ extern gint cur_x, cur_y;
 static gboolean popit_button_release(GtkWidget *w, GdkEventButton *event)
 {
   gtk_grab_remove(w);
-  gdk_pointer_ungrab(GDK_CURRENT_TIME);
+  gdk_device_ungrab(event->device, event->time);
   gtk_widget_destroy(w);
   return FALSE;
 }
@@ -83,8 +83,8 @@ static void popupinfo_positioning_callback(GtkWidget *w, GtkAllocation *alloc,
   if (tile_to_canvas_pos(&x, &y, ptile)) {
     gint minx, miny, maxy;
 
-    gdk_window_get_origin(map_canvas->window, &minx, &miny);
-    maxy = miny + map_canvas->allocation.height;
+    gdk_window_get_origin(gtk_widget_get_window(map_canvas), &minx, &miny);
+    maxy = miny + gtk_widget_get_allocated_height(map_canvas);
 
     if (x > mapview.width/2) {
       /* right part of the map */
@@ -117,9 +117,9 @@ static void popit(GdkEventButton *event, struct tile *ptile)
   struct unit *punit;
 
   if (TILE_UNKNOWN != client_tile_get_known(ptile)) {
-    p=gtk_window_new(GTK_WINDOW_POPUP);
-    gtk_widget_set_app_paintable(p, TRUE);
+    p = gtk_window_new(GTK_WINDOW_POPUP);
     gtk_container_set_border_width(GTK_CONTAINER(p), 4);
+    gtk_window_set_transient_for(GTK_WINDOW(p), GTK_WINDOW(toplevel));
     gtk_container_add(GTK_CONTAINER(p), gtk_label_new(popup_info_text(ptile)));
 
     punit = find_visible_unit(ptile);
@@ -143,8 +143,9 @@ static void popit(GdkEventButton *event, struct tile *ptile)
 		     &mousepos);
 
     gtk_widget_show_all(p);
-    gdk_pointer_grab(p->window, TRUE, GDK_BUTTON_RELEASE_MASK,
-		     NULL, NULL, event->time);
+    gdk_device_grab(event->device, gtk_widget_get_window(p),
+                    GDK_OWNERSHIP_NONE, TRUE, GDK_BUTTON_RELEASE_MASK, NULL,
+                    event->time);
     gtk_grab_add(p);
 
     g_signal_connect_after(p, "button_release_event",
@@ -301,7 +302,7 @@ gboolean butt_down_mapcanvas(GtkWidget *w, GdkEventButton *ev, gpointer data)
     }
     /* <SHIFT> + <ALT> + RMB : Show/hide workers. */
     else if ((ev->state & GDK_SHIFT_MASK) && (ev->state & GDK_MOD1_MASK)) {
-      overlay_workers_at_city();
+      key_city_overlay(ev->x, ev->y);
     }
     /* <SHIFT + CONTROL> + RMB: Paste Production. */
     else if ((ev->state & GDK_SHIFT_MASK) && (ev->state & GDK_CONTROL_MASK)
@@ -351,16 +352,20 @@ gboolean butt_down_mapcanvas(GtkWidget *w, GdkEventButton *ev, gpointer data)
 void create_line_at_mouse_pos(void)
 {
   int x, y;
+  GdkWindow *window;
+  GdkDeviceManager *manager =
+      gdk_display_get_device_manager(gtk_widget_get_display(toplevel));
+  GdkDevice *pointer = gdk_device_manager_get_client_pointer(manager);
 
-  gdk_window_get_pointer(map_canvas->window, &x, &y, 0);
-  if (x >= 0 && y >= 0
-      && x < mapview.width && y < mapview.width) {
-    update_line(x, y);
-  } else {
-    gdk_window_get_pointer(overview_canvas->window, &x, &y, 0);
-    if (x >= 0 && y >= 0
-	&& x < OVERVIEW_TILE_WIDTH * map.xsize
-	&& y < OVERVIEW_TILE_HEIGHT * map.ysize) {
+  if (!pointer) {
+    return;
+  }
+
+  window = gdk_device_get_window_at_position(pointer, &x, &y);
+  if (window) {
+    if (window == gtk_widget_get_window(map_canvas)) {
+      update_line(x, y);
+    } else if (window == gtk_widget_get_window(overview_canvas)) {
       overview_update_line(x, y);
     }
   }
@@ -372,15 +377,25 @@ void create_line_at_mouse_pos(void)
 **************************************************************************/
 void update_rect_at_mouse_pos(void)
 {
-  int canvas_x, canvas_y;
+  int x, y;
+  GdkWindow *window;
+  GdkDevice *pointer;
+  GdkModifierType mask;
+  GdkDeviceManager *manager =
+      gdk_display_get_device_manager(gtk_widget_get_display(toplevel));
 
-  if (!rbutton_down) {
+  pointer = gdk_device_manager_get_client_pointer(manager);
+  if (!pointer) {
     return;
   }
 
-  /* Reading the mouse pos here saves event queueing. */
-  gdk_window_get_pointer(map_canvas->window, &canvas_x, &canvas_y, NULL);
-  update_selection_rectangle(canvas_x, canvas_y);
+  window = gdk_device_get_window_at_position(pointer, &x, &y);
+  if (window && window == gtk_widget_get_window(map_canvas)) {
+    gdk_device_get_state(pointer, window, NULL, &mask);
+    if (mask & GDK_BUTTON3_MASK) {
+      update_selection_rectangle(x, y);
+    }
+  }
 }
 
 /**************************************************************************
@@ -389,7 +404,7 @@ void update_rect_at_mouse_pos(void)
 **************************************************************************/
 gboolean move_mapcanvas(GtkWidget *w, GdkEventMotion *ev, gpointer data)
 {
-  if (gui_gtk2_mouse_over_map_focus && !GTK_WIDGET_HAS_FOCUS(map_canvas)) {
+  if (gui_gtk3_mouse_over_map_focus && !gtk_widget_has_focus(map_canvas)) {
     gtk_widget_grab_focus(map_canvas);
   }
 
@@ -400,7 +415,10 @@ gboolean move_mapcanvas(GtkWidget *w, GdkEventMotion *ev, gpointer data)
   cur_x = ev->x;
   cur_y = ev->y;
   update_line(ev->x, ev->y);
-  update_rect_at_mouse_pos();
+  if (rbutton_down && (ev->state & GDK_BUTTON3_MASK)) {
+    update_selection_rectangle(ev->x, ev->y);
+  }
+
   if (keyboardless_goto_button_down && hover_state == HOVER_NONE) {
     maybe_activate_keyboardless_goto(ev->x, ev->y);
   }
@@ -414,8 +432,6 @@ gboolean move_mapcanvas(GtkWidget *w, GdkEventMotion *ev, gpointer data)
 **************************************************************************/
 gboolean leave_mapcanvas(GtkWidget *widget, GdkEventCrossing *event)
 {
-  int canvas_x, canvas_y;
-
   if (gtk_notebook_get_current_page(GTK_NOTEBOOK(top_notebook))
       != gtk_notebook_page_num(GTK_NOTEBOOK(top_notebook), map_widget)) {
     /* Map is not currently topmost tab. Do not use tile specific cursors. */
@@ -426,11 +442,10 @@ gboolean leave_mapcanvas(GtkWidget *widget, GdkEventCrossing *event)
   /* Bizarrely, this function can be called even when we don't "leave"
    * the map canvas, for instance, it gets called any time the mouse is
    * clicked. */
-  gdk_window_get_pointer(map_canvas->window, &canvas_x, &canvas_y, NULL);
   if (map_exists()
-      && canvas_x >= 0 && canvas_y >= 0
-      && canvas_x < mapview.width && canvas_y < mapview.height) {
-    control_mouse_cursor(canvas_pos_to_tile(canvas_x, canvas_y));
+      && event->x >= 0 && event->y >= 0
+      && event->x < mapview.width && event->y < mapview.height) {
+    control_mouse_cursor(canvas_pos_to_tile(event->x, event->y));
   } else {
     update_mouse_cursor(CURSOR_DEFAULT);
   }
@@ -476,15 +491,4 @@ gboolean butt_down_overviewcanvas(GtkWidget *w, GdkEventButton *ev, gpointer dat
 void center_on_unit(void)
 {
   request_center_focus_unit();
-}
-
-/**************************************************************************
-  Shows/hides overlay on the map for the city at this location
-**************************************************************************/
-void overlay_workers_at_city(void)
-{
-  int x, y;
-  
-  gdk_window_get_pointer(map_canvas->window, &x, &y, NULL);
-  key_city_overlay(x, y);
 }

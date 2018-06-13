@@ -34,7 +34,7 @@
 #include "cma_fec.h"
 #include "messagewin_g.h"
 
-/* gtk-2.0 */
+/* client/gtk-3.0 */
 #include "cityrep.h"
 #include "dialogs.h"
 #include "gui_stuff.h"
@@ -76,7 +76,7 @@ static void cma_active_callback(GtkWidget *w, gpointer data);
 static void cma_activate_preset_callback(GtkTreeView *view, GtkTreePath *path,
 				         GtkTreeViewColumn *col, gpointer data);
 
-static void hscale_changed(GtkAdjustment *get, gpointer data);
+static void hscale_changed(GtkWidget *get, gpointer data);
 static void set_hscales(const struct cm_parameter *const parameter,
 			struct cma_dialog *pdialog);
 
@@ -177,7 +177,7 @@ static void cell_data_func(GtkTreeViewColumn *col, GtkCellRenderer *cell,
                            GtkTreeModel *model, GtkTreeIter *it, gpointer data)
 {
   struct cma_dialog *pdialog = (struct cma_dialog *) data;
-  char *s1;
+  gchararray s1;
   const char *s2;
   int i1, i2;
   struct cm_parameter param;
@@ -207,9 +207,9 @@ static void cell_data_func(GtkTreeViewColumn *col, GtkCellRenderer *cell,
 }
 
 /**************************************************************************
-  Instantiates a new struct for each city_dialog window that is open.
+ instantiates a new struct for each city_dialog window that is open.
 **************************************************************************/
-struct cma_dialog *create_cma_dialog(struct city *pcity)
+struct cma_dialog *create_cma_dialog(struct city *pcity, bool tiny)
 {
   struct cma_dialog *pdialog;
   struct cm_parameter param;
@@ -219,20 +219,28 @@ struct cma_dialog *create_cma_dialog(struct city *pcity)
   GtkCellRenderer *rend;
   GtkWidget *view;
   GtkTreeViewColumn *column;
+  gint layout_width;
 
   cmafec_get_fe_parameter(pcity, &param);
   pdialog = fc_malloc(sizeof(struct cma_dialog));
   pdialog->pcity = pcity;
-  pdialog->shell = gtk_vbox_new(FALSE, 8);
+  pdialog->shell = gtk_grid_new();
+  gtk_orientable_set_orientation(GTK_ORIENTABLE(pdialog->shell),
+                                 GTK_ORIENTATION_VERTICAL);
+  gtk_grid_set_row_spacing(GTK_GRID(pdialog->shell), 8);
   gtk_container_set_border_width(GTK_CONTAINER(pdialog->shell), 8);
   g_signal_connect(pdialog->shell, "destroy",
                    G_CALLBACK(cma_dialog_destroy_callback), pdialog);
 
-  page = gtk_hbox_new(FALSE, 12);
-  gtk_box_pack_start(GTK_BOX(pdialog->shell), page, TRUE, TRUE, 0);
+  page = gtk_grid_new();
+  gtk_grid_set_column_spacing(GTK_GRID(page), 12);
+  gtk_container_add(GTK_CONTAINER(pdialog->shell), page);
 
-  vbox = gtk_vbox_new(FALSE, 2);
-  gtk_box_pack_start(GTK_BOX(page), vbox, TRUE, TRUE, 0);
+  vbox = gtk_grid_new();
+  gtk_orientable_set_orientation(GTK_ORIENTABLE(vbox),
+                                 GTK_ORIENTATION_VERTICAL);
+  gtk_grid_set_row_spacing(GTK_GRID(pdialog->shell), 2);
+  gtk_container_add(GTK_CONTAINER(page), vbox);
 
   sw = gtk_scrolled_window_new(NULL, NULL);
   gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(sw),
@@ -244,6 +252,8 @@ struct cma_dialog *create_cma_dialog(struct city *pcity)
   pdialog->store = store;
 
   view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
+  gtk_widget_set_hexpand(view, TRUE);
+  gtk_widget_set_vexpand(view, TRUE);
   g_object_unref(store);
   gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(view), FALSE);
   pdialog->preset_list = view;
@@ -270,19 +280,19 @@ struct cma_dialog *create_cma_dialog(struct city *pcity)
                        "mnemonic-widget", view,
                        "label", _("Prese_ts:"),
                        "xalign", 0.0, "yalign", 0.5, NULL);
-  gtk_box_pack_start(GTK_BOX(vbox), label, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(vbox), label);
 
   gtk_container_add(GTK_CONTAINER(sw), view);
-  gtk_box_pack_start(GTK_BOX(vbox), sw, TRUE, TRUE, 0);
+  gtk_container_add(GTK_CONTAINER(vbox), sw);
 
   g_signal_connect(view, "row_activated",
                    G_CALLBACK(cma_activate_preset_callback), pdialog);
   g_signal_connect(view, "key-press-event",
                    G_CALLBACK(cma_preset_key_pressed_callback), pdialog);
 
-  hbox = gtk_hbutton_box_new();
+  hbox = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
   gtk_button_box_set_layout(GTK_BUTTON_BOX(hbox), GTK_BUTTONBOX_EDGE);
-  gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(vbox), hbox);
 
   button = gtk_button_new_with_mnemonic(_("Ne_w"));
   image = gtk_image_new_from_stock(GTK_STOCK_NEW, GTK_ICON_SIZE_BUTTON);
@@ -299,99 +309,118 @@ struct cma_dialog *create_cma_dialog(struct city *pcity)
 
   /* the right-hand side */
 
-  vbox = gtk_vbox_new(FALSE, 0);
-  gtk_box_pack_start(GTK_BOX(page), vbox, FALSE, FALSE, 2);
+  vbox = gtk_grid_new();
+  g_object_set(vbox, "margin", 2, NULL);
+  gtk_orientable_set_orientation(GTK_ORIENTABLE(vbox),
+                                 GTK_ORIENTATION_VERTICAL);
+  gtk_container_add(GTK_CONTAINER(page), vbox);
 
   /* Result */
+  if (!tiny) {
+    frame = gtk_frame_new(_("Results"));
+    gtk_widget_set_vexpand(frame, TRUE);
+    gtk_widget_set_valign(frame, GTK_ALIGN_CENTER);
+    gtk_container_add(GTK_CONTAINER(vbox), frame);
 
-  frame = gtk_frame_new(_("Results"));
-  gtk_box_pack_start(GTK_BOX(vbox), frame, TRUE, FALSE, 0);
-
-  pdialog->result_label =
+    pdialog->result_label =
       gtk_label_new("food\n prod\n trade\n\n people\n grow\n prod\n name");
-  gtk_widget_set_name(pdialog->result_label, "city_label");
-  gtk_container_add(GTK_CONTAINER(frame), pdialog->result_label);
-  gtk_label_set_justify(GTK_LABEL(pdialog->result_label), GTK_JUSTIFY_LEFT);
+    gtk_widget_set_name(pdialog->result_label, "city_label");
+    gtk_container_add(GTK_CONTAINER(frame), pdialog->result_label);
+    gtk_label_set_justify(GTK_LABEL(pdialog->result_label), GTK_JUSTIFY_LEFT);
+  } else {
+    pdialog->result_label = NULL;
+  }
 
   /* Minimal Surplus and Factor */
 
-  table = gtk_table_new(O_LAST + 2, 3, TRUE);
-  gtk_box_pack_start(GTK_BOX(vbox), table, FALSE, FALSE, 2);
+  table = gtk_grid_new();
+  g_object_set(table, "margin", 2, NULL);
+  gtk_container_add(GTK_CONTAINER(vbox), table);
 
   label = gtk_label_new(_("Minimal Surplus"));
-  gtk_misc_set_alignment(GTK_MISC(label), 0.1, 0.5);
-  gtk_table_attach_defaults(GTK_TABLE(table), label, 1, 2, 0, 1);
+  gtk_widget_set_halign(label, GTK_ALIGN_START);
+  gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
+  gtk_grid_attach(GTK_GRID(table), label, 1, 0, 1, 1);
   label = gtk_label_new(_("Factor"));
-  gtk_misc_set_alignment(GTK_MISC(label), 0.1, 0.5);
-  gtk_table_attach_defaults(GTK_TABLE(table), label, 2, 3, 0, 1);
+  gtk_widget_set_halign(label, GTK_ALIGN_START);
+  gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
+  gtk_grid_attach(GTK_GRID(table), label, 2, 0, 1, 1);
 
   output_type_iterate(i) {
     label = gtk_label_new(get_output_name(i));
-    gtk_table_attach_defaults(GTK_TABLE(table), label, 0, 1, i + 1, i + 2);
-    gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
+    gtk_grid_attach(GTK_GRID(table), label, 0, i + 1, 1, 1);
+    gtk_widget_set_halign(label, GTK_ALIGN_START);
+    gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
 
-    pdialog->minimal_surplus[i] =
-	GTK_ADJUSTMENT(gtk_adjustment_new(-20, -20, 20, 1, 1, 0));
+    pdialog->minimal_surplus[i] = hscale =
+        gtk_scale_new(GTK_ORIENTATION_HORIZONTAL, NULL);
+    gtk_range_set_range(GTK_RANGE(hscale), -20, 20);
+    gtk_range_set_increments(GTK_RANGE(hscale), 1, 1);
+    pango_layout_get_pixel_size(gtk_scale_get_layout(GTK_SCALE(hscale)),
+                                &layout_width, NULL);
+    gtk_widget_set_size_request(hscale, layout_width + 51 * 2, -1);
 
-    hscale = gtk_hscale_new(GTK_ADJUSTMENT(pdialog->minimal_surplus[i]));
-    gtk_table_attach_defaults(GTK_TABLE(table), hscale, 1, 2, i + 1, i + 2);
+    gtk_grid_attach(GTK_GRID(table), hscale, 1, i + 1, 1, 1);
     gtk_scale_set_digits(GTK_SCALE(hscale), 0);
     gtk_scale_set_value_pos(GTK_SCALE(hscale), GTK_POS_LEFT);
 
     g_signal_connect(pdialog->minimal_surplus[i],
-                     "value_changed",
+                     "value-changed",
                      G_CALLBACK(hscale_changed), pdialog);
 
-    pdialog->factor[i] =
-	GTK_ADJUSTMENT(gtk_adjustment_new(1, 0, 25, 1, 1, 0));
+    pdialog->factor[i] = hscale =
+        gtk_scale_new(GTK_ORIENTATION_HORIZONTAL, NULL);
+    gtk_range_set_range(GTK_RANGE(hscale), 0, 25);
+    gtk_range_set_increments(GTK_RANGE(hscale), 1, 1);
+    pango_layout_get_pixel_size(gtk_scale_get_layout(GTK_SCALE(hscale)),
+                                &layout_width, NULL);
+    gtk_widget_set_size_request(hscale, layout_width + 26 * 2, -1);
 
-    hscale = gtk_hscale_new(GTK_ADJUSTMENT(pdialog->factor[i]));
-    gtk_table_attach_defaults(GTK_TABLE(table), hscale, 2, 3, i + 1, i + 2);
+    gtk_grid_attach(GTK_GRID(table), hscale, 2, i + 1, 1, 1);
     gtk_scale_set_digits(GTK_SCALE(hscale), 0);
     gtk_scale_set_value_pos(GTK_SCALE(hscale), GTK_POS_LEFT);
 
-    g_signal_connect(pdialog->factor[i], "value_changed",
+    g_signal_connect(pdialog->factor[i], "value-changed",
                      G_CALLBACK(hscale_changed), pdialog);
   } output_type_iterate_end;
 
   /* Happy Surplus and Factor */
 
   label = gtk_label_new(_("Celebrate"));
-  gtk_table_attach_defaults(GTK_TABLE(table), label, 0, 1,
-                            O_LAST + 1, O_LAST + 2);
-  gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
-
-  hbox = gtk_hbox_new(FALSE, 0);
-  gtk_table_attach_defaults(GTK_TABLE(table), hbox, 1, 2,
-                            O_LAST + 1, O_LAST + 2);
+  gtk_grid_attach(GTK_GRID(table), label, 0, O_LAST + 1, 1, 1);
+  gtk_widget_set_halign(label, GTK_ALIGN_START);
+  gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
 
   pdialog->happy_button = gtk_check_button_new();
-  gtk_box_pack_start(GTK_BOX(hbox), pdialog->happy_button, FALSE, FALSE,
-                     20);
+  gtk_widget_set_halign(pdialog->happy_button, GTK_ALIGN_END);
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(pdialog->happy_button),
                                FALSE);
+  gtk_grid_attach(GTK_GRID(table), pdialog->happy_button, 1, O_LAST + 1, 1, 1);
 
   g_signal_connect(pdialog->happy_button, "toggled",
                    G_CALLBACK(hscale_changed), pdialog);
 
-  pdialog->factor[O_LAST] =
-      GTK_ADJUSTMENT(gtk_adjustment_new(0, 0, 50, 1, 1, 0));
+  pdialog->factor[O_LAST] = hscale =
+      gtk_scale_new(GTK_ORIENTATION_HORIZONTAL, NULL);
+  gtk_range_set_range(GTK_RANGE(hscale), 0, 50);
+  gtk_range_set_increments(GTK_RANGE(hscale), 1, 1);
+  pango_layout_get_pixel_size(gtk_scale_get_layout(GTK_SCALE(hscale)),
+                              &layout_width, NULL);
+  gtk_widget_set_size_request(hscale, layout_width + 51 * 2, -1);
 
-  hscale = gtk_hscale_new(GTK_ADJUSTMENT(pdialog->factor[O_LAST]));
-  gtk_table_attach_defaults(GTK_TABLE(table), hscale, 2, 3,
-                            O_LAST + 1, O_LAST + 2);
+  gtk_grid_attach(GTK_GRID(table), hscale, 2, O_LAST + 1, 1, 1);
   gtk_scale_set_digits(GTK_SCALE(hscale), 0);
   gtk_scale_set_value_pos(GTK_SCALE(hscale), GTK_POS_LEFT);
 
   g_signal_connect(pdialog->factor[O_LAST],
-                   "value_changed",
+                   "value-changed",
                    G_CALLBACK(hscale_changed), pdialog);
 
   /* buttons */
 
-  hbox = gtk_hbutton_box_new();
+  hbox = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
   gtk_button_box_set_layout(GTK_BUTTON_BOX(hbox), GTK_BUTTONBOX_EDGE);
-  gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(vbox), hbox);
 
   button = gtk_button_new_from_stock(GTK_STOCK_HELP);
   g_signal_connect(button, "clicked",
@@ -404,7 +433,7 @@ struct cma_dialog *create_cma_dialog(struct city *pcity)
   align = gtk_alignment_new(0.5, 0.5, 0.0, 0.0);
   gtk_container_add(GTK_CONTAINER(pdialog->active_command), align);
 
-  vbox = gtk_vbox_new(FALSE, 2);
+  vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
   gtk_container_add(GTK_CONTAINER(align), vbox);
 
   pdialog->active_image = gtk_image_new();
@@ -439,10 +468,12 @@ void refresh_cma_dialog(struct city *pcity, enum cma_refresh refresh)
 
   cmafec_get_fe_parameter(pcity, &param);
 
-  /* fill in result label */
-  cm_result_from_main_map(result, pcity);
-  gtk_label_set_text(GTK_LABEL(pdialog->result_label),
-                     cmafec_get_result_descr(pcity, result, &param));
+  if (pdialog->result_label != NULL) {
+    /* fill in result label */
+    cm_result_from_main_map(result, pcity);
+    gtk_label_set_text(GTK_LABEL(pdialog->result_label),
+                       cmafec_get_result_descr(pcity, result, &param));
+  }
 
   /* if called from a hscale, we _don't_ want to do this */
   if (refresh != DONT_REFRESH_HSCALES) {
@@ -472,7 +503,10 @@ void refresh_cma_dialog(struct city *pcity, enum cma_refresh refresh)
     gtk_label_set_text_with_mnemonic(GTK_LABEL(pdialog->active_label),
 	_("Governor Disabl_ed"));
   }
-  gtk_widget_set_sensitive(pdialog->result_label, controlled);
+
+  if (pdialog->result_label != NULL) {
+    gtk_widget_set_sensitive(pdialog->result_label, controlled);
+  }
 
   cm_result_destroy(result);
 }
@@ -585,10 +619,10 @@ static gboolean cma_preset_key_pressed_callback(GtkWidget *w, GdkEventKey *ev,
 
   if (ev->type == GDK_KEY_PRESS) {
     switch (ev->keyval) {
-    case GDK_Delete:
+    case GDK_KEY_Delete:
       cma_preset_remove(pdialog, index);
       break;
-    case GDK_Insert:
+    case GDK_KEY_Insert:
       cma_add_preset_callback(NULL, pdialog);
       break;
     default:
@@ -688,21 +722,21 @@ static void set_hscales(const struct cm_parameter *const parameter,
 {
   allow_refreshes = 0;
   output_type_iterate(i) {
-    gtk_adjustment_set_value(pdialog->minimal_surplus[i],
-			     parameter->minimal_surplus[i]);
-    gtk_adjustment_set_value(pdialog->factor[i], parameter->factor[i]);
+    gtk_range_set_value(GTK_RANGE(pdialog->minimal_surplus[i]),
+                        parameter->minimal_surplus[i]);
+    gtk_range_set_value(GTK_RANGE(pdialog->factor[i]), parameter->factor[i]);
   } output_type_iterate_end;
   gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(pdialog->happy_button),
 			       parameter->require_happy);
-  gtk_adjustment_set_value(pdialog->factor[O_LAST],
-			   parameter->happy_factor);
+  gtk_range_set_value(GTK_RANGE(pdialog->factor[O_LAST]),
+                      parameter->happy_factor);
   allow_refreshes = 1;
 }
 
 /************************************************************************
  callback if we moved the sliders.
 *************************************************************************/
-static void hscale_changed(GtkAdjustment *get, gpointer data)
+static void hscale_changed(GtkWidget *get, gpointer data)
 {
   struct cma_dialog *pdialog = (struct cma_dialog *) data;
   struct cm_parameter param;
@@ -713,12 +747,15 @@ static void hscale_changed(GtkAdjustment *get, gpointer data)
 
   cmafec_get_fe_parameter(pdialog->pcity, &param);
   output_type_iterate(i) {
-    param.minimal_surplus[i] = (int) (pdialog->minimal_surplus[i]->value);
-    param.factor[i] = (int) (pdialog->factor[i]->value);
+    param.minimal_surplus[i] =
+        (int) (gtk_range_get_value(GTK_RANGE(pdialog->minimal_surplus[i])));
+    param.factor[i] =
+        (int) (gtk_range_get_value(GTK_RANGE(pdialog->factor[i])));
   } output_type_iterate_end;
   param.require_happy =
-      (GTK_TOGGLE_BUTTON(pdialog->happy_button)->active ? 1 : 0);
-  param.happy_factor = (int) (pdialog->factor[O_LAST]->value);
+      (gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(pdialog->happy_button)) ? 1 : 0);
+  param.happy_factor =
+      (int) (gtk_range_get_value(GTK_RANGE(pdialog->factor[O_LAST])));
 
   /* save the change */
   cmafec_set_fe_parameter(pdialog->pcity, &param);

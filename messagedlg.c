@@ -26,7 +26,7 @@
 /* client */
 #include "options.h"
 
-/* client/gui-gtk-2.0 */
+/* client/gui-gtk-3.0 */
 #include "colors.h"
 #include "gui_main.h"
 #include "gui_stuff.h"
@@ -69,21 +69,22 @@ static void create_messageopt_dialog(void)
 
   gui_dialog_set_default_size(shell, -1, 450);
 
-  gui_dialog_add_button(shell, GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL);
   gui_dialog_add_button(shell, GTK_STOCK_OK, GTK_RESPONSE_OK);
+  gui_dialog_add_button(shell, GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL);
 
   explanation = gtk_label_new(NULL);
+  g_object_set(explanation, "margin", 4, NULL);
   gtk_label_set_markup(GTK_LABEL(explanation),
     _("Where to display messages?\n"
       "<b>Out</b>put window ; "
       "<b>Mes</b>sages window ; "
       "<b>Pop</b>up individual window"));
   gtk_widget_set_name(explanation, "comment_label");
-  gtk_box_pack_start(GTK_BOX(shell->vbox), explanation, FALSE, FALSE, 4);
+  gtk_container_add(GTK_CONTAINER(shell->vbox), explanation);
   gtk_widget_show(explanation);	
 
-  form = gtk_vbox_new(FALSE, 0);
-  gtk_box_pack_start(GTK_BOX(shell->vbox), form, TRUE, TRUE, 0);
+  form = gtk_grid_new();
+  gtk_container_add(GTK_CONTAINER(shell->vbox), form);
 
   for (n=0; n<NUM_LISTS; n++) {
     model[n] = gtk_list_store_new(5,
@@ -116,6 +117,8 @@ static void create_messageopt_dialog(void)
     GtkTreeViewColumn *column;
 
     view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(model[n]));
+    gtk_widget_set_hexpand(view, TRUE);
+    gtk_widget_set_vexpand(view, TRUE);
     g_object_unref(model[n]);
 
     renderer = gtk_cell_renderer_text_new();
@@ -155,7 +158,7 @@ static void create_messageopt_dialog(void)
 
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(sw),
 				   GTK_POLICY_AUTOMATIC, GTK_POLICY_ALWAYS);
-    gtk_box_pack_start(GTK_BOX(form), sw, TRUE, TRUE, 0);
+    gtk_container_add(GTK_CONTAINER(form), sw);
 
     gtk_tree_view_focus(GTK_TREE_VIEW(view));
   }

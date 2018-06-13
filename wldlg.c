@@ -40,7 +40,7 @@
 #include "options.h"
 #include "tilespec.h"
 
-/* gui-gtk-2.0 */
+/* client/gui-gtk-3.0 */
 #include "canvas.h"
 #include "citydlg.h"
 #include "graphics.h"
@@ -236,12 +236,18 @@ static GtkWidget *create_worklists_report(void)
   g_signal_connect(shell, "destroy",
 		   G_CALLBACK(worklists_destroy_callback), NULL);
 
-  vbox = gtk_vbox_new(FALSE, 2);
-  gtk_container_add(GTK_CONTAINER(GTK_DIALOG(shell)->vbox), vbox);
+  vbox = gtk_grid_new();
+  gtk_grid_set_row_spacing(GTK_GRID(vbox), 2);
+  gtk_orientable_set_orientation(GTK_ORIENTABLE(vbox),
+                                 GTK_ORIENTATION_VERTICAL);
+  gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(shell))), vbox);
 
   worklists_store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_INT);
 
   list = gtk_tree_view_new_with_model(GTK_TREE_MODEL(worklists_store));
+  gtk_widget_set_hexpand(list, TRUE);
+  gtk_widget_set_vexpand(list, TRUE);
+
   g_object_unref(worklists_store);
   gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(list), FALSE);
 
@@ -255,13 +261,12 @@ static GtkWidget *create_worklists_report(void)
     rend, "text", 0, NULL);
 
   sw = gtk_scrolled_window_new(NULL, NULL);
+  gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(sw), 200);
   gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(sw),
 				      GTK_SHADOW_ETCHED_IN);
   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(sw),
 				 GTK_POLICY_NEVER, GTK_POLICY_ALWAYS);
   gtk_container_add(GTK_CONTAINER(sw), list);
-
-  gtk_widget_set_size_request(sw, -1, 200);
 
   label = g_object_new(GTK_TYPE_LABEL,
 		       "use-underline", TRUE,
@@ -269,8 +274,8 @@ static GtkWidget *create_worklists_report(void)
 		       "label", _("_Worklists:"),
 		       "xalign", 0.0, "yalign", 0.5, NULL);
 
-  gtk_box_pack_start(GTK_BOX(vbox), label, FALSE, FALSE, 0);
-  gtk_box_pack_start(GTK_BOX(vbox), sw, TRUE, TRUE, 0);
+  gtk_container_add(GTK_CONTAINER(vbox), label);
+  gtk_container_add(GTK_CONTAINER(vbox), sw);
   gtk_widget_show_all(vbox);
 
   return shell;
@@ -408,7 +413,7 @@ static void popup_worklist(struct global_worklist *pgwl)
     reset_global_worklist(editor, pgwl);
     insert_worklist(global_worklist_id(pgwl), editor);
 
-    gtk_container_add(GTK_CONTAINER(GTK_DIALOG(shell)->vbox), editor);
+    gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(shell))), editor);
     gtk_widget_show(editor);
 
     refresh_worklist(editor);
@@ -468,7 +473,7 @@ static void menu_item_callback(GtkMenuItem *item, struct worklist_data *ptr)
   }
   pwl = global_worklist_get(pgwl);
 
-  for (i = 0; i < worklist_length(pwl); i++) {
+  for (i = 0; i < (size_t) worklist_length(pwl); i++) {
     GtkTreeIter it;
     cid cid;
 
@@ -594,7 +599,7 @@ static void queue_bubble_up(struct worklist_data *ptr)
   GtkTreeViewColumn *col;
   GtkTreeModel *model;
 
-  if (!GTK_WIDGET_IS_SENSITIVE(ptr->dst_view)) {
+  if (!gtk_widget_is_sensitive(ptr->dst_view)) {
     return;
   }
 
@@ -641,7 +646,7 @@ static void queue_bubble_down(struct worklist_data *ptr)
   GtkTreeViewColumn *col;
   GtkTreeModel *model;
 
-  if (!GTK_WIDGET_IS_SENSITIVE(ptr->dst_view)) {
+  if (!gtk_widget_is_sensitive(ptr->dst_view)) {
     return;
   }
 
@@ -676,7 +681,7 @@ static void queue_insert(struct worklist_data *ptr, bool prepend)
   GtkTreeIter src_it, dst_it;
   gint i, ncols;
 
-  if (!GTK_WIDGET_IS_SENSITIVE(ptr->dst_view)) {
+  if (!gtk_widget_is_sensitive(ptr->dst_view)) {
     return;
   }
 
@@ -738,7 +743,7 @@ static void src_row_callback(GtkTreeView *view, GtkTreePath *path,
 
   ptr = data;
 
-  if (!GTK_WIDGET_IS_SENSITIVE(ptr->dst_view)) {
+  if (!gtk_widget_is_sensitive(ptr->dst_view)) {
     return;
   }
   
@@ -788,14 +793,14 @@ static gboolean src_key_press_callback(GtkWidget *w, GdkEventKey *ev,
     
   ptr = data;
 
-  if (!GTK_WIDGET_IS_SENSITIVE(ptr->dst_view)) {
+  if (!gtk_widget_is_sensitive(ptr->dst_view)) {
     return FALSE;
   }
   
-  if ((ev->state & GDK_SHIFT_MASK) && ev->keyval == GDK_Insert) {
+  if ((ev->state & GDK_SHIFT_MASK) && ev->keyval == GDK_KEY_Insert) {
     queue_prepend(ptr);
     return TRUE;
-  } else if (ev->keyval == GDK_Insert) {
+  } else if (ev->keyval == GDK_KEY_Insert) {
     queue_append(ptr);
     return TRUE;
   } else {
@@ -815,7 +820,7 @@ static gboolean dst_key_press_callback(GtkWidget *w, GdkEventKey *ev,
   ptr = data;
   model = GTK_TREE_MODEL(ptr->dst);
 
-  if (ev->keyval == GDK_Delete) {
+  if (ev->keyval == GDK_KEY_Delete) {
     GtkTreeIter it, it_next;
     bool deleted = FALSE;
 
@@ -840,11 +845,11 @@ static gboolean dst_key_press_callback(GtkWidget *w, GdkEventKey *ev,
     }
     return TRUE;
 
-  } else if ((ev->state & GDK_MOD1_MASK) && ev->keyval == GDK_Up) {
+  } else if ((ev->state & GDK_MOD1_MASK) && ev->keyval == GDK_KEY_Up) {
     queue_bubble_up(ptr);
     return TRUE;
 
-  } else if ((ev->state & GDK_MOD1_MASK) && ev->keyval == GDK_Down) {
+  } else if ((ev->state & GDK_MOD1_MASK) && ev->keyval == GDK_KEY_Down) {
     queue_bubble_down(ptr);
     return TRUE;
 
@@ -942,31 +947,29 @@ static void cell_render_func(GtkTreeViewColumn *col, GtkCellRenderer *rend,
 
   if (GTK_IS_CELL_RENDERER_PIXBUF(rend)) {
     GdkPixbuf *pix;
+    struct sprite *sprite;
 
     if (VUT_UTYPE == target.kind) {
-      struct canvas store;
+      sprite = sprite_scale(get_unittype_sprite(tileset, target.value.utype,
+                                                direction8_invalid(), TRUE),
+                            max_unit_width, max_unit_height);
 
-      pix = gdk_pixbuf_new(GDK_COLORSPACE_RGB, TRUE, 8,
-	  max_unit_width, max_unit_height);
-
-      store.type = CANVAS_PIXBUF;
-      store.v.pixbuf = pix;
-      create_overlay_unit(&store, target.value.utype, direction8_invalid());
-
-      g_object_set(rend, "pixbuf", pix, NULL);
-      g_object_unref(pix);
     } else {
-      struct sprite *sprite = get_building_sprite(tileset, target.value.building);
+      sprite = get_building_sprite(tileset, target.value.building);
 
-      pix = sprite_get_pixbuf(sprite);
-      g_object_set(rend, "pixbuf", pix, NULL);
+    }
+    pix = sprite_get_pixbuf(sprite);
+    g_object_set(rend, "pixbuf", pix, NULL);
+    g_object_unref(G_OBJECT(pix));
+    if (VUT_UTYPE == target.kind) {
+      free_sprite(sprite);
     }
   } else {
     struct city **pcity = data;
     gint column;
     char *row[4];
     char  buf[4][64];
-    int   i;
+    guint   i;
     gboolean useless;
 
     for (i = 0; i < ARRAY_SIZE(row); i++) {
@@ -998,7 +1001,7 @@ static void populate_view(GtkTreeView *view, struct city **ppcity,
   { N_("Type"), N_("Name"), N_("Info"), N_("Cost"), N_("Turns") };
 
   static bool titles_done;
-  gint i;
+  guint i;
   GtkCellRenderer *rend;
   GtkTreeViewColumn *col;
 
@@ -1015,14 +1018,14 @@ static void populate_view(GtkTreeView *view, struct city **ppcity,
                    i, titles[i], rend, cell_render_func, ppcity, NULL);
   col = gtk_tree_view_get_column(view, i);
 
-  if (gui_gtk2_show_task_icons) {
+  if (gui_gtk3_show_task_icons) {
     if (max_unit_width == -1 || max_unit_height == -1) {
       update_max_unit_size();
     }
   } else {
     g_object_set(col, "visible", FALSE, NULL);
   }
-  if (gui_gtk2_show_task_icons) {
+  if (gui_gtk3_show_task_icons) {
     g_object_set(rend, "height", max_unit_height, NULL);
   }
 
@@ -1045,7 +1048,7 @@ static void populate_view(GtkTreeView *view, struct city **ppcity,
     if (pos == 3) {
       *pcol = col;
     }
-    if (gui_gtk2_show_task_icons) {
+    if (gui_gtk3_show_task_icons) {
       g_object_set(rend, "height", max_unit_height, NULL);
     }
   }
@@ -1075,29 +1078,32 @@ GtkWidget *create_worklist(void)
   ptr->dst = dst_store;
   ptr->future = FALSE;
 
-
   /* create shell. */ 
-  editor = gtk_vbox_new(FALSE, 6);
+  editor = gtk_grid_new();
+  gtk_grid_set_row_spacing(GTK_GRID(editor), 6);
+  gtk_orientable_set_orientation(GTK_ORIENTABLE(editor),
+                                 GTK_ORIENTATION_VERTICAL);
   g_signal_connect(editor, "destroy", G_CALLBACK(worklist_destroy), ptr);
   g_object_set_data(G_OBJECT(editor), "data", ptr);
 
   ptr->editor = editor;
 
   /* add source and target lists.  */
-  table = gtk_table_new(2, 5, FALSE);
-  gtk_box_pack_start(GTK_BOX(editor), table, TRUE, TRUE, 0);
+  table = gtk_grid_new();
+  gtk_container_add(GTK_CONTAINER(editor), table);
 
   group = gtk_size_group_new(GTK_SIZE_GROUP_HORIZONTAL);
 
   sw = gtk_scrolled_window_new(NULL, NULL);
   gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(sw),
-				      GTK_SHADOW_ETCHED_IN);
+                                      GTK_SHADOW_ETCHED_IN);
   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(sw),
-				 GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
-  gtk_table_attach(GTK_TABLE(table), sw, 3, 5, 1, 2,
-		   GTK_EXPAND | GTK_FILL, GTK_EXPAND | GTK_FILL, 0, 0);
+                                 GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+  gtk_grid_attach(GTK_GRID(table), sw, 3, 1, 2, 1);
 
   src_view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(src_store));
+  gtk_widget_set_hexpand(src_view, TRUE);
+  gtk_widget_set_vexpand(src_view, TRUE);
   g_object_unref(src_store);
   gtk_size_group_add_widget(group, src_view);
   gtk_widget_set_name(src_view, "small_font");
@@ -1110,71 +1116,70 @@ GtkWidget *create_worklist(void)
 		       "mnemonic-widget", src_view,
 		       "label", _("Source _Tasks:"),
 		       "xalign", 0.0, "yalign", 0.5, NULL);
-  gtk_table_attach(GTK_TABLE(table), label, 3, 4, 0, 1,
-		   GTK_FILL, GTK_FILL, 0, 0);
+  gtk_grid_attach(GTK_GRID(table), label, 3, 0, 1, 1);
 
   check = gtk_check_button_new_with_mnemonic(_("Show _Future Targets"));
-  gtk_table_attach(GTK_TABLE(table), check, 4, 5, 0, 1,
-		   0, GTK_FILL, 0, 0);
+  gtk_grid_attach(GTK_GRID(table), check, 4, 0, 1, 1);
   g_signal_connect(check, "toggled", G_CALLBACK(future_callback), ptr);
 
-
-  table2 = gtk_table_new(5, 1, FALSE);
-  gtk_table_attach(GTK_TABLE(table), table2, 2, 3, 1, 2,
-		   GTK_FILL, GTK_FILL, 0, 0);
+  table2 = gtk_grid_new();
+  gtk_grid_attach(GTK_GRID(table), table2, 2, 1, 1, 1);
 
   button = gtk_button_new();
+  gtk_widget_set_margin_top(button, 24);
+  gtk_widget_set_margin_bottom(button, 24);
   ptr->prepend_cmd = button;
   gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
-  gtk_table_attach(GTK_TABLE(table2), button, 0, 1, 0, 1,
-      0, GTK_EXPAND|GTK_FILL, 0, 24);
+  gtk_grid_attach(GTK_GRID(table2), button, 0, 0, 1, 1);
 
   arrow = gtk_arrow_new(GTK_ARROW_LEFT, GTK_SHADOW_NONE);
   gtk_container_add(GTK_CONTAINER(button), arrow);
   g_signal_connect_swapped(button, "clicked",
-			   G_CALLBACK(queue_prepend), ptr);
+                           G_CALLBACK(queue_prepend), ptr);
   gtk_widget_set_sensitive(ptr->prepend_cmd, FALSE);
 
   button = gtk_button_new();
   ptr->up_cmd = button;
   gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
-  gtk_table_attach(GTK_TABLE(table2), button, 0, 1, 1, 2, 0, 0, 0, 0);
+  gtk_grid_attach(GTK_GRID(table2), button, 0, 1, 1, 1);
 
   arrow = gtk_arrow_new(GTK_ARROW_UP, GTK_SHADOW_NONE);
   gtk_container_add(GTK_CONTAINER(button), arrow);
   g_signal_connect_swapped(button, "clicked",
-			   G_CALLBACK(queue_bubble_up), ptr);
+                           G_CALLBACK(queue_bubble_up), ptr);
   gtk_widget_set_sensitive(ptr->up_cmd, FALSE);
 
   button = gtk_button_new();
   ptr->down_cmd = button;
   gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
-  gtk_table_attach(GTK_TABLE(table2), button, 0, 1, 2, 3, 0, 0, 0, 0);
+  gtk_grid_attach(GTK_GRID(table2), button, 0, 2, 1, 1);
 
   arrow = gtk_arrow_new(GTK_ARROW_DOWN, GTK_SHADOW_IN);
   gtk_container_add(GTK_CONTAINER(button), arrow);
   g_signal_connect_swapped(button, "clicked",
-			   G_CALLBACK(queue_bubble_down), ptr);
+                           G_CALLBACK(queue_bubble_down), ptr);
   gtk_widget_set_sensitive(ptr->down_cmd, FALSE);
 
   button = gtk_button_new();
+  gtk_widget_set_margin_top(button, 24);
+  gtk_widget_set_margin_bottom(button, 24);
   ptr->append_cmd = button;
   gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
-  gtk_table_attach(GTK_TABLE(table2), button, 0, 1, 3, 4,
-      0, GTK_EXPAND|GTK_FILL, 0, 24);
+  gtk_grid_attach(GTK_GRID(table2), button, 0, 3, 1, 1);
 
   arrow = gtk_arrow_new(GTK_ARROW_LEFT, GTK_SHADOW_NONE);
   gtk_container_add(GTK_CONTAINER(button), arrow);
   g_signal_connect_swapped(button, "clicked",
-			   G_CALLBACK(queue_append), ptr);
+                           G_CALLBACK(queue_append), ptr);
   gtk_widget_set_sensitive(ptr->append_cmd, FALSE);
 
   button = gtk_button_new();
+  gtk_widget_set_margin_top(button, 24);
+  gtk_widget_set_margin_bottom(button, 24);
   ptr->remove_cmd = button;
   gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
-  gtk_table_attach(GTK_TABLE(table2), button, 0, 1, 4, 5,
-      0, GTK_EXPAND|GTK_FILL, 0, 24);
-  
+  gtk_grid_attach(GTK_GRID(table2), button, 0, 4, 1, 1);
+
   arrow = gtk_arrow_new(GTK_ARROW_RIGHT, GTK_SHADOW_IN);
   gtk_container_add(GTK_CONTAINER(button), arrow);
   g_signal_connect_swapped(button, "clicked",
@@ -1186,10 +1191,11 @@ GtkWidget *create_worklist(void)
 				      GTK_SHADOW_ETCHED_IN);
   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(sw),
 				 GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
-  gtk_table_attach(GTK_TABLE(table), sw, 0, 2, 1, 2,
-		   GTK_EXPAND | GTK_FILL, GTK_EXPAND | GTK_FILL, 0, 0);
+  gtk_grid_attach(GTK_GRID(table), sw, 0, 1, 2, 1);
 
   dst_view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(dst_store));
+  gtk_widget_set_hexpand(dst_view, TRUE);
+  gtk_widget_set_vexpand(dst_view, TRUE);
   g_object_unref(dst_store);
   gtk_size_group_add_widget(group, dst_view);
   gtk_widget_set_name(dst_view, "small_font");
@@ -1202,14 +1208,13 @@ GtkWidget *create_worklist(void)
 		       "mnemonic-widget", dst_view,
 		       "label", _("Target _Worklist:"),
 		       "xalign", 0.0, "yalign", 0.5, NULL);
-  gtk_table_attach(GTK_TABLE(table), label, 0, 1, 0, 1,
-		   GTK_FILL, GTK_FILL, 0, 0);
+  gtk_grid_attach(GTK_GRID(table), label, 0, 0, 1, 1);
 
   /* add bottom menu and buttons. */
-  bbox = gtk_hbutton_box_new();
+  bbox = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
   gtk_button_box_set_layout(GTK_BUTTON_BOX(bbox), GTK_BUTTONBOX_END);
   gtk_box_set_spacing(GTK_BOX(bbox), 10);
-  gtk_box_pack_start(GTK_BOX(editor), bbox, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(editor), bbox);
 
   menubar = gtk_aux_menu_bar_new();
   gtk_container_add(GTK_CONTAINER(bbox), menubar);

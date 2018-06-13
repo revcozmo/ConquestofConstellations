@@ -41,7 +41,7 @@
 #include "control.h"
 #include "mapview_common.h"
 
-/* gui-gtk-2.0 */
+/* client/gui-gtk-3.0 */
 #include "colors.h"
 #include "gui_main.h"
 #include "gui_stuff.h"
@@ -70,7 +70,7 @@ static void inputline_make_tag(GtkEntry *entry, enum text_tag_type type);
 **************************************************************************/
 bool inputline_has_focus(void)
 {
-  return GTK_WIDGET_HAS_FOCUS(toolkit.entry);
+  return gtk_widget_has_focus(toolkit.entry);
 }
 
 /**************************************************************************
@@ -86,7 +86,7 @@ void inputline_grab_focus(void)
 **************************************************************************/
 bool inputline_is_visible(void)
 {
-  return GTK_WIDGET_MAPPED(toolkit.entry);
+  return gtk_widget_get_mapped(toolkit.entry);
 }
 
 /**************************************************************************
@@ -144,7 +144,7 @@ static void inputline_return(GtkEntry *w, gpointer data)
   theinput = gtk_entry_get_text(w);
   
   if (*theinput) {
-    if (client_state() == C_S_RUNNING && gui_gtk2_allied_chat_only
+    if (client_state() == C_S_RUNNING && gui_gtk3_allied_chat_only
         && is_plain_public_message(theinput)) {
       char buf[MAX_LEN_MSG];
       fc_snprintf(buf, sizeof(buf), ". %s", theinput);
@@ -347,23 +347,23 @@ static gboolean inputline_handler(GtkWidget *w, GdkEventKey *ev)
   if ((ev->state & GDK_CONTROL_MASK)) {
     /* Chatline featured text support. */
     switch (ev->keyval) {
-    case GDK_b:
+    case GDK_KEY_b:
       inputline_make_tag(GTK_ENTRY(w), TTT_BOLD);
       return TRUE;
 
-    case GDK_c:
+    case GDK_KEY_c:
       inputline_make_tag(GTK_ENTRY(w), TTT_COLOR);
       return TRUE;
 
-    case GDK_i:
+    case GDK_KEY_i:
       inputline_make_tag(GTK_ENTRY(w), TTT_ITALIC);
       return TRUE;
 
-    case GDK_s:
+    case GDK_KEY_s:
       inputline_make_tag(GTK_ENTRY(w), TTT_STRIKE);
       return TRUE;
 
-    case GDK_u:
+    case GDK_KEY_u:
       inputline_make_tag(GTK_ENTRY(w), TTT_UNDERLINE);
       return TRUE;
 
@@ -374,7 +374,7 @@ static gboolean inputline_handler(GtkWidget *w, GdkEventKey *ev)
   } else {
     /* Chatline history controls. */
     switch (ev->keyval) {
-    case GDK_Up:
+    case GDK_KEY_Up:
       if (history_pos < genlist_size(history_list) - 1) {
         gtk_entry_set_text(GTK_ENTRY(w),
                            genlist_get(history_list, ++history_pos));
@@ -382,7 +382,7 @@ static gboolean inputline_handler(GtkWidget *w, GdkEventKey *ev)
       }
       return TRUE;
 
-    case GDK_Down:
+    case GDK_KEY_Down:
       if (history_pos >= 0) {
         history_pos--;
       }
@@ -396,8 +396,8 @@ static gboolean inputline_handler(GtkWidget *w, GdkEventKey *ev)
       gtk_editable_set_position(GTK_EDITABLE(w), -1);
       return TRUE;
 
-    case GDK_Tab:
-      if (gui_gtk2_chatline_autocompletion) {
+    case GDK_KEY_Tab:
+      if (gui_gtk3_chatline_autocompletion) {
         return chatline_autocomplete(GTK_EDITABLE(w));
       }
 
@@ -418,6 +418,7 @@ void inputline_make_tag(GtkEntry *entry, enum text_tag_type type)
   GtkEditable *editable = GTK_EDITABLE(entry);
   gint start_pos, end_pos;
   gchar *selection;
+  gchar *fg_color_text = NULL, *bg_color_text = NULL;
 
   if (!gtk_editable_get_selection_bounds(editable, &start_pos, &end_pos)) {
     /* Let's say the selection starts and ends at the current position. */
@@ -428,16 +429,19 @@ void inputline_make_tag(GtkEntry *entry, enum text_tag_type type)
 
   if (type == TTT_COLOR) {
     /* Get the color arguments. */
-    char fg_color_text[32], bg_color_text[32];
-    GdkColor *fg_color = g_object_get_data(G_OBJECT(entry), "fg_color");
-    GdkColor *bg_color = g_object_get_data(G_OBJECT(entry), "bg_color");
+    GdkRGBA *fg_color = g_object_get_data(G_OBJECT(entry), "fg_color");
+    GdkRGBA *bg_color = g_object_get_data(G_OBJECT(entry), "bg_color");
 
     if (!fg_color && !bg_color) {
       goto CLEAN_UP;
     }
 
-    color_to_string(fg_color, fg_color_text, sizeof(fg_color_text));
-    color_to_string(bg_color, bg_color_text, sizeof(bg_color_text));
+    if (fg_color) {
+      fg_color_text = gdk_rgba_to_string(fg_color);
+    }
+    if (bg_color) {
+      bg_color_text = gdk_rgba_to_string(bg_color);
+    }
 
     if (0 == featured_text_apply_tag(selection, buf, sizeof(buf),
                                      TTT_COLOR, 0, FT_OFFSET_UNSET,
@@ -458,6 +462,8 @@ void inputline_make_tag(GtkEntry *entry, enum text_tag_type type)
 
 CLEAN_UP:
   g_free(selection);
+  g_free(fg_color_text);
+  g_free(bg_color_text);
 }
 
 /**************************************************************************
@@ -561,7 +567,7 @@ void scroll_if_necessary(GtkTextView *textview, GtkTextMark *scroll_target)
   fc_assert_ret(GTK_IS_SCROLLED_WINDOW(sw));
 
   vadj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(sw));
-  val = gtk_adjustment_get_value(GTK_ADJUSTMENT(vadj));
+  val = gtk_adjustment_get_value(vadj);
   g_object_get(G_OBJECT(vadj), "upper", &upper,
                "page-size", &page_size, NULL);
   max = upper - page_size;
@@ -676,11 +682,11 @@ static void set_cursor_if_appropriate(GtkTextView *text_view, gint x, gint y)
   /* Initialize the cursors. */
   if (!hand_cursor) {
     hand_cursor = gdk_cursor_new_for_display(
-        gdk_screen_get_display(gdk_screen_get_default()), GDK_HAND2);
+        gtk_widget_get_display(GTK_WIDGET(text_view)), GDK_HAND2);
   }
   if (!regular_cursor) {
     regular_cursor = gdk_cursor_new_for_display(
-        gdk_screen_get_display(gdk_screen_get_default()), GDK_XTERM);
+        gtk_widget_get_display(GTK_WIDGET(text_view)), GDK_XTERM);
   }
 
   gtk_text_view_get_iter_at_location(text_view, &iter, x, y);
@@ -727,24 +733,6 @@ static gboolean motion_notify_event(GtkWidget *text_view,
                                         GTK_TEXT_WINDOW_WIDGET,
                                         event->x, event->y, &x, &y);
   set_cursor_if_appropriate(GTK_TEXT_VIEW(text_view), x, y);
-  gdk_window_get_pointer(text_view->window, NULL, NULL, NULL);
-
-  return FALSE;
-}
-
-/**************************************************************************
-  Maybe are the mouse is moving over a link.
-**************************************************************************/
-static gboolean visibility_notify_event(GtkWidget *text_view,
-                                        GdkEventVisibility *event)
-{
-  gint wx, wy, bx, by;
-
-  gdk_window_get_pointer(text_view->window, &wx, &wy, NULL);
-  gtk_text_view_window_to_buffer_coords(GTK_TEXT_VIEW (text_view), 
-                                        GTK_TEXT_WINDOW_WIDGET,
-                                        wx, wy, &bx, &by);
-  set_cursor_if_appropriate(GTK_TEXT_VIEW(text_view), bx, by);
 
   return FALSE;
 }
@@ -758,9 +746,6 @@ void set_message_buffer_view_link_handlers(GtkWidget *view)
 		   G_CALLBACK(event_after), NULL);
   g_signal_connect(view, "motion-notify-event",
 		   G_CALLBACK(motion_notify_event), NULL);
-  g_signal_connect(view, "visibility-notify-event",
-		   G_CALLBACK(visibility_notify_event), NULL);
-
 }
 
 /**************************************************************************
@@ -817,25 +802,23 @@ void apply_text_tag(const struct text_tag *ptag, GtkTextBuffer *buf,
     {
       /* We have to make a new tag every time. */
       GtkTextTag *tag = NULL;
-      GdkColor foreground;
-      GdkColor background;
+      const char *foreground = text_tag_color_foreground(ptag);
+      const char *background = text_tag_color_background(ptag);
 
-      if (gdk_color_parse(text_tag_color_foreground(ptag), &foreground)) {
-        if (gdk_color_parse(text_tag_color_background(ptag),
-                            &background)) {
+      if (foreground && foreground[0]) {
+        if (background && background[0]) {
           tag = gtk_text_buffer_create_tag(buf, NULL,
-                                           "foreground-gdk", &foreground,
-                                           "background-gdk", &background,
+                                           "foreground", foreground,
+                                           "background", background,
                                            NULL);
         } else {
           tag = gtk_text_buffer_create_tag(buf, NULL,
-                                           "foreground-gdk", &foreground,
+                                           "foreground", foreground,
                                            NULL);
         }
-      } else if (gdk_color_parse(text_tag_color_background(ptag),
-                                 &background)) {
+      } else if (background && background[0]) {
         tag = gtk_text_buffer_create_tag(buf, NULL,
-                                         "background-gdk", &background,
+                                         "background", background,
                                          NULL);
       }
 
@@ -868,7 +851,7 @@ void apply_text_tag(const struct text_tag *ptag, GtkTextBuffer *buf,
       }
 
       tag = gtk_text_buffer_create_tag(buf, NULL, 
-                                       "foreground-gdk", &pcolor->color, 
+                                       "foreground-rgba", &pcolor->color,
                                        "underline", PANGO_UNDERLINE_SINGLE,
                                        NULL);
 
@@ -910,7 +893,7 @@ void real_output_window_append(const char *astring,
   gtk_text_buffer_insert(buf, &iter, "\n", -1);
   mark = gtk_text_buffer_create_mark(buf, NULL, &iter, TRUE);
 
-  if (gui_gtk2_show_chat_message_time) {
+  if (gui_gtk3_show_chat_message_time) {
     char timebuf[64];
     time_t now;
     struct tm *now_tm;
@@ -992,7 +975,7 @@ bool chatline_is_scrolled_to_bottom(void)
 
   sw = gtk_widget_get_parent(w);
   vadj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(sw));
-  val = gtk_adjustment_get_value(GTK_ADJUSTMENT(vadj));
+  val = gtk_adjustment_get_value(vadj);
   g_object_get(G_OBJECT(vadj), "upper", &upper,
                "page-size", &page_size, NULL);
   max = upper - page_size;
@@ -1059,16 +1042,14 @@ static void make_tag_callback(GtkToolButton *button, gpointer data)
   Set the color for an object.  Update the button if not NULL.
 **************************************************************************/
 static void color_set(GObject *object, const gchar *color_target,
-                      GdkColor *color, GtkToolButton *button)
+                      GdkRGBA *color, GtkToolButton *button)
 {
-  GdkColor *current_color = g_object_get_data(object, color_target);
-  GdkColormap *colormap = gdk_colormap_get_system();
+  GdkRGBA *current_color = g_object_get_data(object, color_target);
 
   if (NULL == color) {
     /* Clears the current color. */
     if (NULL != current_color) {
-      gdk_colormap_free_colors(colormap, current_color, 1);
-      gdk_color_free(current_color);
+      gdk_rgba_free(current_color);
       g_object_set_data(object, color_target, NULL);
       if (NULL != button) {
         gtk_tool_button_set_icon_widget(button, NULL);
@@ -1077,28 +1058,33 @@ static void color_set(GObject *object, const gchar *color_target,
   } else {
     /* Apply the new color. */
     if (NULL != current_color) {
-      /* We already have a GdkColor pointer. */
-      gdk_colormap_free_colors(colormap, current_color, 1);
+      /* We already have a GdkRGBA pointer. */
       *current_color = *color;
     } else {
-      /* We need to make a GdkColor pointer. */
-      current_color = gdk_color_copy(color);
+      /* We need to make a GdkRGBA pointer. */
+      current_color = gdk_rgba_copy(color);
       g_object_set_data(object, color_target, current_color);
     }
 
-    gdk_colormap_alloc_color(colormap, current_color, TRUE, TRUE);
     if (NULL != button) {
       /* Update the button. */
-      GdkPixmap *pixmap;
+      GdkPixbuf *pixbuf;
       GtkWidget *image;
 
-      pixmap = gdk_pixmap_new(root_window, 16, 16, -1);
-      gdk_gc_set_foreground(fill_bg_gc, current_color);
-      gdk_draw_rectangle(pixmap, fill_bg_gc, TRUE, 0, 0, 16, 16);
-      image = gtk_image_new_from_pixmap(pixmap, NULL);
+      {
+        cairo_surface_t *surface = cairo_image_surface_create(
+            CAIRO_FORMAT_RGB24, 16, 16);
+        cairo_t *cr = cairo_create(surface);
+        gdk_cairo_set_source_rgba(cr, current_color);
+        cairo_paint(cr);
+        cairo_destroy(cr);
+        pixbuf = gdk_pixbuf_get_from_surface(surface, 0, 0, 16, 16);
+        cairo_surface_destroy(surface);
+      }
+      image = gtk_image_new_from_pixbuf(pixbuf);
       gtk_tool_button_set_icon_widget(button, image);
       gtk_widget_show(image);
-      g_object_unref(G_OBJECT(pixmap));
+      g_object_unref(G_OBJECT(pixbuf));
     }
   }
 }
@@ -1118,11 +1104,11 @@ static void color_selected(GtkDialog *dialog, gint res, gpointer data)
     color_set(G_OBJECT(data), color_target, NULL, button);
   } else if (res == GTK_RESPONSE_OK) {
     /* Apply the new color. */
-    GtkColorSelection *selection =
-      GTK_COLOR_SELECTION(g_object_get_data(G_OBJECT(dialog), "selection"));
-    GdkColor new_color;
+    GtkColorChooser *chooser =
+      GTK_COLOR_CHOOSER(g_object_get_data(G_OBJECT(dialog), "chooser"));
+    GdkRGBA new_color;
 
-    gtk_color_selection_get_current_color(selection, &new_color);
+    gtk_color_chooser_get_rgba(chooser, &new_color);
     color_set(G_OBJECT(data), color_target, &new_color, button);
   }
 
@@ -1134,11 +1120,11 @@ static void color_selected(GtkDialog *dialog, gint res, gpointer data)
 **************************************************************************/
 static void select_color_callback(GtkToolButton *button, gpointer data)
 {
-  GtkWidget *dialog, *selection;
+  GtkWidget *dialog, *chooser;
   /* "fg_color" or "bg_color". */
   const gchar *color_target = g_object_get_data(G_OBJECT(button),
                                                 "color_target");
-  GdkColor *current_color = g_object_get_data(G_OBJECT(data), color_target);
+  GdkRGBA *current_color = g_object_get_data(G_OBJECT(data), color_target);
 
   /* TRANS: "text" or "background". */
   gchar *buf = g_strdup_printf(_("Select the %s color"),
@@ -1152,13 +1138,12 @@ static void select_color_callback(GtkToolButton *button, gpointer data)
   g_object_set_data(G_OBJECT(dialog), "button", button);
   g_signal_connect(dialog, "response", G_CALLBACK(color_selected), data);
 
-  selection = gtk_color_selection_new();
-  gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dialog)->vbox), selection,
-                     FALSE, FALSE, 0);
-  g_object_set_data(G_OBJECT(dialog), "selection", selection);
+  chooser = gtk_color_chooser_widget_new();
+  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))),
+                     chooser, FALSE, FALSE, 0);
+  g_object_set_data(G_OBJECT(dialog), "chooser", chooser);
   if (current_color) {
-    gtk_color_selection_set_current_color(GTK_COLOR_SELECTION(selection),
-                                          current_color);
+    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(chooser), current_color);
   }
 
   gtk_widget_show_all(dialog);
@@ -1168,7 +1153,7 @@ static void select_color_callback(GtkToolButton *button, gpointer data)
 /**************************************************************************
   Moves the tool kit to the toolkit view.
 **************************************************************************/
-static gboolean move_toolkit(GtkWidget *toolkit_view, GdkEventExpose *event,
+static gboolean move_toolkit(GtkWidget *toolkit_view,
                              gpointer data)
 {
   struct inputline_toolkit *ptoolkit = (struct inputline_toolkit *) data;
@@ -1194,10 +1179,12 @@ static gboolean move_toolkit(GtkWidget *toolkit_view, GdkEventExpose *event,
 
     if (!gtk_widget_get_parent(button_box)) {
       /* Attach to the toolkit button_box. */
-      gtk_box_pack_end(GTK_BOX(ptoolkit->button_box), button_box,
-                       FALSE, FALSE, 0);
+      gtk_container_add(GTK_CONTAINER(ptoolkit->button_box), button_box);
     }
     gtk_widget_show_all(ptoolkit->main_widget);
+    if (!ptoolkit->toolbar_displayed) {
+      gtk_widget_hide(ptoolkit->toolbar);
+    }
 
     /* Hide all other buttons boxes. */
     list = gtk_container_get_children(GTK_CONTAINER(ptoolkit->button_box));
@@ -1212,10 +1199,8 @@ static gboolean move_toolkit(GtkWidget *toolkit_view, GdkEventExpose *event,
 
   } else {
     /* First time attached to a parent. */
-    gtk_box_pack_start(GTK_BOX(toolkit_view), ptoolkit->main_widget,
-                       TRUE, TRUE, 0);
-    gtk_box_pack_end(GTK_BOX(ptoolkit->button_box), button_box,
-                     FALSE, FALSE, 0);
+    gtk_container_add(GTK_CONTAINER(toolkit_view), ptoolkit->main_widget);
+    gtk_container_add(GTK_CONTAINER(ptoolkit->button_box), button_box);
     gtk_widget_show_all(ptoolkit->main_widget);
   }
 
@@ -1226,7 +1211,6 @@ static gboolean move_toolkit(GtkWidget *toolkit_view, GdkEventExpose *event,
   Show/Hide the toolbar.
 **************************************************************************/
 static gboolean set_toolbar_visibility(GtkWidget *w,
-                                       GdkEventExpose *event,
                                        gpointer data)
 {
   struct inputline_toolkit *ptoolkit = (struct inputline_toolkit *) data;
@@ -1285,12 +1269,15 @@ GtkWidget *inputline_toolkit_view_new(void)
   GtkWidget *toolkit_view, *bbox;
 
   /* Main widget. */
-  toolkit_view = gtk_vbox_new(FALSE, 0);
-  g_signal_connect(toolkit_view, "expose-event",
+  toolkit_view = gtk_grid_new();
+  gtk_orientable_set_orientation(GTK_ORIENTABLE(toolkit_view),
+                                 GTK_ORIENTATION_VERTICAL);
+  g_signal_connect_after(toolkit_view, "map",
                    G_CALLBACK(move_toolkit), &toolkit);
 
   /* Button box. */
-  bbox = gtk_hbox_new(FALSE, 12);
+  bbox = gtk_grid_new();
+  gtk_grid_set_column_spacing(GTK_GRID(bbox), 12);
   g_object_set_data(G_OBJECT(toolkit_view), "button_box", bbox);
 
   return toolkit_view;
@@ -1302,8 +1289,8 @@ GtkWidget *inputline_toolkit_view_new(void)
 void inputline_toolkit_view_append_button(GtkWidget *toolkit_view,
                                           GtkWidget *button)
 {
-  gtk_box_pack_start(GTK_BOX(g_object_get_data(G_OBJECT(toolkit_view),
-                     "button_box")), button, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(g_object_get_data(G_OBJECT(toolkit_view),
+                    "button_box")), button);
 }
 
 /**************************************************************************
@@ -1313,7 +1300,7 @@ void chatline_init(void)
 {
   GtkWidget *vbox, *toolbar, *hbox, *button, *entry, *bbox;
   GtkToolItem *item;
-  GdkColor color;
+  GdkRGBA color;
 
   /* Chatline history. */
   if (!history_list) {
@@ -1324,22 +1311,27 @@ void chatline_init(void)
   /* Inputline toolkit. */
   memset(&toolkit, 0, sizeof(toolkit));
 
-  vbox = gtk_vbox_new(FALSE, 2);
+  vbox = gtk_grid_new();
+  gtk_grid_set_row_spacing(GTK_GRID(vbox), 2);
+  gtk_orientable_set_orientation(GTK_ORIENTABLE(vbox),
+                                 GTK_ORIENTATION_VERTICAL);
   toolkit.main_widget = vbox;
-  g_signal_connect(vbox, "expose-event",
+  g_signal_connect_after(vbox, "map",
                    G_CALLBACK(set_toolbar_visibility), &toolkit);
 
   entry = gtk_entry_new();
+  g_object_set(entry, "margin", 2, NULL);
+  gtk_widget_set_hexpand(entry, TRUE);
   toolkit.entry = entry;
 
   /* First line: toolbar */
   toolbar = gtk_toolbar_new();
-  gtk_box_pack_start(GTK_BOX(vbox), toolbar, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(vbox), toolbar);
   gtk_toolbar_set_icon_size(GTK_TOOLBAR(toolbar), GTK_ICON_SIZE_MENU);
   gtk_toolbar_set_show_arrow(GTK_TOOLBAR(toolbar), FALSE);
   gtk_toolbar_set_style(GTK_TOOLBAR(toolbar), GTK_TOOLBAR_BOTH_HORIZ);
-  gtk_toolbar_set_orientation(GTK_TOOLBAR(toolbar),
-                              GTK_ORIENTATION_HORIZONTAL);
+  gtk_orientable_set_orientation(GTK_ORIENTABLE(toolbar),
+                                 GTK_ORIENTATION_HORIZONTAL);
   toolkit.toolbar = toolbar;
 
   /* Bold button. */
@@ -1394,7 +1386,7 @@ void chatline_init(void)
   g_signal_connect(item, "clicked",
                    G_CALLBACK(select_color_callback), entry);
   gtk_widget_set_tooltip_text(GTK_WIDGET(item), _("Select the text color"));
-  if (gdk_color_parse("#000000", &color)) {
+  if (gdk_rgba_parse(&color, "#000000")) {
     /* Set default foreground color. */
     color_set(G_OBJECT(entry), "fg_color", &color, GTK_TOOL_BUTTON(item));
   } else {
@@ -1411,7 +1403,7 @@ void chatline_init(void)
                    G_CALLBACK(select_color_callback), entry);
   gtk_widget_set_tooltip_text(GTK_WIDGET(item),
                               _("Select the background color"));
-  if (gdk_color_parse("#ffffff", &color)) {
+  if (gdk_rgba_parse(&color, "#ffffff")) {
     /* Set default background color. */
     color_set(G_OBJECT(entry), "bg_color", &color, GTK_TOOL_BUTTON(item));
   } else {
@@ -1431,32 +1423,30 @@ void chatline_init(void)
                               _("Send the chat (Return)"));
 
   /* Second line */
-  hbox = gtk_hbox_new(FALSE, 4);
-  gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
+  hbox = gtk_grid_new();
+  gtk_grid_set_column_spacing(GTK_GRID(hbox), 4);
+  gtk_container_add(GTK_CONTAINER(vbox), hbox);
 
   /* Toggle button. */
   button = gtk_toggle_button_new();
-  gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 2);
-  gtk_container_add(GTK_CONTAINER(button),
-#ifdef GTK_STOCK_EDIT
-                    gtk_image_new_from_stock(GTK_STOCK_EDIT,
-#else
-                    gtk_image_new_from_stock(GTK_STOCK_PREFERENCES,
-#endif
-                                             GTK_ICON_SIZE_MENU));
+  g_object_set(button, "margin", 2, NULL);
+  gtk_container_add(GTK_CONTAINER(hbox), button);
+  gtk_button_set_image(GTK_BUTTON(button),
+                       gtk_image_new_from_stock(GTK_STOCK_EDIT,
+                                                GTK_ICON_SIZE_MENU));
   g_signal_connect(button, "toggled", G_CALLBACK(button_toggled), &toolkit);
   gtk_widget_set_tooltip_text(GTK_WIDGET(button), _("Chat tools"));
   toolkit.toggle_button = button;
 
   /* Entry. */
-  gtk_box_pack_start(GTK_BOX(hbox), entry, TRUE, TRUE, 2);
+  gtk_container_add(GTK_CONTAINER(hbox), entry);
   g_signal_connect(entry, "activate", G_CALLBACK(inputline_return), NULL);
   g_signal_connect(entry, "key_press_event",
                    G_CALLBACK(inputline_handler), NULL);
 
   /* Button box. */
-  bbox = gtk_hbox_new(FALSE, 0);
-  gtk_box_pack_end(GTK_BOX(hbox), bbox, FALSE, FALSE, 0);
+  bbox = gtk_grid_new();
+  gtk_container_add(GTK_CONTAINER(hbox), bbox);
   toolkit.button_box = bbox;
 }
 
@@ -1471,7 +1461,7 @@ static gboolean version_message_main_thread(gpointer user_data)
 
   FC_FREE(vertext);
 
-  return FALSE;
+  return G_SOURCE_REMOVE;
 }
 
 /**************************************************************************

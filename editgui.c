@@ -44,7 +44,7 @@
 
 #include "dialogs_g.h"
 
-/* client/gui-gtk-2.0 */
+/* client/gui-gtk-3.0 */
 #include "canvas.h"
 #include "editgui.h"
 #include "editprop.h"
@@ -284,7 +284,7 @@ static void editbar_player_pov_combobox_changed(GtkComboBox *combo,
   GtkTreeModel *model;
 
   if (eb == NULL || eb->widget == NULL
-      || !GTK_WIDGET_VISIBLE(eb->widget)) {
+      || !gtk_widget_get_visible(eb->widget)) {
     return;
   }
 
@@ -434,6 +434,7 @@ static void editbar_add_tool_button(struct editbar *eb,
   fc_assert_ret(sprite != NULL);
   pixbuf = sprite_get_pixbuf(sprite);
   image = gtk_image_new_from_pixbuf(pixbuf);
+  g_object_unref(G_OBJECT(pixbuf));
 
   gtk_container_add(GTK_CONTAINER(button), image);
   gtk_toggle_button_set_mode(GTK_TOGGLE_BUTTON(button), FALSE);
@@ -448,7 +449,7 @@ static void editbar_add_tool_button(struct editbar *eb,
       G_CALLBACK(editbar_tool_button_mouse_click), GINT_TO_POINTER(ett));
 
   hbox = eb->widget;
-  gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(hbox), button);
   eb->tool_buttons[ett] = button;
 
   if (editor_tool_has_value(ett)) {
@@ -492,6 +493,7 @@ static void editbar_add_mode_button(struct editbar *eb,
   fc_assert_ret(sprite != NULL);
   pixbuf = sprite_get_pixbuf(sprite);
   image = gtk_image_new_from_pixbuf(pixbuf);
+  g_object_unref(G_OBJECT(pixbuf));
 
   gtk_container_add(GTK_CONTAINER(button), image);
   gtk_toggle_button_set_mode(GTK_TOGGLE_BUTTON(button), FALSE);
@@ -507,7 +509,7 @@ static void editbar_add_mode_button(struct editbar *eb,
       G_CALLBACK(editbar_mode_button_toggled), GINT_TO_POINTER(etm));
 
   hbox = eb->widget;
-  gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(hbox), button);
   eb->mode_buttons[etm] = button;
 }
 
@@ -517,7 +519,7 @@ static void editbar_add_mode_button(struct editbar *eb,
 static struct editbar *editbar_create(void)
 {
   struct editbar *eb;
-  GtkWidget *hbox, *button, *combo, *image, *separator, *vbox, *evbox;
+  GtkWidget *hbox, *button, *combo, *image, *separator, *vbox;
   GtkListStore *store;
   GtkCellRenderer *cell;
   GdkPixbuf *pixbuf;
@@ -525,7 +527,8 @@ static struct editbar *editbar_create(void)
   
   eb = fc_calloc(1, sizeof(struct editbar));
 
-  hbox = gtk_hbox_new(FALSE, 4);
+  hbox = gtk_grid_new();
+  gtk_grid_set_column_spacing(GTK_GRID(hbox), 4);
   eb->widget = hbox;
   eb->size_group = gtk_size_group_new(GTK_SIZE_GROUP_BOTH);
 
@@ -533,8 +536,8 @@ static struct editbar *editbar_create(void)
 
   editbar_add_mode_button(eb, ETM_ERASE);
 
-  separator = gtk_vseparator_new();
-  gtk_box_pack_start(GTK_BOX(hbox), separator, FALSE, FALSE, 0);
+  separator = gtk_separator_new(GTK_ORIENTATION_VERTICAL);
+  gtk_container_add(GTK_CONTAINER(hbox), separator);
 
   editbar_add_tool_button(eb, ETT_TERRAIN);
   editbar_add_tool_button(eb, ETT_TERRAIN_RESOURCE);
@@ -547,12 +550,14 @@ static struct editbar *editbar_create(void)
   editbar_add_tool_button(eb, ETT_STARTPOS);
   editbar_add_tool_button(eb, ETT_COPYPASTE);
 
-  separator = gtk_vseparator_new();
-  gtk_box_pack_start(GTK_BOX(hbox), separator, FALSE, FALSE, 0);
+  separator = gtk_separator_new(GTK_ORIENTATION_VERTICAL);
+  gtk_container_add(GTK_CONTAINER(hbox), separator);
 
   /* Player POV indicator. */
-  vbox = gtk_vbox_new(FALSE, 0);
-  gtk_box_pack_start(GTK_BOX(hbox), vbox, FALSE, FALSE, 0);
+  vbox = gtk_grid_new();
+  gtk_orientable_set_orientation(GTK_ORIENTABLE(vbox),
+                                 GTK_ORIENTATION_VERTICAL);
+  gtk_container_add(GTK_CONTAINER(hbox), vbox);
 
   store = gtk_list_store_new(PPV_NUM_COLS,
                              GDK_TYPE_PIXBUF,
@@ -576,19 +581,18 @@ static struct editbar *editbar_create(void)
   g_signal_connect(combo, "changed",
                    G_CALLBACK(editbar_player_pov_combobox_changed), eb);
 
-  evbox = gtk_event_box_new();
-  gtk_widget_set_tooltip_text(evbox,
+  gtk_widget_set_tooltip_text(combo,
       _("Switch player point-of-view. Use this to edit "
         "from the perspective of different players, or "
         "even as a global observer."));
-  gtk_container_add(GTK_CONTAINER(evbox), combo);
-  gtk_box_pack_start(GTK_BOX(vbox), evbox, TRUE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(vbox), combo);
   eb->player_pov_combobox = combo;
 
   /* Property editor button. */
   button = gtk_button_new();
   pixbuf = sprite_get_pixbuf(sprites->properties);
   image = gtk_image_new_from_pixbuf(pixbuf);
+  g_object_unref(G_OBJECT(pixbuf));
   gtk_container_add(GTK_CONTAINER(button), image);
   gtk_widget_set_tooltip_text(button, _("Show the property editor."));
   gtk_size_group_add_widget(eb->size_group, button);
@@ -596,7 +600,7 @@ static struct editbar *editbar_create(void)
   gtk_button_set_focus_on_click(GTK_BUTTON(button), FALSE);
   g_signal_connect(button, "clicked",
       G_CALLBACK(editbar_player_properties_button_clicked), eb);
-  gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(hbox), button);
   eb->player_properties_button = button;
 
   return eb;
@@ -670,7 +674,7 @@ static void editbar_refresh(struct editbar *eb)
   }
 
   if (!editor_is_active()) {
-    gtk_widget_hide_all(eb->widget);
+    gtk_widget_hide(eb->widget);
     return;
   }
 
@@ -695,24 +699,26 @@ static GdkPixbuf *create_road_pixbuf(const struct road_type *proad)
   struct drawn_sprite sprs[80];
   int count, w, h, canvas_x, canvas_y;
   GdkPixbuf *pixbuf;
-  struct canvas canvas;
+  struct canvas canvas = FC_STATIC_CANVAS_INIT;
+  cairo_t *cr;
 
   w = tileset_tile_width(tileset);
   h = tileset_tile_height(tileset);
 
-  pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, TRUE, 8, w, h);
-  if (pixbuf == NULL) {
-    return NULL;
-  }
-  gdk_pixbuf_fill(pixbuf, 0x00000000);
-
-  canvas.type = CANVAS_PIXBUF;
-  canvas.v.pixbuf = pixbuf;
+  canvas.surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, w, h);
   canvas_x = 0;
   canvas_y = 0;
 
+  cr = cairo_create(canvas.surface);
+  cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
+  cairo_paint(cr);
+  cairo_destroy(cr);
+
   count = fill_basic_road_sprite_array(tileset, sprs, proad);
   put_drawn_sprites(&canvas, canvas_x, canvas_y, count, sprs, FALSE);
+
+  pixbuf = surface_get_pixbuf(canvas.surface, w, h);
+  cairo_surface_destroy(canvas.surface);
 
   return pixbuf;
 }
@@ -731,24 +737,26 @@ static GdkPixbuf *create_military_base_pixbuf(const struct base_type *pbase)
   struct drawn_sprite sprs[80];
   int count, w, h, canvas_x, canvas_y;
   GdkPixbuf *pixbuf;
-  struct canvas canvas;
+  struct canvas canvas = FC_STATIC_CANVAS_INIT;
+  cairo_t *cr;
 
   w = tileset_tile_width(tileset);
   h = tileset_tile_height(tileset);
 
-  pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, TRUE, 8, w, h);
-  if (pixbuf == NULL) {
-    return NULL;
-  }
-  gdk_pixbuf_fill(pixbuf, 0x00000000);
-
-  canvas.type = CANVAS_PIXBUF;
-  canvas.v.pixbuf = pixbuf;
+  canvas.surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, w, h);
   canvas_x = 0;
   canvas_y = 0;
 
+  cr = cairo_create(canvas.surface);
+  cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
+  cairo_paint(cr);
+  cairo_destroy(cr);
+
   count = fill_basic_base_sprite_array(tileset, sprs, pbase);
   put_drawn_sprites(&canvas, canvas_x, canvas_y, count, sprs, FALSE);
+
+  pixbuf = surface_get_pixbuf(canvas.surface, w, h);
+  cairo_surface_destroy(canvas.surface);
 
   return pixbuf;
 }
@@ -767,21 +775,20 @@ static GdkPixbuf *create_terrain_pixbuf(struct terrain *pterrain)
   struct drawn_sprite sprs[80];
   int count, w, h, canvas_x, canvas_y, i;
   GdkPixbuf *pixbuf;
-  struct canvas canvas;
+  struct canvas canvas = FC_STATIC_CANVAS_INIT;
+  cairo_t *cr;
 
   w = tileset_tile_width(tileset);
   h = tileset_tile_height(tileset);
 
-  pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB, TRUE, 8, w, h);
-  if (pixbuf == NULL) {
-    return NULL;
-  }
-  gdk_pixbuf_fill(pixbuf, 0x00000000);
-
-  canvas.type = CANVAS_PIXBUF;
-  canvas.v.pixbuf = pixbuf;
+  canvas.surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, w, h);
   canvas_x = 0;
   canvas_y = 0;
+
+  cr = cairo_create(canvas.surface);
+  cairo_set_operator(cr, CAIRO_OPERATOR_CLEAR);
+  cairo_paint(cr);
+  cairo_destroy(cr);
 
   for (i = 0; i < 3; i++) {
     count = fill_basic_terrain_layer_sprite_array(tileset, sprs,
@@ -789,7 +796,45 @@ static GdkPixbuf *create_terrain_pixbuf(struct terrain *pterrain)
     put_drawn_sprites(&canvas, canvas_x, canvas_y, count, sprs, FALSE);
   }
 
+  pixbuf = surface_get_pixbuf(canvas.surface, w, h);
+  cairo_surface_destroy(canvas.surface);
+
   return pixbuf;
+}
+
+/****************************************************************************
+  Clear icons from tool store, and the store itself.
+****************************************************************************/
+static void clear_tool_store(GtkListStore *store)
+{
+  GtkTreeIter iter;
+  GtkTreeModel *model = GTK_TREE_MODEL(store);
+
+  if (gtk_tree_model_get_iter_first(model, &iter)) {
+    do {
+      GdkPixbuf *pixbuf;
+
+      gtk_tree_model_get(model, &iter, TVS_COL_IMAGE, &pixbuf, -1);
+      if (pixbuf != NULL) {
+        g_object_unref(pixbuf);
+      }
+    } while (gtk_tree_model_iter_next(model, &iter));
+  }
+
+  gtk_list_store_clear(store);
+}
+
+/****************************************************************************
+  Clears all stores from the editbar.
+****************************************************************************/
+static void clear_tool_stores(struct editbar *eb)
+{
+  clear_tool_store(eb->tool_selectors[ETT_TERRAIN]->store);
+  clear_tool_store(eb->tool_selectors[ETT_TERRAIN_RESOURCE]->store);
+  clear_tool_store(eb->tool_selectors[ETT_TERRAIN_SPECIAL]->store);
+  clear_tool_store(eb->tool_selectors[ETT_ROAD]->store);
+  clear_tool_store(eb->tool_selectors[ETT_MILITARY_BASE]->store);
+  clear_tool_store(eb->tool_selectors[ETT_UNIT]->store);
 }
 
 /****************************************************************************
@@ -807,12 +852,12 @@ static void editbar_reload_tileset(struct editbar *eb)
     return;
   }
 
+  clear_tool_stores(eb);
 
   /* Reload terrains. */
 
   tvs = eb->tool_selectors[ETT_TERRAIN];
   store = tvs->store;
-  gtk_list_store_clear(store);
 
   terrain_type_iterate(pterrain) {
     gtk_list_store_append(store, &iter);
@@ -832,7 +877,6 @@ static void editbar_reload_tileset(struct editbar *eb)
 
   tvs = eb->tool_selectors[ETT_TERRAIN_RESOURCE];
   store = tvs->store;
-  gtk_list_store_clear(store);
 
   resource_type_iterate(presource) {
     gtk_list_store_append(store, &iter);
@@ -845,11 +889,12 @@ static void editbar_reload_tileset(struct editbar *eb)
       continue;
     }
     pixbuf = sprite_get_pixbuf(sprite);
-    if (pixbuf != NULL) {
-      gtk_list_store_set(store, &iter, TVS_COL_IMAGE, pixbuf, -1);
-      /* pixbuf unref will happen automatically when the sprite it was gotten
-       * from gets freed. */
+    if (pixbuf == NULL) {
+      continue;
     }
+
+    gtk_list_store_set(store, &iter, TVS_COL_IMAGE, pixbuf, -1);
+    g_object_unref(G_OBJECT(pixbuf));
   } resource_type_iterate_end;
 
 
@@ -857,7 +902,6 @@ static void editbar_reload_tileset(struct editbar *eb)
 
   tvs = eb->tool_selectors[ETT_TERRAIN_SPECIAL];
   store = tvs->store;
-  gtk_list_store_clear(store);
 
   tile_special_type_iterate(special) {
     gtk_list_store_append(store, &iter);
@@ -872,14 +916,14 @@ static void editbar_reload_tileset(struct editbar *eb)
     pixbuf = sprite_get_pixbuf(sprite);
     if (pixbuf != NULL) {
       gtk_list_store_set(store, &iter, TVS_COL_IMAGE, pixbuf, -1);
-      /* pixbuf unref will happen automatically when the sprite it was gotten
-       * from gets freed. */
+      g_object_unref(G_OBJECT(pixbuf));
     }
   } tile_special_type_iterate_end;
 
+  /* Reload roads. */
+
   tvs = eb->tool_selectors[ETT_ROAD];
   store = tvs->store;
-  gtk_list_store_clear(store);
 
   road_type_iterate(proad) {
     int id;
@@ -902,7 +946,6 @@ static void editbar_reload_tileset(struct editbar *eb)
 
   tvs = eb->tool_selectors[ETT_MILITARY_BASE];
   store = tvs->store;
-  gtk_list_store_clear(store);
 
   base_type_iterate(pbase) {
     int id;
@@ -926,7 +969,6 @@ static void editbar_reload_tileset(struct editbar *eb)
 
   tvs = eb->tool_selectors[ETT_UNIT];
   store = tvs->store;
-  gtk_list_store_clear(store);
 
   unit_type_iterate(putype) {
     gtk_list_store_append(store, &iter);
@@ -942,8 +984,7 @@ static void editbar_reload_tileset(struct editbar *eb)
     pixbuf = sprite_get_pixbuf(sprite);
     if (pixbuf != NULL) {
       gtk_list_store_set(store, &iter, TVS_COL_IMAGE, pixbuf, -1);
-      /* pixbuf unref will happen automatically when the sprite it was gotten
-       * from gets freed. */
+      g_object_unref(G_OBJECT(pixbuf));
     }
   } unit_type_iterate_end;
 }
@@ -1066,7 +1107,7 @@ create_tool_value_selector(struct editbar *eb,
       GTK_STOCK_OK, GTK_RESPONSE_ACCEPT,
       GTK_STOCK_CANCEL, GTK_RESPONSE_REJECT,
       NULL);
-  vbox = GTK_DIALOG(tvs->dialog)->vbox;
+  vbox = gtk_dialog_get_content_area(GTK_DIALOG(tvs->dialog));
 
   store = gtk_list_store_new(TVS_NUM_COLS,
                              GDK_TYPE_PIXBUF,
@@ -1080,6 +1121,8 @@ create_tool_value_selector(struct editbar *eb,
   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scrollwin),
                                  GTK_POLICY_NEVER,
                                  GTK_POLICY_AUTOMATIC);
+  gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scrollwin),
+                                             10 * tileset_tile_height(tileset));
   gtk_box_pack_start(GTK_BOX(vbox), scrollwin, TRUE, TRUE, 0);
 
   view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(tvs->store));
@@ -1234,69 +1277,85 @@ static struct editinfobox *editinfobox_create(void)
   gtk_container_set_border_width(GTK_CONTAINER(frame), 4);
   ei->widget = frame;
 
-  vbox = gtk_vbox_new(FALSE, 8);
+  vbox = gtk_grid_new();
+  gtk_orientable_set_orientation(GTK_ORIENTABLE(vbox),
+                                 GTK_ORIENTATION_VERTICAL);
+  gtk_grid_set_row_spacing(GTK_GRID(vbox), 8);
   gtk_container_set_border_width(GTK_CONTAINER(vbox), 4);
   gtk_container_add(GTK_CONTAINER(frame), vbox);
 
   /* tool section */
-  hbox = gtk_hbox_new(FALSE, 8);
-  gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
+  hbox = gtk_grid_new();
+  gtk_grid_set_column_spacing(GTK_GRID(hbox), 8);
+  gtk_container_add(GTK_CONTAINER(vbox), hbox);
 
   evbox = gtk_event_box_new();
   gtk_widget_set_tooltip_text(evbox, _("Click to change value if applicable."));
   g_signal_connect(evbox, "button_press_event",
       G_CALLBACK(editinfobox_handle_tool_image_button_press), NULL);
-  gtk_box_pack_start(GTK_BOX(hbox), evbox, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(hbox), evbox);
 
   image = gtk_image_new();
   gtk_container_add(GTK_CONTAINER(evbox), image);
   ei->tool_image = image;
 
-  vbox2 = gtk_vbox_new(FALSE, 4);
-  gtk_box_pack_start(GTK_BOX(hbox), vbox2, FALSE, FALSE, 0);
+  vbox2 = gtk_grid_new();
+  gtk_orientable_set_orientation(GTK_ORIENTABLE(vbox2),
+                                 GTK_ORIENTATION_VERTICAL);
+  gtk_grid_set_row_spacing(GTK_GRID(vbox2), 4);
+  gtk_container_add(GTK_CONTAINER(hbox), vbox2);
 
   label = gtk_label_new(NULL);
-  gtk_misc_set_alignment(GTK_MISC(label), 0.0, 0.5);
-  gtk_box_pack_start(GTK_BOX(vbox2), label, FALSE, FALSE, 0);
+  gtk_widget_set_halign(label, GTK_ALIGN_START);
+  gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
+  gtk_container_add(GTK_CONTAINER(vbox2), label);
   ei->tool_label = label;
 
   label = gtk_label_new(NULL);
-  gtk_misc_set_alignment(GTK_MISC(label), 0.0, 0.5);
-  gtk_box_pack_start(GTK_BOX(vbox2), label, FALSE, FALSE, 0);
+  gtk_widget_set_halign(label, GTK_ALIGN_START);
+  gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
+  gtk_container_add(GTK_CONTAINER(vbox2), label);
   ei->tool_value_label = label;
 
   /* mode section */
-  hbox = gtk_hbox_new(FALSE, 8);
-  gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
+  hbox = gtk_grid_new();
+  gtk_grid_set_column_spacing(GTK_GRID(hbox), 8);
+  gtk_container_add(GTK_CONTAINER(vbox), hbox);
 
   evbox = gtk_event_box_new();
   gtk_widget_set_tooltip_text(evbox, _("Click to change tool mode."));
   g_signal_connect(evbox, "button_press_event",
       G_CALLBACK(editinfobox_handle_mode_image_button_press), NULL);
-  gtk_box_pack_start(GTK_BOX(hbox), evbox, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(hbox), evbox);
 
   image = gtk_image_new();
   gtk_container_add(GTK_CONTAINER(evbox), image);
   ei->mode_image = image;
 
-  vbox2 = gtk_vbox_new(FALSE, 4);
-  gtk_box_pack_start(GTK_BOX(hbox), vbox2, FALSE, FALSE, 0);
+  vbox2 = gtk_grid_new();
+  gtk_orientable_set_orientation(GTK_ORIENTABLE(vbox2),
+                                 GTK_ORIENTATION_VERTICAL);
+  gtk_grid_set_row_spacing(GTK_GRID(vbox2), 4);
+  gtk_container_add(GTK_CONTAINER(hbox), vbox2);
 
   label = gtk_label_new(NULL);
   fc_snprintf(buf, sizeof(buf), "<span weight=\"bold\">%s</span>",
               _("Mode"));
   gtk_label_set_markup(GTK_LABEL(label), buf);
-  gtk_misc_set_alignment(GTK_MISC(label), 0.0, 0.5);
-  gtk_box_pack_start(GTK_BOX(vbox2), label, FALSE, FALSE, 0);
+  gtk_widget_set_halign(label, GTK_ALIGN_START);
+  gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
+  gtk_container_add(GTK_CONTAINER(vbox2), label);
 
   label = gtk_label_new(NULL);
-  gtk_misc_set_alignment(GTK_MISC(label), 0.0, 0.5);
-  gtk_box_pack_start(GTK_BOX(vbox2), label, FALSE, FALSE, 0);
+  gtk_widget_set_halign(label, GTK_ALIGN_START);
+  gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
+  gtk_container_add(GTK_CONTAINER(vbox2), label);
   ei->mode_label = label;
 
   /* spinner section */
-  hbox = gtk_hbox_new(FALSE, 8);
-  gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
+  hbox = gtk_grid_new();
+  gtk_grid_set_column_spacing(GTK_GRID(hbox), 8);
+  gtk_container_add(GTK_CONTAINER(vbox), hbox);
   ei->size_hbox = hbox;
   spin = gtk_spin_button_new_with_range(1, 255, 1);
   gtk_widget_set_tooltip_text(spin,
@@ -1307,13 +1366,14 @@ static struct editinfobox *editinfobox_create(void)
   g_signal_connect(spin, "value-changed",
                    G_CALLBACK(editinfobox_spin_button_value_changed),
                    GINT_TO_POINTER(SPIN_BUTTON_SIZE));
-  gtk_box_pack_start(GTK_BOX(hbox), spin, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(hbox), spin);
   ei->size_spin_button = spin;
   label = gtk_label_new(_("Size"));
-  gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(hbox), label);
   
-  hbox = gtk_hbox_new(FALSE, 8);
-  gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
+  hbox = gtk_grid_new();
+  gtk_grid_set_column_spacing(GTK_GRID(hbox), 8);
+  gtk_container_add(GTK_CONTAINER(vbox), hbox);
   ei->count_hbox = hbox;
   spin = gtk_spin_button_new_with_range(1, 255, 1);
   gtk_widget_set_tooltip_text(spin,
@@ -1323,10 +1383,10 @@ static struct editinfobox *editinfobox_create(void)
   g_signal_connect(spin, "value-changed",
                    G_CALLBACK(editinfobox_spin_button_value_changed),
                    GINT_TO_POINTER(SPIN_BUTTON_COUNT));
-  gtk_box_pack_start(GTK_BOX(hbox), spin, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(hbox), spin);
   ei->count_spin_button = spin;
   label = gtk_label_new(_("Count"));
-  gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(hbox), label);
 
   /* combo section */
   store = gtk_list_store_new(TAP_NUM_COLS,
@@ -1350,13 +1410,11 @@ static struct editinfobox *editinfobox_create(void)
   g_signal_connect(combo, "changed",
                    G_CALLBACK(editinfobox_tool_applied_player_changed), ei);
 
-  evbox = gtk_event_box_new();
-  gtk_widget_set_tooltip_text(evbox,
+  gtk_widget_set_tooltip_text(combo,
       _("Use this to change the \"applied player\" tool parameter. "
         "This controls for example under which player units and cities "
         "are created."));
-  gtk_container_add(GTK_CONTAINER(evbox), combo);
-  gtk_box_pack_start(GTK_BOX(vbox), evbox, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(vbox), combo);
   ei->tool_applied_player_combobox = combo;
 
   /* We add a ref to the editinfobox widget so that it is
@@ -1509,12 +1567,14 @@ static GdkPixbuf *get_tool_value_pixbuf(enum editor_tool_type ett,
 
   if (sprite) {
     pixbuf = sprite_get_pixbuf(sprite);
+    /*
     if (pixbuf) {
       g_object_ref(pixbuf);
     }
+    */
     sprite = NULL;
   }
-  
+
   return pixbuf;
 }
 
@@ -1533,9 +1593,11 @@ static GdkPixbuf *get_tool_mode_pixbuf(enum editor_tool_mode etm)
 
   if (sprite) {
     pixbuf = sprite_get_pixbuf(sprite);
+    /*
     if (pixbuf) {
       g_object_ref(pixbuf);
     }
+    */
   }
 
   return pixbuf;
@@ -1555,8 +1617,10 @@ static void replace_widget(GtkWidget *old, GtkWidget *new)
     return;
   }
 
+  gtk_widget_hide(old);
   gtk_container_remove(GTK_CONTAINER(parent), old);
-  gtk_box_pack_start(GTK_BOX(parent), new, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(parent), new);
+  gtk_widget_show_all(new);
 }
 
 /****************************************************************************
@@ -1610,7 +1674,10 @@ static void editinfobox_refresh(struct editinfobox *ei)
     spr = editor_tool_get_sprite(ett);
     pixbuf = spr ? sprite_get_pixbuf(spr) : NULL;
     gtk_image_set_from_pixbuf(GTK_IMAGE(ei->tool_image), pixbuf);
-    pixbuf = NULL;
+    if (pixbuf) {
+      g_object_unref(G_OBJECT(pixbuf));
+      pixbuf = NULL;
+    }
   } else {
     pixbuf = get_tool_value_pixbuf(ett, value);
     gtk_image_set_from_pixbuf(GTK_IMAGE(ei->tool_image), pixbuf);
@@ -1621,6 +1688,8 @@ static void editinfobox_refresh(struct editinfobox *ei)
     gtk_label_set_text(GTK_LABEL(ei->tool_value_label),
                        editor_tool_get_value_name(ett, value));
   }
+
+  replace_widget(unit_info_box, ei->widget);
 
   if (editor_tool_has_size(ett)) {
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(ei->size_spin_button),
@@ -1639,8 +1708,6 @@ static void editinfobox_refresh(struct editinfobox *ei)
   }
 
   refresh_tool_applied_player_combo(ei);
-
-  replace_widget(unit_info_box, ei->widget);
 }
 
 /****************************************************************************
@@ -1660,33 +1727,33 @@ static gboolean handle_edit_key_press_with_shift(GdkEventKey *ev)
 
   ett = editor_get_tool();
   switch (ev->keyval) {
-  case GDK_D:
+  case GDK_KEY_D:
     editor_tool_toggle_mode(ett, ETM_ERASE);
     break;
-  case GDK_C:
+  case GDK_KEY_C:
     editor_set_tool(ETT_COPYPASTE);
     editor_tool_toggle_mode(ett, ETM_COPY);
     break;
-  case GDK_V:
+  case GDK_KEY_V:
     editor_set_tool(ETT_COPYPASTE);
     editor_tool_toggle_mode(ett, ETM_PASTE);
     break;
-  case GDK_T:
+  case GDK_KEY_T:
     editgui_run_tool_selection(ETT_TERRAIN);
     break;
-  case GDK_R:
+  case GDK_KEY_R:
     editgui_run_tool_selection(ETT_TERRAIN_RESOURCE);
     break;
-  case GDK_S:
+  case GDK_KEY_S:
     editgui_run_tool_selection(ETT_TERRAIN_SPECIAL);
     break;
-  case GDK_P:
+  case GDK_KEY_P:
     editgui_run_tool_selection(ETT_ROAD);
     break;
-  case GDK_M:
+  case GDK_KEY_M:
     editgui_run_tool_selection(ETT_MILITARY_BASE);
     break;
-  case GDK_U:
+  case GDK_KEY_U:
     editgui_run_tool_selection(ETT_UNIT);
     break;
   default:
@@ -1717,36 +1784,36 @@ gboolean handle_edit_key_press(GdkEventKey *ev)
   ett = editor_get_tool();
 
   switch (ev->keyval) {
-  case GDK_t:
+  case GDK_KEY_t:
     new_ett = ETT_TERRAIN;
     break;
-  case GDK_r:
+  case GDK_KEY_r:
     new_ett = ETT_TERRAIN_RESOURCE;
     break;
-  case GDK_s:
+  case GDK_KEY_s:
     new_ett = ETT_TERRAIN_SPECIAL;
     break;
-  case GDK_p:
+  case GDK_KEY_p:
     new_ett = ETT_ROAD;
     break;
-  case GDK_m:
+  case GDK_KEY_m:
     new_ett = ETT_MILITARY_BASE;
     break;
-  case GDK_u:
+  case GDK_KEY_u:
     new_ett = ETT_UNIT;
     break;
-  case GDK_c:
+  case GDK_KEY_c:
     new_ett = ETT_CITY;
     break;
-  case GDK_v:
+  case GDK_KEY_v:
     new_ett = ETT_VISION;
     break;
-  case GDK_b:
+  case GDK_KEY_b:
     new_ett = ETT_STARTPOS;
     break;
-  case GDK_plus:
-  case GDK_equal:
-  case GDK_KP_Add:
+  case GDK_KEY_plus:
+  case GDK_KEY_equal:
+  case GDK_KEY_KP_Add:
     if (editor_tool_has_size(ett)) {
       int size = editor_tool_get_size(ett);
       editor_tool_set_size(ett, size + 1);
@@ -1755,9 +1822,9 @@ gboolean handle_edit_key_press(GdkEventKey *ev)
       editor_tool_set_count(ett, count + 1);
     }
     break;
-  case GDK_minus:
-  case GDK_underscore:
-  case GDK_KP_Subtract:
+  case GDK_KEY_minus:
+  case GDK_KEY_underscore:
+  case GDK_KEY_KP_Subtract:
     if (editor_tool_has_size(ett)) {
       int size = editor_tool_get_size(ett);
       editor_tool_set_size(ett, size - 1);
@@ -1766,39 +1833,39 @@ gboolean handle_edit_key_press(GdkEventKey *ev)
       editor_tool_set_count(ett, count - 1);
     }
     break;
-  case GDK_1:
-  case GDK_2:
-  case GDK_3:
-  case GDK_4:
-  case GDK_5:
-  case GDK_6:
-  case GDK_7:
-  case GDK_8:
-  case GDK_9:
+  case GDK_KEY_1:
+  case GDK_KEY_2:
+  case GDK_KEY_3:
+  case GDK_KEY_4:
+  case GDK_KEY_5:
+  case GDK_KEY_6:
+  case GDK_KEY_7:
+  case GDK_KEY_8:
+  case GDK_KEY_9:
     if (editor_tool_has_size(ett)) {
-      editor_tool_set_size(ett, ev->keyval - GDK_1 + 1);
+      editor_tool_set_size(ett, ev->keyval - GDK_KEY_1 + 1);
     } else if (editor_tool_has_count(ett)) {
-      editor_tool_set_count(ett, ev->keyval - GDK_1 + 1);
+      editor_tool_set_count(ett, ev->keyval - GDK_KEY_1 + 1);
     }
     break;
-  case GDK_space:
+  case GDK_KEY_space:
     editor_apply_tool_to_selection();
     break;
-  case GDK_Tab:
+  case GDK_KEY_Tab:
     editgui_run_tool_selection(ett);
     break;
-  case GDK_F1:
-  case GDK_F2:
-  case GDK_F3:
-  case GDK_F4:
-  case GDK_F5:
-  case GDK_F6:
-  case GDK_F7:
-  case GDK_F8:
-  case GDK_F9:
-  case GDK_F10:
-  case GDK_F11:
-  case GDK_F12:
+  case GDK_KEY_F1:
+  case GDK_KEY_F2:
+  case GDK_KEY_F3:
+  case GDK_KEY_F4:
+  case GDK_KEY_F5:
+  case GDK_KEY_F6:
+  case GDK_KEY_F7:
+  case GDK_KEY_F8:
+  case GDK_KEY_F9:
+  case GDK_KEY_F10:
+  case GDK_KEY_F11:
+  case GDK_KEY_F12:
     return FALSE; /* Allow default handler. */
     break;
   default:
@@ -1868,6 +1935,16 @@ void editgui_create_widgets(void)
   if (editor_infobox == NULL) {
     editor_infobox = editinfobox_create();
   }
+}
+
+/****************************************************************************
+  Free everything allocated for the editgui.
+****************************************************************************/
+void editgui_free(void)
+{
+  struct editbar *eb = editgui_get_editbar();
+
+  clear_tool_stores(eb);
 }
 
 /****************************************************************************

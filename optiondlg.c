@@ -27,7 +27,7 @@
 /* client */
 #include "options.h"
 
-/* client/gui-gtk-2.0 */
+/* client/gui-gtk-3.0 */
 #include "colors.h"
 #include "dialogs.h"
 #include "gui_main.h"
@@ -126,7 +126,7 @@ static void option_dialog_reponse_callback(GtkDialog *dialog,
 /****************************************************************************
   Option dialog widget destroyed callback.
 ****************************************************************************/
-static void option_dialog_destroy_callback(GtkObject *object, gpointer data)
+static void option_dialog_destroy_callback(GtkWidget *object, gpointer data)
 {
   struct option_dialog *pdialog = (struct option_dialog *) data;
 
@@ -242,11 +242,10 @@ option_dialog_get(const struct option_set *poptset)
 ****************************************************************************/
 static void option_color_destroy_notify(gpointer data)
 {
-  GdkColor *color = (GdkColor *) data;
+  GdkRGBA *color = (GdkRGBA *) data;
 
   if (NULL != color) {
-    gdk_colormap_free_colors(gdk_colormap_get_system(), color, 1);
-    gdk_color_free(color);
+    gdk_rgba_free(color);
   }
 }
 
@@ -254,10 +253,9 @@ static void option_color_destroy_notify(gpointer data)
   Set the color of a button.
 ****************************************************************************/
 static void option_color_set_button_color(GtkButton *button,
-                                          const GdkColor *new_color)
+                                          const GdkRGBA *new_color)
 {
-  GdkColormap *colormap = gdk_colormap_get_system();
-  GdkColor *current_color = g_object_get_data(G_OBJECT(button), "color");
+  GdkRGBA *current_color = g_object_get_data(G_OBJECT(button), "color");
   GtkWidget *child;
 
   if (NULL == new_color) {
@@ -268,32 +266,37 @@ static void option_color_set_button_color(GtkButton *button,
       }
     }
   } else {
-    GdkPixmap *pixmap;
+    GdkPixbuf *pixbuf;
 
     /* Apply the new color. */
     if (NULL != current_color) {
-      /* We already have a GdkColor pointer. */
-      gdk_colormap_free_colors(colormap, current_color, 1);
+      /* We already have a GdkRGBA pointer. */
       *current_color = *new_color;
     } else {
-      /* We need to make a GdkColor pointer. */
-      current_color = gdk_color_copy(new_color);
+      /* We need to make a GdkRGBA pointer. */
+      current_color = gdk_rgba_copy(new_color);
       g_object_set_data_full(G_OBJECT(button), "color", current_color,
                              option_color_destroy_notify);
     }
-    gdk_colormap_alloc_color(colormap, current_color, TRUE, TRUE);
     if ((child = gtk_bin_get_child(GTK_BIN(button)))) {
       gtk_widget_destroy(child);
     }
 
     /* Update the button. */
-    pixmap = gdk_pixmap_new(root_window, 16, 16, -1);
-    gdk_gc_set_foreground(fill_bg_gc, current_color);
-    gdk_draw_rectangle(pixmap, fill_bg_gc, TRUE, 0, 0, 16, 16);
-    child = gtk_image_new_from_pixmap(pixmap, NULL);
+    {
+      cairo_surface_t *surface = cairo_image_surface_create(
+          CAIRO_FORMAT_RGB24, 16, 16);
+      cairo_t *cr = cairo_create(surface);
+      gdk_cairo_set_source_rgba(cr, current_color);
+      cairo_paint(cr);
+      cairo_destroy(cr);
+      pixbuf = gdk_pixbuf_get_from_surface(surface, 0, 0, 16, 16);
+      cairo_surface_destroy(surface);
+    }
+    child = gtk_image_new_from_pixbuf(pixbuf);
     gtk_container_add(GTK_CONTAINER(button), child);
     gtk_widget_show(child);
-    g_object_unref(G_OBJECT(pixmap));
+    g_object_unref(G_OBJECT(pixbuf));
   }
 }
 
@@ -308,11 +311,11 @@ static void color_selector_response_callback(GtkDialog *dialog,
     option_color_set_button_color(GTK_BUTTON(data), NULL);
   } else if (res == GTK_RESPONSE_OK) {
     /* Apply the new color. */
-    GtkColorSelection *selection =
-      GTK_COLOR_SELECTION(g_object_get_data(G_OBJECT(dialog), "selection"));
-    GdkColor new_color;
+    GtkColorChooser *chooser =
+      GTK_COLOR_CHOOSER(g_object_get_data(G_OBJECT(dialog), "chooser"));
+    GdkRGBA new_color;
 
-    gtk_color_selection_get_current_color(selection, &new_color);
+    gtk_color_chooser_get_rgba(chooser, &new_color);
     option_color_set_button_color(GTK_BUTTON(data), &new_color);
   }
 
@@ -324,8 +327,8 @@ static void color_selector_response_callback(GtkDialog *dialog,
 ****************************************************************************/
 static void option_color_select_callback(GtkButton *button, gpointer data)
 {
-  GtkWidget *dialog, *selection;
-  GdkColor *current_color = g_object_get_data(G_OBJECT(button), "color");
+  GtkWidget *dialog, *chooser;
+  GdkRGBA *current_color = g_object_get_data(G_OBJECT(button), "color");
 
   dialog = gtk_dialog_new_with_buttons(_("Select a color"), NULL,
                                        GTK_DIALOG_MODAL,
@@ -336,13 +339,12 @@ static void option_color_select_callback(GtkButton *button, gpointer data)
   g_signal_connect(dialog, "response",
                    G_CALLBACK(color_selector_response_callback), button);
 
-  selection = gtk_color_selection_new();
-  g_object_set_data(G_OBJECT(dialog), "selection", selection);
-  gtk_box_pack_start(GTK_BOX(GTK_DIALOG(dialog)->vbox), selection,
+  chooser = gtk_color_chooser_widget_new();
+  g_object_set_data(G_OBJECT(dialog), "chooser", chooser);
+  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), chooser,
                      FALSE, FALSE, 0);
   if (current_color) {
-    gtk_color_selection_set_current_color(GTK_COLOR_SELECTION(selection),
-                                          current_color);
+    gtk_color_chooser_set_rgba(GTK_COLOR_CHOOSER(chooser), current_color);
   }
 
   gtk_widget_show_all(dialog);
@@ -388,7 +390,7 @@ option_dialog_new(const char *name, const struct option_set *poptset)
   g_signal_connect(pdialog->shell, "destroy",
                    G_CALLBACK(option_dialog_destroy_callback), pdialog);
 
-  gtk_box_pack_start(GTK_BOX(GTK_DIALOG(pdialog->shell)->vbox),
+  gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(pdialog->shell))),
                      pdialog->notebook, TRUE, TRUE, 0);
 
   /* Add the options. */
@@ -486,13 +488,13 @@ static void option_dialog_option_add(struct option_dialog *pdialog,
                                      bool reorder_notebook)
 {
   const int category = option_category(poption);
-  GtkWidget *hbox, *ebox, *w = NULL;
+  GtkWidget *hbox, *label, *ebox, *w = NULL;
 
   fc_assert(NULL == option_get_gui_data(poption));
 
   /* Add category if needed. */
   if (NULL == pdialog->vboxes[category]) {
-    GtkWidget *sw, *align;
+    GtkWidget *sw;
 
     sw = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(sw),
@@ -507,12 +509,13 @@ static void option_dialog_option_add(struct option_dialog *pdialog,
       option_dialog_reorder_notebook(pdialog);
     }
 
-    align = gtk_alignment_new(0.0, 0.0, 1.0, 0.0);
-    gtk_container_set_border_width(GTK_CONTAINER(align), 8);
-    gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(sw), align);
-
-    pdialog->vboxes[category] = gtk_vbox_new(FALSE, 0);
-    gtk_container_add(GTK_CONTAINER(align), pdialog->vboxes[category]);
+    pdialog->vboxes[category] = gtk_grid_new();
+    gtk_orientable_set_orientation(GTK_ORIENTABLE(pdialog->vboxes[category]),
+                                   GTK_ORIENTATION_VERTICAL);
+    g_object_set(pdialog->vboxes[category], "margin", 8, NULL);
+    gtk_widget_set_hexpand(pdialog->vboxes[category], TRUE);
+    gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(sw),
+                                          pdialog->vboxes[category]);
 
     gtk_widget_show_all(sw);
   }
@@ -520,15 +523,14 @@ static void option_dialog_option_add(struct option_dialog *pdialog,
 
   ebox = gtk_event_box_new();
   gtk_widget_set_tooltip_text(ebox, option_help_text(poption));
-  gtk_box_pack_start(GTK_BOX(pdialog->vboxes[category]), ebox,
-                     FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(pdialog->vboxes[category]), ebox);
   g_signal_connect(ebox, "button_press_event",
                    G_CALLBACK(option_button_press_callback), poption);
 
-  hbox = gtk_hbox_new(FALSE, 0);
-  gtk_box_pack_start(GTK_BOX(hbox),
-                     gtk_label_new(option_description(poption)),
-                     FALSE, FALSE, 5);
+  hbox = gtk_grid_new();
+  label = gtk_label_new(option_description(poption));
+  g_object_set(label, "margin", 2, NULL);
+  gtk_container_add(GTK_CONTAINER(hbox), label);
   gtk_container_add(GTK_CONTAINER(ebox), hbox);
 
   switch (option_type(poption)) {
@@ -549,9 +551,9 @@ static void option_dialog_option_add(struct option_dialog *pdialog,
       const struct strvec *values = option_str_values(poption);
 
       if (NULL != values) {
-        w = gtk_combo_box_entry_new_text();
+        w = gtk_combo_box_text_new_with_entry();
         strvec_iterate(values, value) {
-          gtk_combo_box_append_text(GTK_COMBO_BOX(w), value);
+          gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(w), value);
         } strvec_iterate_end;
       } else {
         w = gtk_entry_new();
@@ -586,20 +588,20 @@ static void option_dialog_option_add(struct option_dialog *pdialog,
   case OT_BITWISE:
     {
       GList *list = NULL;
-      GtkWidget *vbox, *hbox, *check, *label;
+      GtkWidget *grid, *check;
       const struct strvec *values = option_bitwise_values(poption);
       int i;
 
       w = gtk_frame_new(NULL);
-      vbox = gtk_vbox_new(TRUE, 0);
-      gtk_container_add(GTK_CONTAINER(w), vbox);
+      grid = gtk_grid_new();
+      gtk_grid_set_column_spacing(GTK_GRID(grid), 4);
+      gtk_grid_set_row_homogeneous(GTK_GRID(grid), TRUE);
+      gtk_container_add(GTK_CONTAINER(w), grid);
       for (i = 0; i < strvec_size(values); i++) {
-        hbox = gtk_hbox_new(FALSE, 4);
-        gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, TRUE, 0);
         check = gtk_check_button_new();
-        gtk_box_pack_start(GTK_BOX(hbox), check, FALSE, TRUE, 0);
+        gtk_grid_attach(GTK_GRID(grid), check, 0, i, 1, 1);
         label = gtk_label_new(_(strvec_get(values, i)));
-        gtk_box_pack_start(GTK_BOX(hbox), label, FALSE, TRUE, 0);
+        gtk_grid_attach(GTK_GRID(grid), label, 1, i, 1, 1);
         list = g_list_append(list, check);
       }
       g_object_set_data_full(G_OBJECT(w), "check_buttons", list,
@@ -616,11 +618,13 @@ static void option_dialog_option_add(struct option_dialog *pdialog,
     {
       GtkWidget *button;
 
-      w = gtk_hbox_new(TRUE, 4);
+      w = gtk_grid_new();
+      gtk_grid_set_column_spacing(GTK_GRID(w), 4);
+      gtk_grid_set_row_homogeneous(GTK_GRID(w), TRUE);
 
       /* Foreground color selector button. */
       button = gtk_button_new();
-      gtk_box_pack_start(GTK_BOX(w), button, FALSE, TRUE, 0);
+      gtk_container_add(GTK_CONTAINER(w), button);
       gtk_widget_set_tooltip_text(GTK_WIDGET(button),
                                   _("Select the text color"));
       g_object_set_data(G_OBJECT(w), "fg_button", button);
@@ -629,7 +633,7 @@ static void option_dialog_option_add(struct option_dialog *pdialog,
 
       /* Background color selector button. */
       button = gtk_button_new();
-      gtk_box_pack_start(GTK_BOX(w), button, FALSE, TRUE, 0);
+      gtk_container_add(GTK_CONTAINER(w), button);
       gtk_widget_set_tooltip_text(GTK_WIDGET(button),
                                   _("Select the background color"));
       g_object_set_data(G_OBJECT(w), "bg_button", button);
@@ -651,7 +655,9 @@ static void option_dialog_option_add(struct option_dialog *pdialog,
               option_number(poption), option_name(poption));
   } else {
     g_object_set_data(G_OBJECT(w), "main_widget", ebox);
-    gtk_box_pack_end(GTK_BOX(hbox), w, FALSE, FALSE, 0);
+    gtk_widget_set_hexpand(w, TRUE);
+    gtk_widget_set_halign(w, GTK_ALIGN_END);
+    gtk_container_add(GTK_CONTAINER(hbox), w);
   }
 
   gtk_widget_show_all(ebox);
@@ -710,8 +716,8 @@ static inline void option_dialog_option_str_set(struct option *poption,
                                                 const char *string)
 {
   if (NULL != option_str_values(poption)) {
-    gtk_entry_set_text(GTK_ENTRY(GTK_BIN
-                       (option_get_gui_data(poption))->child), string);
+    gtk_entry_set_text(GTK_ENTRY(gtk_bin_get_child(GTK_BIN
+                       (option_get_gui_data(poption)))), string);
   } else {
     gtk_entry_set_text(GTK_ENTRY(option_get_gui_data(poption)), string);
   }
@@ -775,12 +781,12 @@ static inline void option_dialog_option_color_set(struct option *poption,
                                                   struct ft_color color)
 {
   GtkWidget *w = option_get_gui_data(poption);
-  GdkColor gdk_color;
+  GdkRGBA gdk_color;
 
   /* Update the foreground button. */
   if (NULL != color.foreground
       && '\0' != color.foreground[0]
-      && gdk_color_parse(color.foreground, &gdk_color)) {
+      && gdk_rgba_parse(&gdk_color, color.foreground)) {
     option_color_set_button_color(g_object_get_data(G_OBJECT(w),
                                                     "fg_button"),
                                   &gdk_color);
@@ -792,7 +798,7 @@ static inline void option_dialog_option_color_set(struct option *poption,
   /* Update the background button. */
   if (NULL != color.background
       && '\0' != color.background[0]
-      && gdk_color_parse(color.background, &gdk_color)) {
+      && gdk_rgba_parse(&gdk_color, color.background)) {
     option_color_set_button_color(g_object_get_data(G_OBJECT(w),
                                                     "bg_button"),
                                   &gdk_color);
@@ -896,7 +902,7 @@ static void option_dialog_option_apply(struct option *poption)
   case OT_STRING:
     if (NULL != option_str_values(poption)) {
       (void) option_str_set(poption, gtk_entry_get_text
-                            (GTK_ENTRY(GTK_BIN(w)->child)));
+                            (GTK_ENTRY(gtk_bin_get_child(GTK_BIN(w)))));
     } else {
       (void) option_str_set(poption, gtk_entry_get_text(GTK_ENTRY(w)));
     }
@@ -939,22 +945,24 @@ static void option_dialog_option_apply(struct option *poption)
 
   case OT_COLOR:
     {
-      char fg_color_text[32], bg_color_text[32];
+      gchar *fg_color_text = NULL, *bg_color_text = NULL;
       GObject *button;
-      GdkColor *color;
+      GdkRGBA *color;
 
       /* Get foreground color. */
       button = g_object_get_data(G_OBJECT(w), "fg_button");
       color = g_object_get_data(button, "color");
-      color_to_string(color, fg_color_text, sizeof(fg_color_text));
+      if (color) fg_color_text = gdk_rgba_to_string(color);
 
       /* Get background color. */
       button = g_object_get_data(G_OBJECT(w), "bg_button");
       color = g_object_get_data(button, "color");
-      color_to_string(color, bg_color_text, sizeof(bg_color_text));
+      if (color) bg_color_text = gdk_rgba_to_string(color);
 
       (void) option_color_set(poption,
                               ft_color(fg_color_text, bg_color_text));
+      g_free(fg_color_text);
+      g_free(bg_color_text);
     }
     break;
 

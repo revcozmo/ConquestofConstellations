@@ -25,6 +25,8 @@
 #include "unitlist.h"
 
 /* client */
+#include "gui_main.h"
+#include "gui_stuff.h"
 #include "tilespec.h"
 
 #include "dialogs_g.h"
@@ -59,6 +61,7 @@ void popup_tileset_suggestion_dialog(void)
                                        _("Keep current tileset"),
                                        GTK_RESPONSE_NO,
                                        NULL);
+  setup_dialog(dialog, toplevel);
   gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_YES);
   gtk_window_set_destroy_with_parent(GTK_WINDOW(dialog), TRUE);
 
@@ -69,7 +72,7 @@ void popup_tileset_suggestion_dialog(void)
               game.control.prefered_tileset, tileset_get_name(tileset));
 
   label = gtk_label_new(buf);
-  gtk_container_add(GTK_CONTAINER(GTK_DIALOG(dialog)->vbox), label);
+  gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), label);
   gtk_label_set_justify(GTK_LABEL(label), GTK_JUSTIFY_CENTER);
   gtk_widget_show(label);
 

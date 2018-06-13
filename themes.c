@@ -1,4 +1,4 @@
-/**********************************************************************
+/********************************************************************** 
  Freeciv - Copyright (C) 2005 The Freeciv Team
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -29,72 +29,38 @@
 /* client */
 #include "themes_common.h"
 
-/* gui-gtk-2.0 */
+/* gui-gtk-3.0 */
 #include "gui_main.h"
 
 #include "themes_g.h"
-
-/* Array of default files. First num_default_files positions
- * are files returned by gtk_rc_get_default_files() on client startup.
- * There are two extra positions allocated in the array - one for
- * specific Freeciv file and one for NULL. */
-static char** default_files;
-static int num_default_files;
-
-/****************************************************************************
-  Initialize the default_files array.
-****************************************************************************/
-static void load_default_files(void)
-{
-  int i = 0;
-  gchar** f;
-  
-  if (default_files != NULL) {
-    return;
-  }
-  
-  f = gtk_rc_get_default_files();
-
-  if (f != NULL) {
-    for (i = 0; f[i] ; i++) {
-      /* nothing */
-    }
-  }
-  num_default_files = i;
-  default_files = fc_malloc(sizeof(char*) * (i + 2));
-  
-  for (i = 0; i < num_default_files; i++) {
-    default_files[i] = fc_strdup(f[i]);
-  }
-  default_files[i] = default_files[i + 1] = NULL;
-}
 
 /*****************************************************************************
   Loads a gtk theme directory/theme_name
 *****************************************************************************/
 void gui_load_theme(const char *directory, const char *theme_name)
 {
-  GtkStyle *style;
+  static GtkCssProvider *fc_css_provider = NULL;
+  GError *error = NULL;
   char buf[strlen(directory) + strlen(theme_name) + 32];
-  
-  load_default_files();
-  default_files[num_default_files] = buf;
-  default_files[num_default_files + 1] = NULL;
-  
-  /* Gtk theme is a directory containing gtk-2.0/gtkrc file */
-  fc_snprintf(buf, sizeof(buf), "%s/%s/gtk-2.0/gtkrc", directory,
+
+  if (fc_css_provider == NULL) {
+    fc_css_provider = gtk_css_provider_new();
+    gtk_style_context_add_provider(gtk_widget_get_style_context(toplevel),
+        GTK_STYLE_PROVIDER(fc_css_provider),
+        GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+  }
+
+  /* Gtk theme is a directory containing gtk-3.0/gtk.css file */
+  fc_snprintf(buf, sizeof(buf), "%s/%s/gtk-3.0/gtk.css", directory,
               theme_name);
 
-  gtk_rc_set_default_files(default_files);
+  gtk_css_provider_load_from_file(fc_css_provider, g_file_new_for_path(buf), &error);
 
-  gtk_rc_reparse_all_for_settings(gtk_settings_get_default(), TRUE);
-    
-  /* the turn done button must have its own style. otherwise when we flash
-     the turn done button other widgets may flash too. */
-  if (!(style = gtk_rc_get_style(turn_done_button))) {
-    style = turn_done_button->style;
+  if (error) {
+    g_warning("%s\n", error->message);
   }
-  gtk_widget_set_style(turn_done_button, gtk_style_copy(style));
+
+  gtk_style_context_invalidate(gtk_widget_get_style_context(toplevel));
 }
 
 /*****************************************************************************
@@ -102,39 +68,31 @@ void gui_load_theme(const char *directory, const char *theme_name)
 *****************************************************************************/
 void gui_clear_theme(void)
 {
-  GtkStyle *style;
   bool theme_loaded;
 
   /* try to load user defined theme */
-  theme_loaded = load_theme(gui_gtk2_default_theme_name);
+  theme_loaded = load_theme(gui_gtk3_default_theme_name);
 
   /* no user defined theme loaded -> try to load Freeciv default theme */
   if (!theme_loaded) {
-    theme_loaded = load_theme(FC_GTK2_DEFAULT_THEME_NAME);
+    theme_loaded = load_theme(FC_GTK3_DEFAULT_THEME_NAME);
     if (theme_loaded) {
-      sz_strlcpy(gui_gtk2_default_theme_name, FC_GTK2_DEFAULT_THEME_NAME);
+      sz_strlcpy(gui_gtk3_default_theme_name, FC_GTK3_DEFAULT_THEME_NAME);
     }
   }
     
   /* still no theme loaded -> load system default theme */
   if (!theme_loaded) {
-    load_default_files();
-    default_files[num_default_files] = NULL;
-    gtk_rc_set_default_files(default_files);
-    gtk_rc_reparse_all_for_settings(gtk_settings_get_default(), TRUE);
-      
-    /* the turn done button must have its own style. otherwise when we flash
-       the turn done button other widgets may flash too. */
-    if (!(style = gtk_rc_get_style(turn_done_button))) {
-      style = turn_done_button->style;
-    }
-    gtk_widget_set_style(turn_done_button, gtk_style_copy(style));
+    gtk_style_context_add_provider_for_screen(
+        gtk_widget_get_screen(toplevel),
+        GTK_STYLE_PROVIDER(gtk_css_provider_get_default()),
+        GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
   }
 }
 
 /*****************************************************************************
   Each gui has its own themes directories.
-  For gtk2 these are:
+  For gtk3 these are:
   - /usr/share/themes
   - ~/.themes
   Returns an array containing these strings and sets array size in count.
@@ -150,11 +108,11 @@ char **get_gui_specific_themes_directories(int *count)
 
   *count = 0;
 
-  /* Freeciv-specific GTK+ themes directories */
+  /* Freeciv-specific GTK3 themes directories */
   strvec_iterate(data_dirs, dir_name) {
-    char buf[strlen(dir_name) + strlen("/themes/gui-gtk-2.0") + 1];
+    char buf[strlen(dir_name) + strlen("/themes/gui-gtk-3.0") + 1];
 
-    fc_snprintf(buf, sizeof(buf), "%s/themes/gui-gtk-2.0", dir_name);
+    fc_snprintf(buf, sizeof(buf), "%s/themes/gui-gtk-3.0", dir_name);
 
     directories[(*count)++] = fc_strdup(buf);
   } strvec_iterate_end;
@@ -179,7 +137,7 @@ char **get_gui_specific_themes_directories(int *count)
 /*****************************************************************************
   Return an array of names of usable themes in the given directory.
   Array size is stored in count.
-  Useable theme for gtk+ is a directory which contains file gtk-2.0/gtkrc.
+  Useable theme for gtk+ is a directory which contains file gtk-3.0/gtk.css.
   The caller is responsible for freeing the array and the names
 *****************************************************************************/
 char **get_useable_themes_in_directory(const char *directory, int *count)
@@ -205,7 +163,7 @@ char **get_useable_themes_in_directory(const char *directory, int *count)
     struct stat stat_result;
 
     fc_snprintf(buf, sizeof(buf),
-                "%s/%s/gtk-2.0/gtkrc", directory, entry->d_name);
+                "%s/%s/gtk-3.0/gtk.css", directory, entry->d_name);
 
     if (fc_stat(buf, &stat_result) != 0) {
       /* File doesn't exist */

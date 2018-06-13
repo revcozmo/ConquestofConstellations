@@ -82,7 +82,10 @@ GtkWidget *choice_dialog_start(GtkWindow *parent, const gchar *name,
   gtk_window_set_transient_for(GTK_WINDOW(dshell), parent);
   gtk_window_set_destroy_with_parent(GTK_WINDOW(dshell), TRUE);
 
-  vbox = gtk_vbox_new(FALSE, 5);
+  vbox = gtk_grid_new();
+  gtk_orientable_set_orientation(GTK_ORIENTABLE(vbox),
+                                 GTK_ORIENTATION_VERTICAL);
+  gtk_grid_set_row_spacing(GTK_GRID(vbox), 5);
   gtk_container_add(GTK_CONTAINER(dshell),vbox);
 
   gtk_container_set_border_width(GTK_CONTAINER(vbox), 5);
@@ -90,7 +93,7 @@ GtkWidget *choice_dialog_start(GtkWindow *parent, const gchar *name,
   dlabel = gtk_label_new(text);
   gtk_container_add(GTK_CONTAINER(vbox), dlabel);
 
-  bbox = gtk_vbutton_box_new();
+  bbox = gtk_button_box_new(GTK_ORIENTATION_VERTICAL);
   gtk_box_set_spacing(GTK_BOX(bbox), 2);
   gtk_container_add(GTK_CONTAINER(vbox), bbox);
   

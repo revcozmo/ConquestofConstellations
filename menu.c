@@ -40,7 +40,7 @@
 #include "options.h"
 #include "tilespec.h"
 
-/* client/gui-gtk-2.0 */
+/* client/gui-gtk-3.0 */
 #include "chatline.h"
 #include "cityrep.h"
 #include "dialogs.h"
@@ -775,18 +775,6 @@ static void show_fog_of_war_callback(GtkToggleAction *action, gpointer data)
 }
 
 /****************************************************************
-  Action "SHOW_BETTER_FOG_OF_WAR" callback.
-*****************************************************************/
-static void show_better_fog_of_war_callback(GtkToggleAction *action,
-                                            gpointer data)
-{
-  if (gui_gtk2_better_fog ^ gtk_toggle_action_get_active(action)) {
-    gui_gtk2_better_fog ^= 1;
-    update_map_canvas_visible();
-  }
-}
-
-/****************************************************************
   Action "FULL_SCREEN" callback.
 *****************************************************************/
 static void full_screen_callback(GtkToggleAction *action, gpointer data)
@@ -1358,7 +1346,7 @@ static GtkActionGroup *get_safe_group(void)
        NULL, NULL, G_CALLBACK(save_game_callback)},
       {"GAME_SAVE_AS", GTK_STOCK_SAVE_AS, _("Save Game _As..."),
        NULL, NULL, G_CALLBACK(save_game_as_callback)},
-      {"MAPIMG_SAVE", NULL, _("Save Map _Image"),
+     {"MAPIMG_SAVE", NULL, _("Save Map _Image"),
        NULL, NULL, G_CALLBACK(save_mapimg_callback)},
       {"MAPIMG_SAVE_AS", NULL, _("Save _Map Image As..."),
        NULL, NULL, G_CALLBACK(save_mapimg_as_callback)},
@@ -1517,7 +1505,7 @@ static GtkActionGroup *get_safe_group(void)
       {"SHOW_FOG_OF_WAR", NULL, _("Fog of _War"),
        NULL, NULL, G_CALLBACK(show_fog_of_war_callback), FALSE},
       {"SHOW_BETTER_FOG_OF_WAR", NULL, _("Better Fog of War"),
-       NULL, NULL, G_CALLBACK(show_better_fog_of_war_callback), FALSE},
+       NULL, NULL, NULL, FALSE},
 
       {"FULL_SCREEN", NULL, _("_Fullscreen"),
        "<Alt>Return", NULL, G_CALLBACK(full_screen_callback), FALSE}
@@ -1783,7 +1771,7 @@ static const gchar *get_ui_filename(void)
 static void add_widget_callback(GtkUIManager *ui_manager, GtkWidget *widget,
                                 gpointer data)
 {
-  gtk_box_pack_start(GTK_BOX(data), widget, TRUE, TRUE, 0);
+  gtk_container_add(GTK_CONTAINER(data), widget);
   gtk_widget_show(widget);
 }
 
@@ -1792,7 +1780,7 @@ static void add_widget_callback(GtkUIManager *ui_manager, GtkWidget *widget,
 *****************************************************************/
 GtkWidget *setup_menus(GtkWidget *window)
 {
-  GtkWidget *menubar = gtk_hbox_new(FALSE, 0);
+  GtkWidget *menubar = gtk_grid_new();
   GError *error = NULL;
 
   /* Creates the UI manager. */
@@ -1909,8 +1897,7 @@ static void menus_rename(GtkActionGroup *group,
     return;
   }
 
-  /* gtk_action_set_label() was added in Gtk 2.16. */
-  g_object_set(G_OBJECT(action), "label", new_label, NULL);
+  gtk_action_set_label(action, new_label);
 }
 
 /****************************************************************
@@ -1963,7 +1950,6 @@ static void view_menu_update_sensitivity(void)
   menus_set_sensitive(safe_group, "SHOW_UNIT_SHIELDS",
                       draw_units || draw_focus_unit);
   menus_set_sensitive(safe_group, "SHOW_FOCUS_UNIT", !draw_units);
-  menus_set_sensitive(safe_group, "SHOW_BETTER_FOG_OF_WAR", draw_fog_of_war);
 }
 
 /****************************************************************************
@@ -2241,8 +2227,8 @@ void real_menus_update(void)
     /* FIXME: this overloading doesn't work well with multiple focus
      * units. */
     unit_list_iterate(punits, punit) {
-     proad = next_road_for_tile(unit_tile(punit), unit_owner(punit), punit);
-     if (proad != NULL) {
+      proad = next_road_for_tile(unit_tile(punit), unit_owner(punit), punit);
+      if (proad != NULL) {
         break;
       }
     } unit_list_iterate_end;
@@ -2429,8 +2415,12 @@ void real_menus_init(void)
         g_object_set_data(G_OBJECT(item), "government", g);
 
         if ((gsprite = get_government_sprite(tileset, g))) {
-          image = gtk_image_new_from_pixbuf(sprite_get_pixbuf(gsprite));
+          GdkPixbuf *pb = sprite_get_pixbuf(gsprite);
+
+          image = gtk_image_new_from_pixbuf(pb);
+          g_object_unref(pb);
           gtk_image_menu_item_set_image(GTK_IMAGE_MENU_ITEM(item), image);
+          gtk_image_menu_item_set_always_show_image(GTK_IMAGE_MENU_ITEM(item), TRUE);
           gtk_widget_show(image);
         }
 
@@ -2525,13 +2515,11 @@ void real_menus_init(void)
   menus_set_active(safe_group, "SHOW_UNIT_SHIELDS", draw_unit_shields);
   menus_set_active(safe_group, "SHOW_FOCUS_UNIT", draw_focus_unit);
   menus_set_active(safe_group, "SHOW_FOG_OF_WAR", draw_fog_of_war);
-  if (tileset_use_hard_coded_fog(tileset)) {
-    menus_set_visible(safe_group, "SHOW_BETTER_FOG_OF_WAR", TRUE, TRUE);
-    menus_set_active(safe_group, "SHOW_BETTER_FOG_OF_WAR",
-                     gui_gtk2_better_fog);
-  } else {
-    menus_set_visible(safe_group, "SHOW_BETTER_FOG_OF_WAR", FALSE, FALSE);
-  }
+
+  /* To avoid run-time errors from gtk3, we have to have this action,
+   * really used by gtk2-client only, defined also in gtk3-client code.
+   * We just don't show it to the user. */
+  menus_set_visible(safe_group, "SHOW_BETTER_FOG_OF_WAR", FALSE, FALSE);
 
   view_menu_update_sensitivity();
 

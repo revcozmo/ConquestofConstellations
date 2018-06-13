@@ -41,7 +41,7 @@
 #include "climisc.h"
 #include "options.h"
 
-/* client/gui-gtk-2.0 */
+/* client/gui-gtk-3.0 */
 #include "diplodlg.h"
 #include "gui_main.h"
 #include "gui_stuff.h"
@@ -485,6 +485,7 @@ static struct Diplomacy_notebook *diplomacy_main_create(void)
     gtk_notebook_set_scrollable(GTK_NOTEBOOK(dipl_main->notebook), TRUE);
 
     dipl_sw = gtk_scrolled_window_new(NULL, NULL);
+    g_object_set(dipl_sw, "margin", 2, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(dipl_sw),
                                    GTK_POLICY_AUTOMATIC,
                                    GTK_POLICY_AUTOMATIC);
@@ -503,7 +504,7 @@ static struct Diplomacy_notebook *diplomacy_main_create(void)
                                     RESPONSE_CANCEL_MEETING_ALL);
 
     dipl_box = dipl_main->dialog->vbox;
-    gtk_box_pack_start(GTK_BOX(dipl_box), dipl_sw, TRUE, TRUE, 2);
+    gtk_container_add(GTK_CONTAINER(dipl_box), dipl_sw);
 
     gui_dialog_show_all(dipl_main->dialog);
     gui_dialog_present(dipl_main->dialog);
@@ -619,9 +620,10 @@ static struct Diplomacy_dialog *create_diplomacy_dialog(struct player *plr0,
                                                         struct player *plr1)
 {
   struct Diplomacy_notebook *dipl_dialog;
-  GtkWidget *vbox, *hbox, *table, *align, *mainbox;
+  GtkWidget *vbox, *hbox, *table, *mainbox;
   GtkWidget *label, *sw, *view, *image, *spin;
   GtkWidget *menubar, *menuitem, *menu, *notebook;
+  struct sprite *sprite;
   GtkListStore *store;
   GtkCellRenderer *rend;
   int i;
@@ -647,10 +649,10 @@ static struct Diplomacy_dialog *create_diplomacy_dialog(struct player *plr0,
   gui_dialog_new(&(pdialog->dialog), GTK_NOTEBOOK(notebook), pdialog, FALSE);
 
   /* Buttons */
-  gui_dialog_add_stockbutton(pdialog->dialog, GTK_STOCK_CANCEL,
-                             _("Cancel meeting"), RESPONSE_CANCEL_MEETING);
   gui_dialog_add_stockbutton(pdialog->dialog, GTK_STOCK_DND,
                              _("Accept treaty"), GTK_RESPONSE_ACCEPT);
+  gui_dialog_add_stockbutton(pdialog->dialog, GTK_STOCK_CANCEL,
+                             _("Cancel meeting"), RESPONSE_CANCEL_MEETING);
 
   /* Responces for one meeting. */
   gui_dialog_response_set_callback(pdialog->dialog, diplomacy_response);
@@ -681,41 +683,47 @@ static struct Diplomacy_dialog *create_diplomacy_dialog(struct player *plr0,
   mainbox = pdialog->dialog->vbox;
 
   /* us. */
-  vbox = gtk_vbox_new(FALSE, 5);
+  vbox = gtk_grid_new();
+  gtk_orientable_set_orientation(GTK_ORIENTABLE(vbox),
+                                 GTK_ORIENTATION_VERTICAL);
+  gtk_grid_set_row_spacing(GTK_GRID(vbox), 5);
   gtk_container_set_border_width(GTK_CONTAINER(vbox), 2);
-  gtk_box_pack_start(GTK_BOX(mainbox), vbox, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(mainbox), vbox);
 
   /* Our nation. */
   label = gtk_label_new(NULL);
-  gtk_misc_set_alignment(GTK_MISC(label), 0.5, 0.5);
+  gtk_widget_set_halign(label, GTK_ALIGN_CENTER);
+  gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
   buf = g_strdup_printf("<span size=\"large\"><u>%s</u></span>",
                         nation_plural_for_player(plr0));
   gtk_label_set_markup(GTK_LABEL(label), buf);
   g_free(buf);
-  gtk_box_pack_start(GTK_BOX(vbox), label, TRUE, TRUE, 0);
+  gtk_container_add(GTK_CONTAINER(vbox), label);
 
-  hbox = gtk_hbox_new(FALSE, 5);
-  gtk_box_pack_start(GTK_BOX(vbox), hbox, TRUE, TRUE, 0);
+  hbox = gtk_grid_new();
+  gtk_grid_set_column_spacing(GTK_GRID(hbox), 5);
+  gtk_container_add(GTK_CONTAINER(vbox), hbox);
 
   /* Our flag */
-  image =
-      gtk_image_new_from_pixbuf(sprite_get_pixbuf
-				(get_nation_flag_sprite
-				 (tileset, nation_of_player(plr0))));
-  gtk_box_pack_start(GTK_BOX(hbox), image, FALSE, FALSE, 0);    
+  sprite = get_nation_flag_sprite(tileset, nation_of_player(plr0));
+  
+  image = gtk_pixcomm_new_from_sprite(sprite);
+  gtk_container_add(GTK_CONTAINER(hbox), image);
 
   /* Our name. */
   label = gtk_label_new(NULL);
-  gtk_misc_set_alignment(GTK_MISC(label), 0.5, 0.5);
+  gtk_widget_set_hexpand(label, TRUE);
+  gtk_widget_set_halign(label, GTK_ALIGN_CENTER);
+  gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
   buf = g_strdup_printf("<span size=\"large\" weight=\"bold\">%s</span>",
                         ruler_title_for_player(plr0, plr_buf, sizeof(plr_buf)));
   gtk_label_set_markup(GTK_LABEL(label), buf);
   g_free(buf);
-  gtk_box_pack_start(GTK_BOX(hbox), label, TRUE, TRUE, 0);
+  gtk_container_add(GTK_CONTAINER(hbox), label);
 
   image = gtk_image_new();
   pdialog->image0 = image;
-  gtk_box_pack_end(GTK_BOX(hbox), image, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(hbox), image);
 
   /* Menu for clauses: we. */
   menubar = gtk_aux_menu_bar_new();
@@ -733,19 +741,18 @@ static struct Diplomacy_dialog *create_diplomacy_dialog(struct player *plr0,
   g_signal_connect(menu, "show", G_CALLBACK(popup_add_menu), pdialog);
 
   /* Main table for clauses and (if activated) gold trading: we. */
-  align = gtk_alignment_new (0.5, 0.5, 0, 0);
-  gtk_box_pack_start(GTK_BOX(vbox), align, FALSE, TRUE, 0);
+  table = gtk_grid_new();
+  gtk_widget_set_halign(table, GTK_ALIGN_CENTER);
+  gtk_widget_set_valign(table, GTK_ALIGN_CENTER);
+  gtk_grid_set_column_spacing(GTK_GRID(table), 16);
+  gtk_container_add(GTK_CONTAINER(vbox), table);
 
   if (game.info.trading_gold) {
-    table = gtk_table_new(1, 3, FALSE);
-    gtk_table_set_col_spacings(GTK_TABLE(table), 16);
-    gtk_container_add(GTK_CONTAINER(align), table);
-
     spin = gtk_spin_button_new_with_range(0.0, plr0->economic.gold + 0.1,
                                           1.0);
     gtk_spin_button_set_digits(GTK_SPIN_BUTTON(spin), 0);
     gtk_entry_set_width_chars(GTK_ENTRY(spin), 16);
-    gtk_table_attach_defaults(GTK_TABLE(table), spin, 1, 2, 0, 1);
+    gtk_grid_attach(GTK_GRID(table), spin, 1, 0, 1, 1);
     g_object_set_data(G_OBJECT(spin), "plr", plr0);
     g_signal_connect_after(spin, "value-changed",
                            G_CALLBACK(diplo_dialog_returnkey), pdialog);
@@ -753,53 +760,55 @@ static struct Diplomacy_dialog *create_diplomacy_dialog(struct player *plr0,
     label = g_object_new(GTK_TYPE_LABEL, "use-underline", TRUE,
                          "mnemonic-widget", spin, "label", _("Gold:"),
                          "xalign", 0.0, "yalign", 0.5, NULL);
-    gtk_table_attach_defaults(GTK_TABLE(table), label, 0, 1, 0, 1);
+    gtk_grid_attach(GTK_GRID(table), label, 0, 0, 1, 1);
 
-    gtk_table_attach_defaults(GTK_TABLE(table), menubar, 2, 3, 0, 1);
+    gtk_grid_attach(GTK_GRID(table), menubar, 2, 0, 1, 1);
   } else {
-    table = gtk_table_new(1, 1, FALSE);
-    gtk_table_set_col_spacings(GTK_TABLE(table), 16);
-    gtk_container_add(GTK_CONTAINER(align), table);
-
-    gtk_table_attach_defaults(GTK_TABLE(table), menubar, 0, 1, 0, 1);
+    gtk_grid_attach(GTK_GRID(table), menubar, 0, 0, 1, 1);
   }
 
   /* them. */
-  vbox = gtk_vbox_new(FALSE, 5);
+  vbox = gtk_grid_new();
+  gtk_orientable_set_orientation(GTK_ORIENTABLE(vbox),
+                                 GTK_ORIENTATION_VERTICAL);
+  gtk_grid_set_row_spacing(GTK_GRID(vbox), 5);
   gtk_container_set_border_width(GTK_CONTAINER(vbox), 2);
-  gtk_box_pack_start(GTK_BOX(mainbox), vbox, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(mainbox), vbox);
 
   /* Their nation. */
   label = gtk_label_new(NULL);
-  gtk_misc_set_alignment(GTK_MISC(label), 0.5, 0.5);
+  gtk_widget_set_halign(label, GTK_ALIGN_CENTER);
+  gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
   buf = g_strdup_printf("<span size=\"large\"><u>%s</u></span>",
                         nation_plural_for_player(plr1));
   gtk_label_set_markup(GTK_LABEL(label), buf);
   g_free(buf);
-  gtk_box_pack_start(GTK_BOX(vbox), label, TRUE, TRUE, 0);
+  gtk_container_add(GTK_CONTAINER(vbox), label);
 
-  hbox = gtk_hbox_new(FALSE, 5);
-  gtk_box_pack_start(GTK_BOX(vbox), hbox, TRUE, TRUE, 0);
+  hbox = gtk_grid_new();
+  gtk_grid_set_column_spacing(GTK_GRID(hbox), 5);
+  gtk_container_add(GTK_CONTAINER(vbox), hbox);
 
   /* Their flag */
-  image =
-      gtk_image_new_from_pixbuf(sprite_get_pixbuf
-				(get_nation_flag_sprite
-				 (tileset, nation_of_player(plr1))));
-  gtk_box_pack_start(GTK_BOX(hbox), image, FALSE, FALSE, 0);    
+  sprite = get_nation_flag_sprite(tileset, nation_of_player(plr1));
+  
+  image = gtk_pixcomm_new_from_sprite(sprite);
+  gtk_container_add(GTK_CONTAINER(hbox), image);
 
   /* Their name. */
   label = gtk_label_new(NULL);
-  gtk_misc_set_alignment(GTK_MISC(label), 0.5, 0.5);
+  gtk_widget_set_hexpand(label, TRUE);
+  gtk_widget_set_halign(label, GTK_ALIGN_CENTER);
+  gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
   buf = g_strdup_printf("<span size=\"large\" weight=\"bold\">%s</span>",
                         ruler_title_for_player(plr1, plr_buf, sizeof(plr_buf)));
   gtk_label_set_markup(GTK_LABEL(label), buf);
   g_free(buf);
-  gtk_box_pack_start(GTK_BOX(hbox), label, TRUE, TRUE, 0);
+  gtk_container_add(GTK_CONTAINER(hbox), label);
 
   image = gtk_image_new();
   pdialog->image1 = image;
-  gtk_box_pack_end(GTK_BOX(hbox), image, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(hbox), image);
 
   /* Menu for clauses: they. */
   menubar = gtk_aux_menu_bar_new();
@@ -817,19 +826,18 @@ static struct Diplomacy_dialog *create_diplomacy_dialog(struct player *plr0,
   g_signal_connect(menu, "show", G_CALLBACK(popup_add_menu), pdialog);
 
   /* Main table for clauses and (if activated) gold trading: they. */
-  align = gtk_alignment_new (0.5, 0.5, 0, 0);
-  gtk_box_pack_start(GTK_BOX(vbox), align, FALSE, TRUE, 0);
+  table = gtk_grid_new();
+  gtk_widget_set_halign(table, GTK_ALIGN_CENTER);
+  gtk_widget_set_valign(table, GTK_ALIGN_CENTER);
+  gtk_grid_set_column_spacing(GTK_GRID(table), 16);
+  gtk_container_add(GTK_CONTAINER(vbox), table);
 
   if (game.info.trading_gold) {
-    table = gtk_table_new(1, 3, FALSE);
-    gtk_table_set_col_spacings(GTK_TABLE(table), 16);
-    gtk_container_add(GTK_CONTAINER(align), table);
-
     spin = gtk_spin_button_new_with_range(0.0, plr1->economic.gold + 0.1,
                                           1.0);
     gtk_spin_button_set_digits(GTK_SPIN_BUTTON(spin), 0);
     gtk_entry_set_width_chars(GTK_ENTRY(spin), 16);
-    gtk_table_attach_defaults(GTK_TABLE(table), spin, 1, 2, 0, 1);
+    gtk_grid_attach(GTK_GRID(table), spin, 1, 0, 1, 1);
     g_object_set_data(G_OBJECT(spin), "plr", plr1);
     g_signal_connect_after(spin, "value-changed",
                            G_CALLBACK(diplo_dialog_returnkey), pdialog);
@@ -837,25 +845,25 @@ static struct Diplomacy_dialog *create_diplomacy_dialog(struct player *plr0,
     label = g_object_new(GTK_TYPE_LABEL, "use-underline", TRUE,
                          "mnemonic-widget", spin, "label", _("Gold:"),
                          "xalign", 0.0, "yalign", 0.5, NULL);
-    gtk_table_attach_defaults(GTK_TABLE(table), label, 0, 1, 0, 1);
+    gtk_grid_attach(GTK_GRID(table), label, 0, 0, 1, 1);
 
-    gtk_table_attach_defaults(GTK_TABLE(table), menubar, 2, 3, 0, 1);
+    gtk_grid_attach(GTK_GRID(table), menubar, 2, 0, 1, 1);
   } else {
-    table = gtk_table_new(1, 1, FALSE);
-    gtk_table_set_col_spacings(GTK_TABLE(table), 16);
-    gtk_container_add(GTK_CONTAINER(align), table);
-
-    gtk_table_attach_defaults(GTK_TABLE(table), menubar, 0, 1, 0, 1);
+    gtk_grid_attach(GTK_GRID(table), menubar, 0, 0, 1, 1);
   }
 
   /* Clauses. */
-  mainbox = gtk_vbox_new(FALSE, 0);
-  gtk_box_pack_start(GTK_BOX(pdialog->dialog->vbox), mainbox, TRUE, TRUE, 0);
+  mainbox = gtk_grid_new();
+  gtk_orientable_set_orientation(GTK_ORIENTABLE(mainbox),
+                                 GTK_ORIENTATION_VERTICAL);
+  gtk_container_add(GTK_CONTAINER(pdialog->dialog->vbox), mainbox);
 
   store = gtk_list_store_new(1, G_TYPE_STRING);
   pdialog->store = store;
 
   view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
+  gtk_widget_set_hexpand(view, TRUE);
+  gtk_widget_set_vexpand(view, TRUE);
   gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(view), FALSE);
   g_object_unref(store);
   gtk_widget_set_size_request(view, 320, 100);
@@ -865,6 +873,7 @@ static struct Diplomacy_dialog *create_diplomacy_dialog(struct player *plr0,
     rend, "text", 0, NULL);
 
   sw = gtk_scrolled_window_new(NULL, NULL);
+  g_object_set(sw, "margin", 2, NULL);
   gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(sw),
                                       GTK_SHADOW_ETCHED_IN);
   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(sw),
@@ -879,10 +888,12 @@ static struct Diplomacy_dialog *create_diplomacy_dialog(struct player *plr0,
     "yalign", 0.5,
     NULL);
 
-  vbox = gtk_vbox_new(FALSE, 0);
-  gtk_box_pack_start(GTK_BOX(mainbox), vbox, TRUE, TRUE, 0);
-  gtk_box_pack_start(GTK_BOX(vbox), label, FALSE, FALSE, 0);
-  gtk_box_pack_start(GTK_BOX(vbox), sw, TRUE, TRUE, 2);
+  vbox = gtk_grid_new();
+  gtk_orientable_set_orientation(GTK_ORIENTABLE(vbox),
+                                 GTK_ORIENTATION_VERTICAL);
+  gtk_container_add(GTK_CONTAINER(mainbox), vbox);
+  gtk_container_add(GTK_CONTAINER(vbox), label);
+  gtk_container_add(GTK_CONTAINER(vbox), sw);
 
   gtk_widget_show_all(mainbox);
 
@@ -902,6 +913,7 @@ static void update_diplomacy_dialog(struct Diplomacy_dialog *pdialog)
   GtkListStore *store;
   GtkTreeIter it;
   bool blank = TRUE;
+  GdkPixbuf *pixbuf;
 
   store = pdialog->store;
 
@@ -923,10 +935,12 @@ static void update_diplomacy_dialog(struct Diplomacy_dialog *pdialog)
 		 	 "Please add some clauses. ---"), -1);
   }
 
-  gtk_image_set_from_pixbuf(GTK_IMAGE(pdialog->image0),
-			    get_thumb_pixbuf(pdialog->treaty.accept0));
-  gtk_image_set_from_pixbuf(GTK_IMAGE(pdialog->image1),
-			    get_thumb_pixbuf(pdialog->treaty.accept1));
+  pixbuf = get_thumb_pixbuf(pdialog->treaty.accept0);
+  gtk_image_set_from_pixbuf(GTK_IMAGE(pdialog->image0), pixbuf);
+  g_object_unref(G_OBJECT(pixbuf));
+  pixbuf = get_thumb_pixbuf(pdialog->treaty.accept1);
+  gtk_image_set_from_pixbuf(GTK_IMAGE(pdialog->image1), pixbuf);
+  g_object_unref(G_OBJECT(pixbuf));
 }
 
 /****************************************************************************

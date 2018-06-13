@@ -108,24 +108,31 @@ static GdkPixbuf *create_player_icon(const struct player *plr)
 {
   int width, height;
   GdkPixbuf *tmp;
-  GdkPixmap *pixmap;
+  cairo_surface_t *surface;
+  struct color *color;
+  cairo_t *cr;
 
-  gtk_icon_size_lookup(GTK_ICON_SIZE_MENU, &width, &height);
+  gtk_icon_size_lookup_for_settings(
+      gtk_settings_get_for_screen(gtk_widget_get_screen(top_notebook)), 
+      GTK_ICON_SIZE_MENU, &width, &height);
+  surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
+  
+  cr = cairo_create(surface);
 
-  pixmap = gdk_pixmap_new(root_window, width, height, -1);
+  color = get_color(tileset, COLOR_PLAYER_COLOR_BACKGROUND);
+  gdk_cairo_set_source_rgba(cr, &color->color);
+  cairo_rectangle(cr, 0, 0, width, height);
+  cairo_fill(cr);
 
-  gdk_gc_set_foreground(civ_gc,
-                        &get_color(tileset,
-				   COLOR_PLAYER_COLOR_BACKGROUND)->color);
-  gdk_draw_rectangle(pixmap, civ_gc, TRUE, 0, 0, width, height);
+  color = get_player_color(tileset, plr);
+  gdk_cairo_set_source_rgba(cr, &color->color);
+  cairo_rectangle(cr, 1, 1, width - 2, height - 2);
+  cairo_fill(cr);
 
-  gdk_gc_set_foreground(civ_gc, &get_player_color(tileset, plr)->color);
-  gdk_draw_rectangle(pixmap, civ_gc, TRUE, 1, 1, width - 2, height - 2);
+  cairo_destroy(cr);
+  tmp = surface_get_pixbuf(surface, width, height);
+  cairo_surface_destroy(surface);
 
-  tmp = gdk_pixbuf_get_from_drawable(NULL, pixmap, NULL, 
-      0, 0, 0, 0, -1, -1);
-
-  g_object_unref(pixmap);
   return tmp;
 }
 
@@ -419,6 +426,8 @@ void create_players_dialog(void)
 
   players_list = gtk_tree_view_new_with_model(GTK_TREE_MODEL
                                               (players_dialog_store));
+  gtk_widget_set_hexpand(players_list, TRUE);
+  gtk_widget_set_vexpand(players_list, TRUE);
   g_object_unref(players_dialog_store);
   gtk_widget_set_name(players_list, "small_font");
 
@@ -496,21 +505,20 @@ void create_players_dialog(void)
 		                 GTK_POLICY_AUTOMATIC, GTK_POLICY_ALWAYS);
   gtk_container_add(GTK_CONTAINER(sw), players_list);
 
-  gtk_box_pack_start(GTK_BOX(players_dialog_shell->vbox), sw,
-		     TRUE, TRUE, 0);
+  gtk_container_add(GTK_CONTAINER(players_dialog_shell->vbox), sw);
 
-  vbox = gtk_vbox_new(FALSE, 0);
+  vbox = gtk_grid_new();
+  gtk_orientable_set_orientation(GTK_ORIENTABLE(vbox),
+                                 GTK_ORIENTATION_VERTICAL);
   
-  sep = gtk_hseparator_new();
-  gtk_box_pack_start(GTK_BOX(vbox), sep, FALSE, FALSE, 0);
+  sep = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+  gtk_container_add(GTK_CONTAINER(vbox), sep);
 
   menubar = gtk_aux_menu_bar_new();
-  gtk_box_pack_start(GTK_BOX(vbox), menubar, TRUE, TRUE, 0);
+  gtk_container_add(GTK_CONTAINER(vbox), menubar);
 
 
   gui_dialog_add_widget(players_dialog_shell, vbox);
-  gtk_box_set_child_packing(GTK_BOX(players_dialog_shell->action_area), 
-                            vbox, FALSE, FALSE, 0, GTK_PACK_START);
 
   item = gtk_menu_item_new_with_mnemonic(_("Di_plomacy"));
   menu = create_diplomacy_menu();
@@ -600,11 +608,14 @@ GdkPixbuf *get_flag(const struct nation_type *nation)
   /* croping */
   im = gdk_pixbuf_new(GDK_COLORSPACE_RGB, TRUE, 8, w, h);
   if (im != NULL) {
-    gdk_pixbuf_copy_area(sprite_get_pixbuf(flag), x0, y0, w, h,
+    GdkPixbuf *pixbuf = sprite_get_pixbuf(flag);
+
+    gdk_pixbuf_copy_area(pixbuf, x0, y0, w, h,
                          im, 0, 0);
+    g_object_unref(G_OBJECT(pixbuf));
   }
 
-  /* and finaly store the scaled flag pixbuf in the static flags array */
+  /* and finally store the scaled flag pixbuf in the static flags array */
   return im;
 }
 

@@ -21,24 +21,12 @@
 /* network string charset conversion */
 gchar *ntoh_str(const gchar *netstr);
 
-extern GtkStyle *city_names_style;
-extern GtkStyle *city_productions_style;
-extern GtkStyle *reqtree_text_style;
+extern PangoFontDescription *city_names_style;
+extern PangoFontDescription *city_productions_style;
+extern PangoFontDescription *reqtree_text_style;
 
-extern GdkGC *          civ_gc;
-extern GdkGC *          mask_fg_gc;
-extern GdkGC *          mask_bg_gc;
-extern GdkGC *          fill_bg_gc;
-extern GdkGC *          fill_tile_gc;
-extern GdkGC *          thin_line_gc;
-extern GdkGC *          thick_line_gc;
-extern GdkGC *          border_line_gc;
-extern GdkGC *          selection_gc;
-extern GdkPixmap *      gray50;
-extern GdkPixmap *      gray25;
-extern GdkPixmap *      black50;
-extern GdkPixmap *      mask_bitmap;
 #define single_tile_pixmap (mapview.single_tile->pixmap)
+
 extern GtkTextView *	main_message_area;
 extern GtkWidget *      text_scrollbar;
 extern GtkWidget *      toplevel;
@@ -86,6 +74,9 @@ void reset_unit_table(void);
 void popup_quit_dialog(void);
 void quit_gtk_main(void);
 void refresh_chat_buttons(void);
+
+int screen_width(void);
+int screen_height(void);
 
 bool is_gui_up(void);
 

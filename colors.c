@@ -34,18 +34,18 @@
 enum Display_color_type get_visual(void)
 {
   GdkVisual *visual;
+  GdkVisualType type;
 
-  gtk_widget_push_colormap (gdk_rgb_get_colormap());
+  visual = gdk_screen_get_system_visual(gdk_screen_get_default());
+  type = gdk_visual_get_visual_type(visual);
 
-  visual = gtk_widget_get_default_visual();
-
-  if (visual->type == GDK_VISUAL_STATIC_GRAY) { 
+  if (type == GDK_VISUAL_STATIC_GRAY) { 
     /* StaticGray, use black and white */
     log_verbose("found B/W display.");
     return BW_DISPLAY;
   }
 
-  if(visual->type < GDK_VISUAL_STATIC_COLOR) {
+  if(type < GDK_VISUAL_STATIC_COLOR) {
     /* No color visual available at default depth */
     log_verbose("found grayscale(?) display.");
     return GRAYSCALE_DISPLAY;
@@ -57,18 +57,17 @@ enum Display_color_type get_visual(void)
 }
 
 /****************************************************************************
-  Allocate a color (adjusting it for our colormap if necessary on paletted
-  systems) and return a pointer to it.
+  Allocate a color (well, sort of)
+  and return a pointer to it.
 ****************************************************************************/
 struct color *color_alloc(int r, int g, int b)
 {
   struct color *color = fc_malloc(sizeof(*color));
-  GdkColormap *cmap = gtk_widget_get_default_colormap();
 
-  color->color.red = (r << 8) + r;
-  color->color.green = (g << 8) + g;
-  color->color.blue = (b << 8) + b;
-  gdk_rgb_find_color(cmap, &color->color);
+  color->color.red = (double)r/255;
+  color->color.green = (double)g/255;
+  color->color.blue = (double)b/255;
+  color->color.alpha = 1.0;
 
   return color;
 }
@@ -87,29 +86,11 @@ void color_free(struct color *color)
 ****************************************************************************/
 int color_brightness_score(struct color *pcolor)
 {
-  struct rgbcolor *prgb = rgbcolor_new(pcolor->color.red >> 8,
-                                       pcolor->color.green >> 8,
-                                       pcolor->color.blue >> 8);
+  struct rgbcolor *prgb = rgbcolor_new(pcolor->color.red * 255,
+                                       pcolor->color.green * 255,
+                                       pcolor->color.blue * 255);
   int score = rgbcolor_brightness_score(prgb);
 
   rgbcolor_destroy(prgb);
   return score;
-}
-
-/****************************************************************************
-  Fill the string with the color in "#rrggbb" mode.  Use it instead of
-  gdk_color() which have been included in gtk2.12 version only.
-****************************************************************************/
-size_t color_to_string(GdkColor *color, char *string, size_t length)
-{
-  fc_assert_ret_val(NULL != string, 0);
-  fc_assert_ret_val(0 < length, 0);
-
-  if (NULL == color) {
-    string[0] = '\0';
-    return 0;
-  } else {
-    return fc_snprintf(string, length, "#%02x%02x%02x",
-                       color->red >> 8, color->green >> 8, color->blue >> 8);
-  }
 }

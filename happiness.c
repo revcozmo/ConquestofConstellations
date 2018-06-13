@@ -1,4 +1,4 @@
-/********************************************************************** 
+/***********************************************************************
  Freeciv - Copyright (C) 1996 - A Kjeldberg, L Gregersen, P Unold
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -32,7 +32,7 @@
 #include "text.h"
 #include "tilespec.h"
 
-/* client/gui-gtk-2.0 */
+/* client/gui-gtk-3.0 */
 #include "graphics.h"
 #include "gui_main.h"
 #include "gui_stuff.h"
@@ -69,7 +69,8 @@ struct happiness_dialog {
 
 static struct dialog_list *dialog_list;
 static struct happiness_dialog *get_happiness_dialog(struct city *pcity);
-static struct happiness_dialog *create_happiness_dialog(struct city *pcity);
+static struct happiness_dialog *create_happiness_dialog(struct city *pcity,
+                                                        bool low_dlg);
 static gboolean show_happiness_popup(GtkWidget *w,
                                      GdkEventButton *ev,
                                      gpointer data);
@@ -154,12 +155,16 @@ static gboolean show_happiness_popup(GtkWidget *w,
 
     label = gtk_label_new(buf);
     gtk_widget_set_name(label, "city_happiness_label");
-    gtk_misc_set_padding(GTK_MISC(label), 4, 4);
+    gtk_widget_set_margin_left(label, 4);
+    gtk_widget_set_margin_right(label, 4);
+    gtk_widget_set_margin_top(label, 4);
+    gtk_widget_set_margin_bottom(label, 4);
     gtk_container_add(GTK_CONTAINER(frame), label);
     gtk_widget_show_all(p);
 
-    gdk_pointer_grab(p->window, TRUE, GDK_BUTTON_RELEASE_MASK,
-                     NULL, NULL, ev->time);
+    gdk_device_grab(ev->device, gtk_widget_get_window(p),
+                    GDK_OWNERSHIP_NONE, TRUE, GDK_BUTTON_RELEASE_MASK, NULL,
+                    ev->time);
     gtk_grab_add(p);
 
     g_signal_connect_after(p, "button_release_event",
@@ -177,7 +182,7 @@ static gboolean show_happiness_button_release(GtkWidget *w,
                                               gpointer data)
 {
   gtk_grab_remove(w);
-  gdk_pointer_ungrab(GDK_CURRENT_TIME);
+  gdk_device_ungrab(ev->device, ev->time);
   gtk_widget_destroy(w);
   return FALSE;
 }
@@ -185,11 +190,13 @@ static gboolean show_happiness_button_release(GtkWidget *w,
 /**************************************************************************
   Create the happiness notebook page.
 **************************************************************************/
-static struct happiness_dialog *create_happiness_dialog(struct city *pcity)
+static struct happiness_dialog *create_happiness_dialog(struct city *pcity,
+                                                        bool low_dlg)
 {
   int i;
   struct happiness_dialog *pdialog;
-  GtkWidget *hbox, *ebox, *cbox, *label, *table;
+  GtkWidget *ebox, *label, *table;
+  char buf[700];
 
   static const char *happiness_label_str[NUM_HAPPINESS_MODIFIERS] = {
     N_("Cities:"),
@@ -204,61 +211,61 @@ static struct happiness_dialog *create_happiness_dialog(struct city *pcity)
   pdialog = fc_malloc(sizeof(struct happiness_dialog));
   pdialog->pcity = pcity;
 
-  pdialog->shell = gtk_vbox_new(FALSE, 0);
+  pdialog->shell = gtk_grid_new();
+  gtk_orientable_set_orientation(GTK_ORIENTABLE(pdialog->shell),
+                                 GTK_ORIENTATION_VERTICAL);
 
   pdialog->cityname_label = gtk_frame_new(_("Happiness"));
-  gtk_box_pack_start(GTK_BOX(pdialog->shell),
-                     pdialog->cityname_label, TRUE, TRUE, 0);
+  gtk_container_add(GTK_CONTAINER(pdialog->shell), pdialog->cityname_label);
 
-  hbox = gtk_hbox_new(TRUE, 0);
-
-  table = gtk_table_new(NUM_HAPPINESS_MODIFIERS + 1, 2, FALSE);
-  gtk_table_set_col_spacing(GTK_TABLE(table), 0, 5);
-  gtk_box_pack_start(GTK_BOX(hbox), table, FALSE, FALSE, 4);
+  table = gtk_grid_new();
+  g_object_set(table, "margin", 4, NULL);
+  gtk_grid_set_row_spacing(GTK_GRID(table), 10);
 
   intl_slist(ARRAY_SIZE(happiness_label_str), happiness_label_str,
              &happiness_label_str_done);
 
-  gtk_container_add(GTK_CONTAINER(pdialog->cityname_label), hbox);
+  gtk_container_add(GTK_CONTAINER(pdialog->cityname_label), table);
 
   for (i = 0; i < NUM_HAPPINESS_MODIFIERS; i++) {
     /* set spacing between lines of citizens*/
-    gtk_table_set_row_spacing(GTK_TABLE(table), i, 10);
 
     /* happiness labels */
     label = gtk_label_new(happiness_label_str[i]);
     pdialog->happiness_label[i] = label;
     gtk_widget_set_name(label, "city_label");
-    gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
+    gtk_widget_set_halign(label, GTK_ALIGN_START);
+    gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
 
-    gtk_table_attach(GTK_TABLE(table), label, 0, 1, i, i + 1,
-                     GTK_FILL, GTK_EXPAND | GTK_SHRINK, 0, 0);
+    gtk_grid_attach(GTK_GRID(table), label, 0, i, 1, 1);
 
     /* list of citizens */
     ebox = gtk_event_box_new();
+    gtk_widget_set_margin_left(ebox, 5);
+    gtk_event_box_set_visible_window(GTK_EVENT_BOX(ebox), FALSE);
     g_object_set_data(G_OBJECT(ebox), "pdialog", pdialog);
     g_signal_connect(ebox, "button_press_event",
                      G_CALLBACK(show_happiness_popup), GUINT_TO_POINTER(i));
     pdialog->happiness_ebox[i] = ebox;
 
-    cbox = gtk_vbox_new(FALSE, 2);
     pdialog->hpixmaps[i] = gtk_pixcomm_new(PIXCOMM_WIDTH, PIXCOMM_HEIGHT);
-    gtk_box_pack_start(GTK_BOX(cbox), pdialog->hpixmaps[i], FALSE, FALSE, 0);
-    gtk_misc_set_alignment(GTK_MISC(pdialog->hpixmaps[i]), 0, 0);
+    gtk_container_add(GTK_CONTAINER(ebox), pdialog->hpixmaps[i]);
+    gtk_widget_set_halign(pdialog->hpixmaps[i], GTK_ALIGN_START);
+    gtk_widget_set_valign(pdialog->hpixmaps[i], GTK_ALIGN_START);
 
-    gtk_container_add(GTK_CONTAINER(ebox), cbox);
-
-    gtk_table_attach(GTK_TABLE(table), ebox, 1, 2, i, i + 1,
-                     GTK_FILL, GTK_EXPAND | GTK_SHRINK, 0, 0);
+    gtk_grid_attach(GTK_GRID(table), ebox, 1, i, 1, 1);
   }
 
-  /* TRANS: the width of this text defines the width of the city dialog. */
-  label = gtk_label_new(_("Additional information is available via left "
-                          "click on the citizens."));
+  /* TRANS: the width of this text defines the width of the city dialog.
+   *        '%s' is either space or newline depending on screen real estate. */
+  fc_snprintf(buf, sizeof(buf),
+              _("Additional information is available%svia left "
+                "click on the citizens."), low_dlg ? "\n" : " ");
+  label = gtk_label_new(buf);
   gtk_widget_set_name(label, "city_label");
-  gtk_misc_set_alignment(GTK_MISC(label), 0, 0.5);
-  gtk_table_attach(GTK_TABLE(table), label, 0, 2, NUM_HAPPINESS_MODIFIERS,
-                   NUM_HAPPINESS_MODIFIERS + 1, GTK_FILL, 0, 0, 0);
+  gtk_widget_set_halign(label, GTK_ALIGN_START);
+  gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
+  gtk_grid_attach(GTK_GRID(table), label, 0, NUM_HAPPINESS_MODIFIERS, 2, 1);
 
   gtk_widget_show_all(pdialog->shell);
   dialog_list_prepend(dialog_list, pdialog);
@@ -278,15 +285,12 @@ static void refresh_pixcomm(GtkPixcomm *dst, struct city *pcity,
   int num_citizens = get_city_citizen_types(pcity, index, citizens);
   int offset = MIN(tileset_small_sprite_width(tileset), PIXCOMM_WIDTH / num_citizens);
 
-  gtk_pixcomm_freeze(dst);
   gtk_pixcomm_clear(dst);
 
   for (i = 0; i < num_citizens; i++) {
     gtk_pixcomm_copyto(dst, get_citizen_sprite(tileset, citizens[i], i, pcity),
 		       i * offset, 0);
   }
-
-  gtk_pixcomm_thaw(dst);
 }
 
 /**************************************************************************
@@ -324,7 +328,7 @@ void close_happiness_dialog(struct city *pcity)
 /**************************************************************************
   Create happiness dialog and get its widget
 **************************************************************************/
-GtkWidget *get_top_happiness_display(struct city *pcity)
+GtkWidget *get_top_happiness_display(struct city *pcity, bool low_dlg)
 {
-  return create_happiness_dialog(pcity)->shell;
+  return create_happiness_dialog(pcity, low_dlg)->shell;
 }

@@ -26,6 +26,8 @@
 /* client */
 #include "audio.h"
 #include "client_main.h"
+#include "gui_main.h"
+#include "gui_stuff.h"
 
 #include "dialogs_g.h"
 
@@ -59,6 +61,7 @@ void popup_soundset_suggestion_dialog(void)
                                        _("Keep current soundset"),
                                        GTK_RESPONSE_NO,
                                        NULL);
+  setup_dialog(dialog, toplevel);
   gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_YES);
   gtk_window_set_destroy_with_parent(GTK_WINDOW(dialog), TRUE);
 
@@ -69,7 +72,7 @@ void popup_soundset_suggestion_dialog(void)
               game.control.prefered_soundset, sound_set_name);
 
   label = gtk_label_new(buf);
-  gtk_container_add(GTK_CONTAINER(GTK_DIALOG(dialog)->vbox), label);
+  gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), label);
   gtk_label_set_justify(GTK_LABEL(label), GTK_JUSTIFY_CENTER);
   gtk_widget_show(label);
 

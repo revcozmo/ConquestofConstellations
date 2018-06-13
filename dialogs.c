@@ -51,7 +51,7 @@
 #include "text.h"
 #include "tilespec.h"
 
-/* client/gui-gtk-2.0 */
+/* client/gui-gtk-3.0 */
 #include "chatline.h"
 #include "choice_dialog.h"
 #include "citydlg.h"
@@ -111,15 +111,19 @@ void popup_notify_dialog(const char *caption, const char *headline,
   gui_dialog_add_button(shell, GTK_STOCK_CLOSE, GTK_RESPONSE_CLOSE); 
   gui_dialog_set_default_response(shell, GTK_RESPONSE_CLOSE);
 
-  vbox = gtk_vbox_new(FALSE, 2);
-  gtk_box_pack_start(GTK_BOX(shell->vbox), vbox, TRUE, TRUE, 0);
+  vbox = gtk_grid_new();
+  gtk_orientable_set_orientation(GTK_ORIENTABLE(vbox),
+                                 GTK_ORIENTATION_VERTICAL);
+  gtk_grid_set_row_spacing(GTK_GRID(vbox), 2);
+  gtk_container_add(GTK_CONTAINER(shell->vbox), vbox);
 
   headline_label = gtk_label_new(headline);   
-  gtk_box_pack_start(GTK_BOX(vbox), headline_label, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(vbox), headline_label);
   gtk_widget_set_name(headline_label, "notify_label");
 
   gtk_label_set_justify(GTK_LABEL(headline_label), GTK_JUSTIFY_LEFT);
-  gtk_misc_set_alignment(GTK_MISC(headline_label), 0.0, 0.0);
+  gtk_widget_set_halign(headline_label, GTK_ALIGN_START);
+  gtk_widget_set_valign(headline_label, GTK_ALIGN_START);
 
   sw = gtk_scrolled_window_new(NULL, NULL);
   gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(sw),
@@ -127,13 +131,16 @@ void popup_notify_dialog(const char *caption, const char *headline,
   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(sw),
 				 GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
   label = gtk_label_new(lines);
+  gtk_widget_set_hexpand(label, TRUE);
+  gtk_widget_set_vexpand(label, TRUE);
   gtk_scrolled_window_add_with_viewport(GTK_SCROLLED_WINDOW(sw), label);
 
   gtk_widget_set_name(label, "notify_label");
   gtk_label_set_justify(GTK_LABEL(label), GTK_JUSTIFY_LEFT);
-  gtk_misc_set_alignment(GTK_MISC(label), 0.0, 0.0);
+  gtk_widget_set_halign(label, GTK_ALIGN_START);
+  gtk_widget_set_valign(label, GTK_ALIGN_START);
 
-  gtk_box_pack_start(GTK_BOX(vbox), sw, TRUE, TRUE, 0);
+  gtk_container_add(GTK_CONTAINER(vbox), sw);
 
   gui_dialog_show_all(shell);
 
@@ -190,16 +197,14 @@ void popup_notify_goto_dialog(const char *headline, const char *lines,
 {
   GtkWidget *shell, *label, *goto_command, *popcity_command;
   
-  shell = gtk_dialog_new_with_buttons(headline,
-        NULL,
-        0,
-        NULL);
+  shell = gtk_dialog_new();
+  gtk_window_set_title(GTK_WINDOW(shell), headline);
   setup_dialog(shell, toplevel);
   gtk_dialog_set_default_response(GTK_DIALOG(shell), GTK_RESPONSE_CLOSE);
   gtk_window_set_position(GTK_WINDOW(shell), GTK_WIN_POS_CENTER_ON_PARENT);
 
   label = gtk_label_new(lines);
-  gtk_container_add(GTK_CONTAINER(GTK_DIALOG(shell)->vbox), label);
+  gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(shell))), label);
   gtk_widget_show(label);
   
   goto_command = gtk_stockbutton_new(GTK_STOCK_JUMP_TO,
@@ -239,10 +244,8 @@ void popup_connect_msg(const char *headline, const char *message)
 {
   GtkWidget *shell, *label;
   
-  shell = gtk_dialog_new_with_buttons(headline,
-        NULL,
-        0,
-        NULL);
+  shell = gtk_dialog_new();
+  gtk_window_set_title(GTK_WINDOW(shell), headline);
   setup_dialog(shell, toplevel);
   gtk_dialog_set_default_response(GTK_DIALOG(shell), GTK_RESPONSE_CLOSE);
   gtk_window_set_position(GTK_WINDOW(shell), GTK_WIN_POS_CENTER_ON_PARENT);
@@ -250,7 +253,7 @@ void popup_connect_msg(const char *headline, const char *message)
   label = gtk_label_new(message);
   gtk_label_set_selectable(GTK_LABEL(label), 1);
 
-  gtk_container_add(GTK_CONTAINER(GTK_DIALOG(shell)->vbox), label);
+  gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(shell))), label);
   gtk_widget_show(label);
 
   gtk_dialog_add_button(GTK_DIALOG(shell), GTK_STOCK_CLOSE,
@@ -481,13 +484,20 @@ static void select_nation_on_tab(GtkWidget *tab_list, int nation)
   } else {
     /* Either no nation was selected, or the nation is not mentioned in
      * this tab. Either way we want to end up with no selection. */
-    /* If there was a previous selection, reset the cursor */
-    if (gtk_tree_selection_get_selected(select, NULL, NULL)) {
-      GtkTreePath *cursorpath = gtk_tree_path_new_first();
+    GtkTreePath *cursorpath;
+    /* If there is no cursor, Gtk tends to focus and select the first row
+     * at the first opportunity, disturbing any existing state. We want to
+     * allow the the no-rows-selected state, so detect this case and defuse
+     * it by setting a cursor. */
+    gtk_tree_view_get_cursor(list, &cursorpath, NULL);
+    /* Set the cursor in the case above, or if there was a previous
+     * selection */
+    if (!cursorpath || gtk_tree_selection_get_selected(select, NULL, NULL)) {
+      cursorpath = gtk_tree_path_new_first();
       gtk_tree_view_set_cursor(list, cursorpath, NULL, FALSE);
-      gtk_tree_path_free(cursorpath);
     }
     gtk_tree_selection_unselect_all(select);
+    gtk_tree_path_free(cursorpath);
   }
   gtk_tree_path_free(path);
   /* Re-enable selection change side-effects */
@@ -667,6 +677,8 @@ static GtkWidget* create_list_of_nations_in_group(struct nation_group* group,
           3, GTK_SORT_ASCENDING);
 
       list = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
+      gtk_widget_set_hexpand(list, TRUE);
+      gtk_widget_set_vexpand(list, TRUE);
       gtk_tree_view_set_search_column(GTK_TREE_VIEW(list), 3);
       gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(list), FALSE);
       g_object_unref(store);
@@ -858,7 +870,7 @@ static void create_races_dialog(struct player *pplayer)
 {
   GtkWidget *shell;
   GtkWidget *cmd;
-  GtkWidget *vbox, *hbox, *table;
+  GtkWidget *hbox, *table;
   GtkWidget *frame, *label, *combo;
   GtkWidget *text;
   GtkWidget *notebook;
@@ -901,17 +913,19 @@ static void create_races_dialog(struct player *pplayer)
   gtk_window_set_default_size(GTK_WINDOW(shell), -1, 590);
 
   frame = gtk_frame_new(_("Select a nation"));
-  gtk_container_add(GTK_CONTAINER(GTK_DIALOG(shell)->vbox), frame);
+  gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(shell))), frame);
 
-  hbox = gtk_hbox_new(FALSE, 18);
+  hbox = gtk_grid_new();
+  gtk_grid_set_column_spacing(GTK_GRID(hbox), 18);
   gtk_container_set_border_width(GTK_CONTAINER(hbox), 3);
   gtk_container_add(GTK_CONTAINER(frame), hbox);
 
   /* Left side: nation list */
   {
-    GtkWidget* nation_selection_list = gtk_vbox_new(FALSE, 2);
-    GtkWidget *nsetctrls = NULL;
+    GtkWidget* nation_selection_list = gtk_grid_new();
     nationsets_chooser = NULL;
+
+    gtk_grid_set_row_spacing(GTK_GRID(nation_selection_list), 2);
 
     /* Nationset selector dropdown */
     /* Only present this if there is more than one choice.
@@ -967,10 +981,9 @@ static void create_races_dialog(struct player *pplayer)
       } nation_sets_iterate_end;
 
       /* We want a combo box where the button displays just the set name,
-       * but the dropdown displays the expanded description.
-       * The entry displays the set name. */
+       * but the dropdown displays the expanded description. */
       nationsets_chooser
-        = gtk_combo_box_entry_new_with_model(GTK_TREE_MODEL(sets_model), 2);
+        = gtk_combo_box_new_with_model_and_entry(GTK_TREE_MODEL(sets_model));
       g_object_unref(G_OBJECT(sets_model));
       {
         /* Do our best to turn the text-entry widget into something more
@@ -980,6 +993,9 @@ static void create_races_dialog(struct player *pplayer)
         gtk_editable_set_editable(GTK_EDITABLE(entry), FALSE);
         gtk_widget_set_can_focus(entry, FALSE);
       }
+      /* The entry displays the set name. */
+      gtk_combo_box_set_entry_text_column(GTK_COMBO_BOX(nationsets_chooser),
+                                          2);
       /* The dropdown displays the marked-up description. */
       renderer = gtk_cell_renderer_text_new();
       gtk_cell_layout_clear(GTK_CELL_LAYOUT(nationsets_chooser));
@@ -1000,7 +1016,6 @@ static void create_races_dialog(struct player *pplayer)
         }
       }
 
-      nsetctrls = gtk_hbox_new(FALSE, 2);
       label = g_object_new(GTK_TYPE_LABEL,
           "use-underline", TRUE,
           "label", _("_Nation Set:"),
@@ -1008,18 +1023,18 @@ static void create_races_dialog(struct player *pplayer)
           "yalign", 0.5,
           NULL);
       gtk_label_set_mnemonic_widget(GTK_LABEL(label), nationsets_chooser);
-      gtk_box_pack_start(GTK_BOX(nsetctrls), label, FALSE, FALSE, 0);
-      gtk_box_pack_start(GTK_BOX(nsetctrls), nationsets_chooser,
-                         TRUE, TRUE, 0);
-    }
 
-    if (nsetctrls) {
-      gtk_box_pack_start(GTK_BOX(nation_selection_list), nsetctrls,
-                         FALSE, FALSE, 0);
+      gtk_widget_set_hexpand(nationsets_chooser, TRUE);
+      gtk_grid_attach(GTK_GRID(nation_selection_list), label,
+                      0, 0, 1, 1);
+      gtk_grid_attach(GTK_GRID(nation_selection_list), nationsets_chooser,
+                      1, 0, 1, 1);
     }
 
     races_notebook = gtk_notebook_new();
     gtk_notebook_set_tab_pos(GTK_NOTEBOOK(races_notebook), GTK_POS_LEFT);  
+    gtk_grid_attach(GTK_GRID(nation_selection_list), races_notebook,
+                    0, 2, 2, 1);
 
     /* Suppress notebook tabs if there will be only one ("All") */
     if (nation_group_count() == 0) {
@@ -1032,13 +1047,10 @@ static void create_races_dialog(struct player *pplayer)
           "yalign", 0.5,
           NULL);
       gtk_label_set_mnemonic_widget(GTK_LABEL(label), races_notebook);
-      gtk_box_pack_start(GTK_BOX(nation_selection_list), label,
-                         FALSE, FALSE, 0);  
+      gtk_grid_attach(GTK_GRID(nation_selection_list), label,
+                      0, 1, 2, 1);
       gtk_notebook_set_show_tabs(GTK_NOTEBOOK(races_notebook), TRUE);
     }
-
-    gtk_box_pack_start(GTK_BOX(nation_selection_list), races_notebook,
-                       TRUE, TRUE, 0);
 
     /* Populate treeview */
     create_nation_selection_lists();
@@ -1054,22 +1066,18 @@ static void create_races_dialog(struct player *pplayer)
   /* Properties pane. */
   label = gtk_label_new_with_mnemonic(_("_Properties"));
 
-  races_properties = vbox = gtk_vbox_new(FALSE, 6);
-  gtk_container_set_border_width(GTK_CONTAINER(vbox), 6);
-  gtk_notebook_append_page(GTK_NOTEBOOK(notebook), vbox, label);
-  g_signal_connect(vbox, "destroy",
+  races_properties = table = gtk_grid_new();
+  g_signal_connect(table, "destroy",
       G_CALLBACK(gtk_widget_destroyed), &races_properties);
-
-  table = gtk_table_new(3, 4, FALSE); 
-  gtk_table_set_row_spacings(GTK_TABLE(table), 2);
-  gtk_table_set_col_spacing(GTK_TABLE(table), 0, 12);
-  gtk_table_set_col_spacing(GTK_TABLE(table), 1, 12);
-  gtk_box_pack_start(GTK_BOX(vbox), table, TRUE, TRUE, 0);
+  g_object_set(table, "margin", 6, NULL);
+  gtk_grid_set_row_spacing(GTK_GRID(table), 2);
+  gtk_notebook_append_page(GTK_NOTEBOOK(notebook), table, label);
 
   /* Leader. */ 
   {
     GtkListStore *model = gtk_list_store_new(1, G_TYPE_STRING);
-    combo = gtk_combo_box_entry_new_with_model(GTK_TREE_MODEL(model), 0);
+    combo = gtk_combo_box_new_with_model_and_entry(GTK_TREE_MODEL(model));
+    gtk_combo_box_set_entry_text_column(GTK_COMBO_BOX(combo), 0);
     g_object_unref(G_OBJECT(model));
   }
   races_leader = combo;
@@ -1080,23 +1088,29 @@ static void create_races_dialog(struct player *pplayer)
       "xalign", 0.0,
       "yalign", 0.5,
       NULL);
-  gtk_table_attach(GTK_TABLE(table), label, 0, 1, 0, 2, 0, 0, 0, 0);
-  gtk_table_attach(GTK_TABLE(table), combo, 1, 3, 0, 1, 0, 0, 0, 0);
+  gtk_widget_set_margin_bottom(label, 6);
+  gtk_widget_set_margin_right(label, 12);
+  gtk_grid_attach(GTK_GRID(table), label, 0, 0, 1, 2);
+  gtk_grid_attach(GTK_GRID(table), combo, 1, 0, 2, 1);
 
   cmd = gtk_radio_button_new_with_mnemonic(NULL, _("_Female"));
+  gtk_widget_set_margin_bottom(cmd, 6);
   races_sex[0] = cmd;
-  gtk_table_attach(GTK_TABLE(table), cmd, 1, 2, 1, 2, 0, 0, 0, 0);
+  gtk_grid_attach(GTK_GRID(table), cmd, 1, 1, 1, 1);
 
   cmd = gtk_radio_button_new_with_mnemonic_from_widget(GTK_RADIO_BUTTON(cmd),
       _("_Male"));
+  gtk_widget_set_margin_bottom(cmd, 6);
   races_sex[1] = cmd;
-  gtk_table_attach(GTK_TABLE(table), cmd, 2, 3, 1, 2, 0, 0, 0, 0);
+  gtk_grid_attach(GTK_GRID(table), cmd, 2, 1, 1, 1);
 
   /* City style. */
   store = gtk_list_store_new(3, G_TYPE_INT,
       GDK_TYPE_PIXBUF, G_TYPE_STRING);
 
   list = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
+  gtk_widget_set_hexpand(list, TRUE);
+  gtk_widget_set_vexpand(list, TRUE);
   races_city_style_list = list;
   g_object_unref(store);
   gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(list), FALSE);
@@ -1104,13 +1118,13 @@ static void create_races_dialog(struct player *pplayer)
       G_CALLBACK(races_city_style_callback), NULL);
 
   sw = gtk_scrolled_window_new(NULL, NULL);
+  gtk_widget_set_margin_top(sw, 6);
   gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(sw),
       GTK_SHADOW_ETCHED_IN);
   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(sw),
       GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
   gtk_container_add(GTK_CONTAINER(sw), list);
-  gtk_table_attach(GTK_TABLE(table), sw, 1, 3, 2, 4,
-      GTK_EXPAND|GTK_FILL, GTK_EXPAND|GTK_FILL, 0, 0);
+  gtk_grid_attach(GTK_GRID(table), sw, 1, 2, 2, 2);
 
   label = g_object_new(GTK_TYPE_LABEL,
       "use-underline", TRUE,
@@ -1119,7 +1133,9 @@ static void create_races_dialog(struct player *pplayer)
       "xalign", 0.0,
       "yalign", 0.5,
       NULL);
-  gtk_table_attach(GTK_TABLE(table), label, 0, 1, 2, 3, 0, 0, 0, 0);
+  gtk_widget_set_margin_top(label, 6);
+  gtk_widget_set_margin_right(label, 12);
+  gtk_grid_attach(GTK_GRID(table), label, 0, 2, 1, 1);
 
   render = gtk_cell_renderer_pixbuf_new();
   column = gtk_tree_view_column_new_with_attributes(NULL, render,
@@ -1129,8 +1145,6 @@ static void create_races_dialog(struct player *pplayer)
   column = gtk_tree_view_column_new_with_attributes(NULL, render,
       "text", 2, NULL);
   gtk_tree_view_append_column(GTK_TREE_VIEW(list), column);
-
-  gtk_table_set_row_spacing(GTK_TABLE(table), 1, 12);
 
   /* Populate city style store. */
   for (i = 0; i < game.control.styles_count; i++) {
@@ -1146,7 +1160,6 @@ static void create_races_dialog(struct player *pplayer)
 
     s = crop_blankspace(get_sample_city_sprite(tileset, i));
     img = sprite_get_pixbuf(s);
-    g_object_ref(img);
     free_sprite(s);
     gtk_list_store_set(store, &it, 0, i, 1, img, 2,
                        city_style_name_translation(i), -1);
@@ -1156,11 +1169,10 @@ static void create_races_dialog(struct player *pplayer)
   /* Legend pane. */
   label = gtk_label_new_with_mnemonic(_("_Description"));
 
-  vbox = gtk_vbox_new(FALSE, 6);
-  gtk_container_set_border_width(GTK_CONTAINER(vbox), 6);
-  gtk_notebook_append_page(GTK_NOTEBOOK(notebook), vbox, label);
-
   text = gtk_text_view_new();
+  g_object_set(text, "margin", 6, NULL);
+  gtk_widget_set_hexpand(text, TRUE);
+  gtk_widget_set_vexpand(text, TRUE);
   races_text = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text));
   gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(text), GTK_WRAP_WORD);
   gtk_text_view_set_editable(GTK_TEXT_VIEW(text), FALSE);
@@ -1168,7 +1180,7 @@ static void create_races_dialog(struct player *pplayer)
   gtk_text_view_set_left_margin(GTK_TEXT_VIEW(text), 6);
   gtk_text_view_set_right_margin(GTK_TEXT_VIEW(text), 6);
 
-  gtk_box_pack_start(GTK_BOX(vbox), text, TRUE, TRUE, 0);
+  gtk_notebook_append_page(GTK_NOTEBOOK(notebook), text, label);
 
   /* Signals. */
   g_signal_connect(shell, "destroy",
@@ -1193,7 +1205,7 @@ static void create_races_dialog(struct player *pplayer)
                                       FALSE);
   }
 
-  gtk_widget_show_all(GTK_DIALOG(shell)->vbox);
+  gtk_widget_show_all(gtk_dialog_get_content_area(GTK_DIALOG(shell)));
 
   /* Select player's current nation in UI, if any */
   if (races_player->nation) {
@@ -1523,8 +1535,8 @@ void popdown_all_game_dialogs(void)
 *****************************************************************/
 void show_tech_gained_dialog(Tech_type_id tech)
 {
-  if (gui_gtk2_popup_tech_help == GUI_POPUP_TECH_HELP_ENABLED
-      || (gui_gtk2_popup_tech_help == GUI_POPUP_TECH_HELP_RULESET
+  if (gui_gtk3_popup_tech_help == GUI_POPUP_TECH_HELP_ENABLED
+      || (gui_gtk3_popup_tech_help == GUI_POPUP_TECH_HELP_RULESET
           && game.control.popup_tech_help)) {
     popup_help_dialog_typed(advance_name_for_player(client.conn.playing, tech), HELP_TECH);
   }

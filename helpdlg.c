@@ -335,7 +335,8 @@ static GtkWidget *help_hyperlink_new(GtkWidget *label, enum help_page_type type)
 
   button = gtk_button_new();
   gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
-  gtk_misc_set_alignment(GTK_MISC(label), 0.5, 0.5);
+  gtk_widget_set_halign(label, GTK_ALIGN_CENTER);
+  gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
   gtk_widget_set_name(label, "help_link");
   gtk_container_add(GTK_CONTAINER(button), label);
   gtk_widget_show(button);
@@ -353,8 +354,10 @@ static GtkWidget *help_slink_new(const gchar *txt, enum help_page_type type)
   GtkWidget *button, *label;
 
   label = gtk_label_new(txt);
-  gtk_misc_set_alignment(GTK_MISC(label), 0.5, 0.5);
+  gtk_widget_set_halign(label, GTK_ALIGN_CENTER);
+  gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
   button = help_hyperlink_new(label, type);
+
   return button;
 }
 
@@ -373,7 +376,7 @@ static void help_box_hide(void)
   gtk_widget_hide(help_ttable);
   gtk_widget_hide(help_btable);
   gtk_widget_hide(help_rtable);
-
+ 
   gtk_widget_hide(help_tile); /* FIXME: twice? */
 
   gtk_widget_hide(help_vbox);
@@ -470,8 +473,9 @@ static void create_help_dialog(void)
   g_signal_connect(help_dialog_shell, "destroy",
 		   G_CALLBACK(help_destroy_callback), NULL);
 
-  hbox = gtk_hbox_new(FALSE, 5);
-  gtk_container_add(GTK_CONTAINER(GTK_DIALOG(help_dialog_shell)->vbox), hbox);
+  hbox = gtk_grid_new();
+  gtk_grid_set_column_spacing(GTK_GRID(hbox), 5);
+  gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(help_dialog_shell))), hbox);
   gtk_widget_show(hbox);
 
   /* build tree store. */
@@ -525,64 +529,68 @@ static void create_help_dialog(void)
   gtk_widget_set_size_request(help_view_sw, 190, -1);
   gtk_container_add(GTK_CONTAINER(help_view_sw), help_view);
   gtk_widget_show(help_view);
-  gtk_box_pack_start(GTK_BOX(hbox), help_view_sw, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(hbox), help_view_sw);
   gtk_widget_show(help_view_sw);
 
   help_frame = gtk_frame_new("");
-  gtk_box_pack_start(GTK_BOX(hbox), help_frame, TRUE, TRUE, 0);
+  gtk_container_add(GTK_CONTAINER(hbox), help_frame);
   gtk_widget_set_size_request(help_frame, 520, 350);
   gtk_widget_show(help_frame);
 
-  help_box = gtk_vbox_new(FALSE, 5);
+  help_box = gtk_grid_new();
+  gtk_grid_set_row_spacing(GTK_GRID(help_box), 5);
+  gtk_orientable_set_orientation(GTK_ORIENTABLE(help_box),
+                                 GTK_ORIENTATION_VERTICAL);
   gtk_container_add(GTK_CONTAINER(help_frame), help_box);
 
   help_tile = gtk_pixcomm_new(tileset_full_tile_width(tileset), tileset_full_tile_height(tileset));
-  gtk_box_pack_start(GTK_BOX(help_box), help_tile, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(help_box), help_tile);
 
-  help_itable = gtk_table_new(1, 6, FALSE);
-  gtk_box_pack_start(GTK_BOX(help_box), help_itable, FALSE, FALSE, 0);
+  help_itable = gtk_grid_new();
+  gtk_container_add(GTK_CONTAINER(help_box), help_itable);
 
   for (i=0; i<6; i++) {
     help_ilabel[i] =
 	gtk_label_new(help_ilabel_name[i] ? _(help_ilabel_name[i]) : "");
+    gtk_widget_set_hexpand(help_ilabel[i], TRUE);
 
     if (i==5) {
       button = help_hyperlink_new(help_ilabel[i], HELP_TECH);
-      gtk_table_attach_defaults(GTK_TABLE(help_itable), button, i, i+1, 0, 1);
+      gtk_grid_attach(GTK_GRID(help_itable), button, i, 0, 1, 1);
     } else {
-      gtk_table_attach_defaults(GTK_TABLE(help_itable),
-			        help_ilabel[i], i, i+1, 0, 1);
+      gtk_grid_attach(GTK_GRID(help_itable), help_ilabel[i], i, 0, 1, 1);
       gtk_widget_set_name(help_ilabel[i], "help_label");
     }
     gtk_widget_show(help_ilabel[i]);
   }
 
-  help_wtable = gtk_table_new(1, 6, FALSE);
-  gtk_box_pack_start(GTK_BOX(help_box), help_wtable, FALSE, FALSE, 0);
+  help_wtable = gtk_grid_new();
+  gtk_container_add(GTK_CONTAINER(help_box), help_wtable);
 
   for (i=0; i<6; i++) {
     help_wlabel[i] =
 	gtk_label_new(help_wlabel_name[i] ? _(help_wlabel_name[i]) : "");
+    gtk_widget_set_hexpand(help_wlabel[i], TRUE);
 
     if (i==3 || i==5) {
       button = help_hyperlink_new(help_wlabel[i], HELP_TECH);
-      gtk_table_attach_defaults(GTK_TABLE(help_wtable), button, i, i+1, 0, 1);
+      gtk_grid_attach(GTK_GRID(help_wtable), button, i, 0, 1, 1);
     } else {
-      gtk_table_attach_defaults(GTK_TABLE(help_wtable),
-			        help_wlabel[i], i, i+1, 0, 1);
+      gtk_grid_attach(GTK_GRID(help_wtable), help_wlabel[i], i, 0, 1, 1);
       gtk_widget_set_name(help_wlabel[i], "help_label");
     }
     gtk_widget_show(help_wlabel[i]);
   }
 
 
-  help_utable = gtk_table_new(5, 5, FALSE);
-  gtk_box_pack_start(GTK_BOX(help_box), help_utable, FALSE, FALSE, 0);
+  help_utable = gtk_grid_new();
+  gtk_container_add(GTK_CONTAINER(help_box), help_utable);
 
   for (i=0; i<5; i++)
     for (j=0; j<5; j++) {
       help_ulabel[j][i] =
 	  gtk_label_new(help_ulabel_name[j][i] ? _(help_ulabel_name[j][i]) : "");
+      gtk_widget_set_hexpand(help_ulabel[j][i], TRUE);
 
       if (j==4 && (i==1 || i==4)) {
 	if (i==1)
@@ -590,70 +598,75 @@ static void create_help_dialog(void)
 	else
 	  button = help_hyperlink_new(help_ulabel[j][i], HELP_UNIT);
 
-        gtk_table_attach_defaults(GTK_TABLE(help_utable),
-					    button, i, i+1, j, j+1);
+        gtk_grid_attach(GTK_GRID(help_utable), button, i, j, 1, 1);
       } else {
-        gtk_table_attach_defaults(GTK_TABLE(help_utable),
-			          help_ulabel[j][i], i, i+1, j, j+1);
+        gtk_grid_attach(GTK_GRID(help_utable), help_ulabel[j][i],
+                        i, j, 1, 1);
         gtk_widget_set_name(help_ulabel[j][i], "help_label");
       }
       gtk_widget_show(help_ulabel[j][i]);
     }
 
 
-  help_ttable = gtk_table_new(5, 5, FALSE);
-  gtk_box_pack_start(GTK_BOX(help_box), help_ttable, FALSE, FALSE, 0);
+  help_ttable = gtk_grid_new();
+  gtk_container_add(GTK_CONTAINER(help_box), help_ttable);
 
   for (j=0; j<4; j++) {
     for (i=0; i<5; i++) {
       help_tlabel[j][i] =
 	  gtk_label_new(help_tlabel_name[j][i] ? _(help_tlabel_name[j][i]) : "");
+      gtk_widget_set_hexpand(help_tlabel[j][i], TRUE);
       gtk_widget_set_name(help_tlabel[j][i], "help_label");
 
       /* Ugly (but these numbers are hardcoded in help_update_terrain() too) */
       if (j==1 && i==1) {
           /* Extra wide cell for terrain specials */
-          gtk_table_attach_defaults(GTK_TABLE(help_ttable),
-                                    help_tlabel[j][i], i, i+4, j, j+1);
+          gtk_grid_attach(GTK_GRID(help_ttable), help_tlabel[j][i],
+                          i, j, 4, 1);
           gtk_widget_show(help_tlabel[j][i]);
           break; /* skip rest of row */
       } else {
-          gtk_table_attach_defaults(GTK_TABLE(help_ttable),
-                                    help_tlabel[j][i], i, i+1, j, j+1);
+          gtk_grid_attach(GTK_GRID(help_ttable), help_tlabel[j][i],
+                          i, j, 1, 1);
           gtk_widget_show(help_tlabel[j][i]);
       }
     }
   }
 
-  help_btable = gtk_table_new(1, 4, FALSE);
-  gtk_box_pack_start(GTK_BOX(help_box), help_btable, FALSE, FALSE, 0);
+  help_btable = gtk_grid_new();
+  gtk_container_add(GTK_CONTAINER(help_box), help_btable);
 
   for (i = 0; i < 4; i++) {
     help_blabel[i] =
       gtk_label_new(help_blabel_name[i] ? _(help_blabel_name[i]) : "");
-    gtk_table_attach_defaults(GTK_TABLE(help_btable),
-                              help_blabel[i], i, i+1, 0, 1);
+    gtk_widget_set_hexpand(help_blabel[i], TRUE);
+    gtk_grid_attach(GTK_GRID(help_btable), help_blabel[i], i, 0, 1, 1);
     gtk_widget_set_name(help_blabel[i], "help_label");
     gtk_widget_show(help_blabel[i]);
   }
 
-  help_rtable = gtk_table_new(1, 2, FALSE);
-  gtk_box_pack_start(GTK_BOX(help_box), help_rtable, FALSE, FALSE, 0);
+  help_rtable = gtk_grid_new();
+  gtk_container_add(GTK_CONTAINER(help_box), help_rtable);
 
   for (i = 0; i < 4; i++) {
     help_rlabel[i] =
       gtk_label_new(help_rlabel_name[i] ? _(help_rlabel_name[i]) : "");
-    gtk_table_attach_defaults(GTK_TABLE(help_rtable),
-                              help_rlabel[i], i, i+1, 0, 1);
+    gtk_widget_set_hexpand(help_rlabel[i], TRUE);
+    gtk_grid_attach(GTK_GRID(help_rtable), help_rlabel[i], i, 0, 1, 1);
     gtk_widget_set_name(help_rlabel[i], "help_label");
     gtk_widget_show(help_rlabel[i]);
   }
 
-  help_vbox = gtk_vbox_new(FALSE, 1);
+  help_vbox = gtk_grid_new();
+  gtk_grid_set_row_spacing(GTK_GRID(help_vbox), 1);
+  gtk_orientable_set_orientation(GTK_ORIENTABLE(help_vbox),
+                                 GTK_ORIENTATION_VERTICAL);
   gtk_container_set_border_width(GTK_CONTAINER(help_vbox), 5);
-  gtk_box_pack_start(GTK_BOX(help_box), help_vbox, FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(help_box), help_vbox);
 					     
   text = gtk_text_view_new();
+  gtk_widget_set_hexpand(text, TRUE);
+  gtk_widget_set_vexpand(text, TRUE);
   gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(text), FALSE);
   gtk_text_view_set_editable(GTK_TEXT_VIEW(text), FALSE);
   gtk_container_set_border_width(GTK_CONTAINER(text), 5);
@@ -666,15 +679,17 @@ static void create_help_dialog(void)
   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(help_text_sw),
 				 GTK_POLICY_AUTOMATIC, GTK_POLICY_ALWAYS);
   gtk_container_add(GTK_CONTAINER(help_text_sw), text);
-  gtk_box_pack_start(GTK_BOX(help_box), help_text_sw, TRUE, TRUE, 0);
+  gtk_container_add(GTK_CONTAINER(help_box), help_text_sw);
 
   /* build tech store. */
   tstore = gtk_tree_store_new(4,
 			      G_TYPE_STRING,	/* tech name */
 			      G_TYPE_INT,	/* turns to tech */
 			      G_TYPE_INT,	/* tech id */
-			      GDK_TYPE_COLOR);	/* color */
+			      GDK_TYPE_RGBA);	/* color */
   help_tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(tstore));
+  gtk_widget_set_hexpand(help_tree, TRUE);
+  gtk_widget_set_vexpand(help_tree, TRUE);
   g_object_unref(tstore);
   gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(help_tree), FALSE);
 
@@ -689,14 +704,14 @@ static void create_help_dialog(void)
   gtk_tree_view_column_pack_start(col, rend, TRUE);
   gtk_tree_view_column_set_attributes(col, rend,
 				      "text", 0,
-				      "background_gdk", 3,
+				      "background-rgba", 3,
 				      NULL);
   rend = gtk_cell_renderer_text_new();
   g_object_set(rend, "weight", "bold", "xalign", 1.0, NULL);
   gtk_tree_view_column_pack_start(col, rend, FALSE);
   gtk_tree_view_column_set_attributes(col, rend,
 				      "text", 1,
-				      "background_gdk", 3,
+				      "background-rgba", 3,
 				      NULL);
 
   gtk_tree_view_append_column(GTK_TREE_VIEW(help_tree), col);
@@ -707,7 +722,7 @@ static void create_help_dialog(void)
 				 GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
   gtk_container_add(GTK_CONTAINER(help_tree_sw), help_tree);
   gtk_widget_show(help_tree);
-  gtk_box_pack_start(GTK_BOX(help_box), help_tree_sw, TRUE, TRUE, 0);
+  gtk_container_add(GTK_CONTAINER(help_box), help_tree_sw);
 
   help_tree_expand =
 	gtk_button_new_with_label(_("Expand All"));
@@ -718,11 +733,10 @@ static void create_help_dialog(void)
   g_signal_connect(help_tree_collapse, "clicked",
 		   G_CALLBACK(help_tech_tree_collapse_callback), help_tree);
 
-  help_tree_buttons_hbox = gtk_hbutton_box_new();
+  help_tree_buttons_hbox = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
   gtk_container_add(GTK_CONTAINER(help_tree_buttons_hbox), help_tree_expand);
   gtk_container_add(GTK_CONTAINER(help_tree_buttons_hbox), help_tree_collapse);
-  gtk_box_pack_start(GTK_BOX(help_box), help_tree_buttons_hbox,
-	FALSE, FALSE, 0);
+  gtk_container_add(GTK_CONTAINER(help_box), help_tree_buttons_hbox);
   gtk_widget_show_all(help_tree_buttons_hbox);
 
   create_help_page(HELP_TEXT);
@@ -779,6 +793,13 @@ static void help_update_improvement(const struct help_item *pitem,
     gtk_label_set_text(GTK_LABEL(help_ilabel[5]), REQ_LABEL_NEVER);
 /*    create_tech_tree(help_improvement_tree, 0, advance_count(), 3);*/
   }
+    if (get_building_sprite(tileset, imp)) {
+      struct sprite *sprite = get_building_sprite(tileset, imp);
+
+      gtk_pixcomm_set_from_sprite(GTK_PIXCOMM(help_tile), sprite);
+      gtk_widget_show(help_tile);
+    }
+
   gtk_widget_show(help_itable);
 
   helptext_building(buf, sizeof(buf), client.conn.playing, pitem->text, imp);
@@ -834,6 +855,13 @@ static void help_update_wonder(const struct help_item *pitem,
     gtk_label_set_text(GTK_LABEL(help_wlabel[5]), skip_intl_qualifier_prefix(REQ_LABEL_NONE));
 /*    create_tech_tree(help_improvement_tree, 0, advance_count(), 3); */
   }
+    if (get_building_sprite(tileset, imp)) {
+      struct sprite *sprite = get_building_sprite(tileset, imp);
+
+      gtk_pixcomm_set_from_sprite(GTK_PIXCOMM(help_tile), sprite);
+      gtk_widget_show(help_tile);
+    }
+
   gtk_widget_show(help_wtable);
 
   helptext_building(buf, sizeof(buf), client.conn.playing, pitem->text, imp);
@@ -853,6 +881,8 @@ static void help_update_unit_type(const struct help_item *pitem,
   create_help_page(HELP_UNIT);
 
   if (utype) {
+    struct sprite *sprite;
+
     sprintf(buf, "%d", utype_build_shield_cost(utype));
     gtk_label_set_text(GTK_LABEL(help_ulabel[0][1]), buf);
     sprintf(buf, "%d", utype->attack_strength);
@@ -889,18 +919,13 @@ static void help_update_unit_type(const struct help_item *pitem,
     gtk_text_buffer_set_text(help_text, buf, -1);
     gtk_widget_show(help_text_sw);
 
-    gtk_pixcomm_freeze(GTK_PIXCOMM(help_tile));
-    {
-      struct canvas store;
-
-      store.type = CANVAS_PIXCOMM;
-      store.v.pixcomm = GTK_PIXCOMM(help_tile);
-      create_overlay_unit(&store, utype, direction8_invalid());
+    sprite = get_unittype_sprite(tileset, utype, direction8_invalid(),
+                                 TRUE);
+    if (sprite != NULL) {
+      gtk_pixcomm_set_from_sprite(GTK_PIXCOMM(help_tile), sprite);
+      gtk_widget_show(help_tile);
     }
-    gtk_pixcomm_thaw(GTK_PIXCOMM(help_tile));
-    gtk_widget_show(help_tile);
-  }
-  else {
+  } else {
     gtk_label_set_text(GTK_LABEL(help_ulabel[0][1]), "0");
     gtk_label_set_text(GTK_LABEL(help_ulabel[0][4]), "0");
     gtk_label_set_text(GTK_LABEL(help_ulabel[1][1]), "0");
@@ -970,21 +995,21 @@ static void help_update_tech(const struct help_item *pitem, char *title)
     fc_chomp(buf, len);
 
     if (get_tech_sprite(tileset, i)) {
-      GdkPixbuf *pixbuf = sprite_get_pixbuf(get_tech_sprite(tileset, i));
+      struct sprite *sprite = get_tech_sprite(tileset, i);
 
-      w = gtk_image_new_from_pixbuf(pixbuf);
-      gtk_widget_set_name(w, "help_tech_image");
-      gtk_box_pack_start(GTK_BOX(help_vbox), w, FALSE, FALSE, 0);
-      gtk_widget_show(w);
+      gtk_pixcomm_set_from_sprite(GTK_PIXCOMM(help_tile), sprite);
+      gtk_widget_show(help_tile);
     }
 
     w = gtk_text_view_new();
+    gtk_widget_set_hexpand(w, TRUE);
+    gtk_widget_set_vexpand(w, TRUE);
     gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(w), FALSE);
     gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(w), GTK_WRAP_WORD);
     gtk_widget_set_name(w, "help_text");
     gtk_container_set_border_width(GTK_CONTAINER(w), 5);
     gtk_text_view_set_editable(GTK_TEXT_VIEW(w), FALSE);
-    gtk_box_pack_start(GTK_BOX(help_vbox), w, TRUE, TRUE, 0);
+    gtk_container_add(GTK_CONTAINER(help_vbox), w);
     gtk_widget_show(w);
 
     txt = gtk_text_view_get_buffer(GTK_TEXT_VIEW(w));
@@ -992,8 +1017,11 @@ static void help_update_tech(const struct help_item *pitem, char *title)
       gtk_text_buffer_set_text(txt, buf, -1);
     }
 
-    w = gtk_hseparator_new();
-    gtk_box_pack_start(GTK_BOX(help_vbox), w, TRUE, TRUE, 5);
+    w = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+    g_object_set(w, "margin", 5, NULL);
+    gtk_widget_set_hexpand(w, TRUE);
+    gtk_widget_set_vexpand(w, TRUE);
+    gtk_container_add(GTK_CONTAINER(help_vbox), w);
     gtk_widget_show(w);
 
     governments_iterate(pgov) {
@@ -1002,13 +1030,13 @@ static void help_update_tech(const struct help_item *pitem, char *title)
       requirement_vector_iterate(&pgov->reqs, preq) {
 	if (VUT_ADVANCE == preq->source.kind
 	    && preq->source.value.advance == padvance) {
-	  hbox = gtk_hbox_new(FALSE, 0);
+	  hbox = gtk_grid_new();
 	  gtk_container_add(GTK_CONTAINER(help_vbox), hbox);
 	  w = gtk_label_new(_("Allows"));
-	  gtk_box_pack_start(GTK_BOX(hbox), w, FALSE, FALSE, 0);
+	  gtk_container_add(GTK_CONTAINER(hbox), w);
 	  w = help_slink_new(government_name_translation(pgov),
                              HELP_GOVERNMENT);
-	  gtk_box_pack_start(GTK_BOX(hbox), w, FALSE, FALSE, 0);
+	  gtk_container_add(GTK_CONTAINER(hbox), w);
 	  gtk_widget_show_all(hbox);
 	}
       } requirement_vector_iterate_end;
@@ -1018,28 +1046,28 @@ static void help_update_tech(const struct help_item *pitem, char *title)
       requirement_vector_iterate(&pimprove->reqs, preq) {
 	if (VUT_ADVANCE == preq->source.kind
 	    && preq->source.value.advance == padvance) {
-	  hbox = gtk_hbox_new(FALSE, 0);
+	  hbox = gtk_grid_new();
 	  gtk_container_add(GTK_CONTAINER(help_vbox), hbox);
 	  w = gtk_label_new(_("Allows"));
-	  gtk_box_pack_start(GTK_BOX(hbox), w, FALSE, FALSE, 0);
+	  gtk_container_add(GTK_CONTAINER(hbox), w);
 	  w = help_slink_new(improvement_name_translation(pimprove),
 			     is_great_wonder(pimprove)
 			     ? HELP_WONDER
 			     : HELP_IMPROVEMENT);
-	  gtk_box_pack_start(GTK_BOX(hbox), w, FALSE, FALSE, 0);
+	  gtk_container_add(GTK_CONTAINER(hbox), w);
 	  gtk_widget_show_all(hbox);
 	}
       } requirement_vector_iterate_end;
       if (padvance == pimprove->obsolete_by) {
-        hbox = gtk_hbox_new(FALSE, 0);
+        hbox = gtk_grid_new();
         gtk_container_add(GTK_CONTAINER(help_vbox), hbox);
         w = gtk_label_new(_("Obsoletes"));
-        gtk_box_pack_start(GTK_BOX(hbox), w, FALSE, FALSE, 0);
+        gtk_container_add(GTK_CONTAINER(hbox), w);
         w = help_slink_new(improvement_name_translation(pimprove),
 			   is_great_wonder(pimprove)
 			   ? HELP_WONDER
 			   : HELP_IMPROVEMENT);
-        gtk_box_pack_start(GTK_BOX(hbox), w, FALSE, FALSE, 0);
+        gtk_container_add(GTK_CONTAINER(hbox), w);
         gtk_widget_show_all(hbox);
       }
     } improvement_iterate_end;
@@ -1048,56 +1076,56 @@ static void help_update_tech(const struct help_item *pitem, char *title)
       if (padvance != punittype->require_advance) {
 	continue;
       }
-      hbox = gtk_hbox_new(FALSE, 0);
+      hbox = gtk_grid_new();
       gtk_container_add(GTK_CONTAINER(help_vbox), hbox);
       w = gtk_label_new(_("Allows"));
-      gtk_box_pack_start(GTK_BOX(hbox), w, FALSE, FALSE, 0);
+      gtk_container_add(GTK_CONTAINER(hbox), w);
       w = help_slink_new(utype_name_translation(punittype), HELP_UNIT);
-      gtk_box_pack_start(GTK_BOX(hbox), w, FALSE, FALSE, 0);
+      gtk_container_add(GTK_CONTAINER(hbox), w);
       gtk_widget_show_all(hbox);
     } unit_type_iterate_end;
 
     advance_iterate(A_NONE, ptest) {
       if (padvance == advance_requires(ptest, AR_ONE)) {
 	if (advance_by_number(A_NONE) == advance_requires(ptest, AR_TWO)) {
-          hbox = gtk_hbox_new(FALSE, 0);
+          hbox = gtk_grid_new();
           gtk_container_add(GTK_CONTAINER(help_vbox), hbox);
           w = gtk_label_new(_("Allows"));
-          gtk_box_pack_start(GTK_BOX(hbox), w, FALSE, FALSE, 0);
+          gtk_container_add(GTK_CONTAINER(hbox), w);
           w = help_slink_new(advance_name_translation(ptest), HELP_TECH);
-          gtk_box_pack_start(GTK_BOX(hbox), w, FALSE, FALSE, 0);
+          gtk_container_add(GTK_CONTAINER(hbox), w);
           gtk_widget_show_all(hbox);
 	} else {
-          hbox = gtk_hbox_new(FALSE, 0);
+          hbox = gtk_grid_new();
           gtk_container_add(GTK_CONTAINER(help_vbox), hbox);
           w = gtk_label_new(_("Allows"));
-          gtk_box_pack_start(GTK_BOX(hbox), w, FALSE, FALSE, 0);
+          gtk_container_add(GTK_CONTAINER(hbox), w);
           w = help_slink_new(advance_name_translation(ptest), HELP_TECH);
-          gtk_box_pack_start(GTK_BOX(hbox), w, FALSE, FALSE, 0);
+          gtk_container_add(GTK_CONTAINER(hbox), w);
           w = gtk_label_new(_("with"));
-          gtk_box_pack_start(GTK_BOX(hbox), w, FALSE, FALSE, 0);
+          gtk_container_add(GTK_CONTAINER(hbox), w);
           w = help_slink_new(advance_name_translation(advance_requires(ptest, AR_TWO)),
                              HELP_TECH);
-          gtk_box_pack_start(GTK_BOX(hbox), w, FALSE, FALSE, 0);
+          gtk_container_add(GTK_CONTAINER(hbox), w);
           w = gtk_label_new(Q_("?techhelp:"));
-          gtk_box_pack_start(GTK_BOX(hbox), w, FALSE, FALSE, 0);
+          gtk_container_add(GTK_CONTAINER(hbox), w);
           gtk_widget_show_all(hbox);
 	}
       }
       if (padvance == advance_requires(ptest, AR_TWO)) {
-        hbox = gtk_hbox_new(FALSE, 0);
+        hbox = gtk_grid_new();
         gtk_container_add(GTK_CONTAINER(help_vbox), hbox);
         w = gtk_label_new(_("Allows"));
-        gtk_box_pack_start(GTK_BOX(hbox), w, FALSE, FALSE, 0);
+        gtk_container_add(GTK_CONTAINER(hbox), w);
         w = help_slink_new(advance_name_translation(ptest), HELP_TECH);
-        gtk_box_pack_start(GTK_BOX(hbox), w, FALSE, FALSE, 0);
+        gtk_container_add(GTK_CONTAINER(hbox), w);
         w = gtk_label_new(_("with"));
-        gtk_box_pack_start(GTK_BOX(hbox), w, FALSE, FALSE, 0);
+        gtk_container_add(GTK_CONTAINER(hbox), w);
         w = help_slink_new(advance_name_translation(advance_requires(ptest, AR_ONE)),
                            HELP_TECH);
-        gtk_box_pack_start(GTK_BOX(hbox), w, FALSE, FALSE, 0);
+        gtk_container_add(GTK_CONTAINER(hbox), w);
         w = gtk_label_new(Q_("?techhelp:"));
-        gtk_box_pack_start(GTK_BOX(hbox), w, FALSE, FALSE, 0);
+        gtk_container_add(GTK_CONTAINER(hbox), w);
         gtk_widget_show_all(hbox);
       }
     } advance_iterate_end;
@@ -1416,7 +1444,6 @@ static void help_update_dialog(const struct help_item *pitem)
 
   gtk_widget_show(help_box);
 }
-
 
 /**************************************************************************
   Add item at path to selection and scroll to its cell

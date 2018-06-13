@@ -32,7 +32,7 @@
 /* client */
 #include "options.h"
 
-/* gui-gtk-2.0 */
+/* client/gui-gtk-3.0 */
 #include "colors.h"
 #include "gui_main.h"
 
@@ -73,31 +73,13 @@ void gtk_set_relative_position(GtkWidget *ref, GtkWidget *w, int px, int py)
 **************************************************************************/
 GtkWidget *gtk_stockbutton_new(const gchar *stock, const gchar *label_text)
 {
-  GtkWidget *label;
-  GtkWidget *image;
-  GtkWidget *hbox;
-  GtkWidget *align;
   GtkWidget *button;
+  GtkWidget *image;
   
-  button = gtk_button_new();
-
-  label = gtk_label_new_with_mnemonic(label_text);
-  gtk_label_set_mnemonic_widget(GTK_LABEL(label), button);
-  g_object_set_data(G_OBJECT(button), "label", label);
-
+  button = gtk_button_new_with_mnemonic(label_text);
   image = gtk_image_new_from_stock(stock, GTK_ICON_SIZE_BUTTON);
-  g_object_set_data(G_OBJECT(button), "image", image);
+  gtk_button_set_image(GTK_BUTTON(button), image);
 
-  hbox = gtk_hbox_new(FALSE, 2);
-
-  align = gtk_alignment_new(0.5, 0.5, 0.0, 0.0);
-
-  gtk_box_pack_start(GTK_BOX (hbox), image, FALSE, FALSE, 0);
-  gtk_box_pack_end(GTK_BOX (hbox), label, FALSE, FALSE, 0);
-
-  gtk_container_add(GTK_CONTAINER(button), align);
-  gtk_container_add(GTK_CONTAINER(align), hbox);
-  gtk_widget_show_all(align);
   return button;
 }
 
@@ -107,10 +89,7 @@ GtkWidget *gtk_stockbutton_new(const gchar *stock, const gchar *label_text)
 **************************************************************************/
 void gtk_stockbutton_set_label(GtkWidget *button, const gchar *label_text)
 {
-  GtkWidget *label;
-
-  label = g_object_get_data(G_OBJECT(button), "label");
-  gtk_label_set_markup_with_mnemonic(GTK_LABEL(label), label_text);
+  gtk_button_set_label(GTK_BUTTON(button), label_text);
 }
 
 /**************************************************************************
@@ -299,7 +278,7 @@ static void close_callback(GtkDialog *dialog, gpointer data)
 ***********************************************************************/
 void setup_dialog(GtkWidget *shell, GtkWidget *parent)
 {
-  if (gui_gtk2_dialogs_on_top || fullscreen_mode) {
+  if (gui_gtk3_dialogs_on_top || fullscreen_mode) {
     gtk_window_set_transient_for(GTK_WINDOW(shell),
                                  GTK_WINDOW(parent));
     gtk_window_set_type_hint(GTK_WINDOW(shell),
@@ -424,8 +403,8 @@ static gboolean gui_dialog_key_press_handler(GtkWidget *w, GdkEventKey *ev,
 {
   struct gui_dialog *dlg = data;
 
-  if (ev->keyval == GDK_Escape
-	|| ((ev->state & GDK_CONTROL_MASK) && ev->keyval == GDK_w)) {
+  if (ev->keyval == GDK_KEY_Escape
+	|| ((ev->state & GDK_CONTROL_MASK) && ev->keyval == GDK_KEY_w)) {
     /* emit response signal. */
     gui_dialog_response(dlg, GTK_RESPONSE_DELETE_EVENT);
   }
@@ -438,7 +417,7 @@ static gboolean gui_dialog_key_press_handler(GtkWidget *w, GdkEventKey *ev,
   Resets tab colour on tab activation.
 **************************************************************************/
 static void gui_dialog_switch_page_handler(GtkNotebook *notebook,
-					   GtkNotebookPage *page,
+					   GtkWidget *page,
 					   guint num,
 					   struct gui_dialog *dlg)
 {
@@ -447,10 +426,7 @@ static void gui_dialog_switch_page_handler(GtkNotebook *notebook,
   n = gtk_notebook_page_num(GTK_NOTEBOOK(dlg->v.tab.notebook), dlg->vbox);
 
   if (n == num) {
-    GtkRcStyle *rc_style = gtk_widget_get_modifier_style(dlg->v.tab.label);
-
-    rc_style->color_flags[GTK_STATE_ACTIVE] &= ~GTK_RC_FG;
-    gtk_widget_modify_style(dlg->v.tab.label, rc_style);
+    gtk_widget_override_color(dlg->v.tab.label, GTK_STATE_FLAG_NORMAL, NULL);
   }
 }
 
@@ -517,7 +493,7 @@ static gboolean click_on_tab_callback(GtkWidget* w,
 
 /**************************************************************************
   Creates a new dialog. It will be a tab or a window depending on the
-  current user setting of 'gui_gtk2_enable_tabs'.
+  current user setting of 'gui_gtk3_enable_tabs'.
   Sets pdlg to point to the dialog once it is create, Zeroes pdlg on
   dialog destruction.
   user_data will be passed through response function
@@ -541,7 +517,7 @@ void gui_dialog_new(struct gui_dialog **pdlg, GtkNotebook *notebook,
   dlg->default_width = 200;
   dlg->default_height = 300;
 
-  if (gui_gtk2_enable_tabs) {
+  if (gui_gtk3_enable_tabs) {
     dlg->type = GUI_DIALOG_TAB;
   } else {
     dlg->type = GUI_DIALOG_WINDOW;
@@ -552,26 +528,29 @@ void gui_dialog_new(struct gui_dialog **pdlg, GtkNotebook *notebook,
   }
   dlg->gui_button = gtk_size_group_new(GTK_SIZE_GROUP_BOTH);
 
-  if (gui_gtk2_enable_tabs
-      && (check_top && notebook != GTK_NOTEBOOK(top_notebook))
-      && !gui_gtk2_small_display_layout) {
+  vbox = gtk_grid_new();
+  action_area = gtk_grid_new();
+  gtk_grid_set_row_spacing(GTK_GRID(action_area), 4);
+  gtk_grid_set_column_spacing(GTK_GRID(action_area), 4);
+  if (gui_gtk3_enable_tabs &&
+      (check_top && notebook != GTK_NOTEBOOK(top_notebook))
+      && !gui_gtk3_small_display_layout) {
     /* We expect this to be short (as opposed to tall); maximise usable
      * height by putting buttons down the right hand side */
-    vbox = gtk_hbox_new(FALSE, 0);
-    action_area = gtk_vbox_new(FALSE, 2);
+    gtk_orientable_set_orientation(GTK_ORIENTABLE(action_area),
+                                   GTK_ORIENTATION_VERTICAL);
   } else {
     /* We expect this to be reasonably tall; maximise usable width by
      * putting buttons along the bottom */
-    vbox = gtk_vbox_new(FALSE, 0);
-    action_area = gtk_hbox_new(FALSE, 2);
+    gtk_orientable_set_orientation(GTK_ORIENTABLE(vbox),
+                                   GTK_ORIENTATION_VERTICAL);
   }
 
   gtk_widget_show(vbox);
-  gtk_box_pack_end(GTK_BOX(vbox), action_area, FALSE, TRUE, 0);
+  gtk_container_add(GTK_CONTAINER(vbox), action_area);
   gtk_widget_show(action_area);
 
   gtk_container_set_border_width(GTK_CONTAINER(vbox), 2);
-  gtk_box_set_spacing(GTK_BOX(action_area), 4);
   gtk_container_set_border_width(GTK_CONTAINER(action_area), 2);
 
   switch (dlg->type) {
@@ -597,14 +576,20 @@ void gui_dialog_new(struct gui_dialog **pdlg, GtkNotebook *notebook,
       gint w, h;
       gchar *buf;
 
-      gtk_icon_size_lookup(GTK_ICON_SIZE_MENU, &w, &h);
+      gtk_icon_size_lookup_for_settings(
+        gtk_settings_get_for_screen(gtk_widget_get_screen(vbox)),
+        GTK_ICON_SIZE_MENU, &w, &h);
 
-      hbox = gtk_hbox_new(FALSE, 0);
+      hbox = gtk_grid_new();
 
       label = gtk_label_new(NULL);
-      gtk_misc_set_alignment(GTK_MISC(label), 0.0, 0.5);
-      gtk_misc_set_padding(GTK_MISC(label), 4, 0);
-      gtk_box_pack_start(GTK_BOX(hbox), label, TRUE, TRUE, 0);
+      gtk_widget_set_halign(label, GTK_ALIGN_START);
+      gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
+      gtk_widget_set_margin_left(label, 4);
+      gtk_widget_set_margin_right(label, 4);
+      gtk_widget_set_margin_top(label, 0);
+      gtk_widget_set_margin_bottom(label, 0);
+      gtk_container_add(GTK_CONTAINER(hbox), label);
 
       button = gtk_button_new();
       gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
@@ -616,14 +601,18 @@ void gui_dialog_new(struct gui_dialog **pdlg, GtkNotebook *notebook,
       g_free(buf);
 
       image = gtk_image_new_from_stock(GTK_STOCK_CLOSE, GTK_ICON_SIZE_MENU);
-      gtk_widget_set_size_request(button, w, h);
-      gtk_container_add(GTK_CONTAINER(button), image);
+      gtk_widget_set_margin_left(image, 0);
+      gtk_widget_set_margin_right(image, 0);
+      gtk_widget_set_margin_top(image, 0);
+      gtk_widget_set_margin_bottom(image, 0);
+      gtk_button_set_image(GTK_BUTTON(button), image);
 
-      gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
+      gtk_container_add(GTK_CONTAINER(hbox), button);
 
       gtk_widget_show_all(hbox);
 
       event_box = gtk_event_box_new();
+      gtk_event_box_set_visible_window(GTK_EVENT_BOX(event_box), FALSE);
       gtk_container_add(GTK_CONTAINER(event_box), hbox);
 
       gtk_notebook_append_page(GTK_NOTEBOOK(notebook), vbox, event_box);
@@ -693,7 +682,7 @@ static void gui_dialog_pack_button(struct gui_dialog *dlg, GtkWidget *button,
     g_signal_connect_closure_by_id(button, signal_id, 0, closure, FALSE);
   }
 
-  gtk_box_pack_end(GTK_BOX(dlg->action_area), button, FALSE, TRUE, 0);
+  gtk_container_add(GTK_CONTAINER(dlg->action_area), button);
   gtk_size_group_add_widget(gui_action, button);
   gtk_size_group_add_widget(dlg->gui_button, button);
 }
@@ -708,7 +697,7 @@ GtkWidget *gui_dialog_add_stockbutton(struct gui_dialog *dlg,
   GtkWidget *button;
 
   button = gtk_stockbutton_new(stock, text);
-  GTK_WIDGET_SET_FLAGS(button, GTK_CAN_DEFAULT);
+  gtk_widget_set_can_default(button, TRUE);
   gui_dialog_pack_button(dlg, button, response);
 
   return button;
@@ -723,7 +712,7 @@ GtkWidget *gui_dialog_add_button(struct gui_dialog *dlg,
   GtkWidget *button;
 
   button = gtk_button_new_from_stock(text);
-  GTK_WIDGET_SET_FLAGS(button, GTK_CAN_DEFAULT);
+  gtk_widget_set_can_default(button, TRUE);
   gui_dialog_pack_button(dlg, button, response);
 
   return button;
@@ -735,7 +724,7 @@ GtkWidget *gui_dialog_add_button(struct gui_dialog *dlg,
 GtkWidget *gui_dialog_add_widget(struct gui_dialog *dlg,
 				 GtkWidget *widget)
 {
-  gtk_box_pack_start(GTK_BOX(dlg->action_area), widget, FALSE, TRUE, 0);
+  gtk_container_add(GTK_CONTAINER(dlg->action_area), widget);
   gtk_size_group_add_widget(gui_action, widget);
 
   return widget;
@@ -863,11 +852,9 @@ void gui_dialog_present(struct gui_dialog *dlg)
 
       if (current != n) {
 	GtkWidget *label = dlg->v.tab.label;
-	GdkColormap *cmap = gtk_widget_get_default_colormap();
-	GdkColor color = {.red = 255 << 8, .green = 0, .blue = 0};
+	GdkRGBA color = {.red = 1.0, .green = 0, .blue = 0, .alpha = 1.0};
 
-	gdk_rgb_find_color(cmap, &color);
-	gtk_widget_modify_fg(label, GTK_STATE_ACTIVE, &color);
+	gtk_widget_override_color(label, GTK_STATE_FLAG_NORMAL, &color);
       }
     }
     break;
@@ -917,11 +904,9 @@ void gui_dialog_alert(struct gui_dialog *dlg)
 
       if (current != n) {
         GtkWidget *label = dlg->v.tab.label;
-        GdkColormap *cmap = gtk_widget_get_default_colormap();
-        GdkColor color = {.red = 0, .green = 0, .blue = 255 << 8};
+        GdkRGBA color = {.red = 0, .green = 0, .blue =1.0, .alpha = 1.0};
 
-        gdk_rgb_find_color(cmap, &color);
-        gtk_widget_modify_fg(label, GTK_STATE_ACTIVE, &color);
+        gtk_widget_override_color(label, GTK_STATE_FLAG_NORMAL, &color);
       }
     }
     break;
@@ -1024,48 +1009,73 @@ void gui_dialog_set_return_dialog(struct gui_dialog *dlg,
 **************************************************************************/
 void gui_update_font(const char *font_name, const char *font_value)
 {
-  char str[512];
+  char *str;
+  GtkCssProvider *provider;
+  PangoFontDescription *desc;
+  int size;
+  const char *fam;
+  const char *style;
+  const char *weight;
 
-  fc_snprintf(str, sizeof(str),
-              "style \"ext-%s\" {\n"
-              "  font_name = \"%s\"\n"
-              "}\n"
-              "\n"
-              "widget \"Freeciv*.%s\" style \"ext-%s\"",
-              font_name, font_value, font_name, font_name);
+  desc = pango_font_description_from_string(font_value);
 
-  gtk_rc_parse_string(str);
+  if (desc == NULL) {
+    return;
+  }
+
+  fam = pango_font_description_get_family(desc);
+
+  if (fam == NULL) {
+    return;
+  }
+
+  if (pango_font_description_get_style(desc) == PANGO_STYLE_ITALIC) {
+    style = "\n font-style: italic;";
+  } else {
+    style = "";
+  }
+
+  if (pango_font_description_get_weight(desc) >= 700) {
+    weight = "\n font-weight: bold;";
+  } else {
+    weight = "";
+  }
+
+  size = pango_font_description_get_size(desc);
+
+  if (size != 0) {
+    str = g_strdup_printf("#Freeciv #%s { font-family: %s; font-size: %dpx;%s%s}",
+                          font_name, fam, size / PANGO_SCALE, style, weight);
+  } else {
+    str = g_strdup_printf("#Freeciv #%s { font-family: %s;%s%s}",
+                          font_name, fam, style, weight);
+  }
+
+  pango_font_description_free(desc);
+
+  provider = gtk_css_provider_new();
+  gtk_css_provider_load_from_data(GTK_CSS_PROVIDER(provider),
+    str, -1, NULL);
+  gtk_style_context_add_provider_for_screen(
+    gtk_widget_get_screen(toplevel), GTK_STYLE_PROVIDER(provider),
+    GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+  g_free(str);
 }
 
 /****************************************************************************
   Update a font option which is not attached to a widget.
 ****************************************************************************/
 void gui_update_font_full(const char *font_name, const char *font_value,
-                          GtkStyle **pstyle)
+                          PangoFontDescription **font_desc)
 {
-  GtkSettings *settings;
-  GdkScreen *screen;
-  GtkStyle *style;
-  char buf[64];
+  PangoFontDescription *f_desc;
 
   gui_update_font(font_name, font_value);
 
-  screen = gdk_screen_get_default();
-  settings = gtk_settings_get_for_screen(screen);
+  f_desc = pango_font_description_from_string(font_value);
+  pango_font_description_free(*font_desc);
 
-  fc_snprintf(buf, sizeof(buf), "Freeciv*.%s", font_name);
-  style = gtk_rc_get_style_by_paths(settings, buf, NULL, G_TYPE_NONE);
-
-  if (style) {
-    g_object_ref(style);
-  } else {
-    style = gtk_style_new();
-  }
-
-  if (*pstyle) {
-    g_object_unref(*pstyle);
-  }
-  *pstyle = style;
+  *font_desc = f_desc;
 }
 
 /****************************************************************************

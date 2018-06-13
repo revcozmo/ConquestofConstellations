@@ -29,7 +29,7 @@
 /* client */
 #include "options.h"
 
-/* client/gui-gtk-2.0 */
+/* client/gui-gtk-3.0 */
 #include "chatline.h"
 #include "gui_main.h"
 #include "gui_stuff.h"
@@ -186,7 +186,7 @@ static void luaconsole_dialog_create(struct luaconsole_data *pdialog)
 
   fc_assert_ret(NULL != pdialog);
 
-  if (gui_gtk2_message_chat_location == GUI_GTK_MSGCHAT_SPLIT) {
+  if (gui_gtk3_message_chat_location == GUI_GTK_MSGCHAT_SPLIT) {
     notebook = right_notebook;
   } else {
     notebook = bottom_notebook;
@@ -195,19 +195,23 @@ static void luaconsole_dialog_create(struct luaconsole_data *pdialog)
   gui_dialog_new(&pdialog->shell, GTK_NOTEBOOK(notebook), pdialog, TRUE);
   gui_dialog_set_title(pdialog->shell, _("Client Lua Console"));
 
-  box = GTK_WIDGET(pdialog->shell->vbox);
+  box = pdialog->shell->vbox;
 
-  vbox = gtk_vbox_new(FALSE, 0);
-  gtk_box_pack_start(GTK_BOX(box), vbox, TRUE, TRUE, 0);
+  vbox = gtk_grid_new();
+  gtk_orientable_set_orientation(GTK_ORIENTABLE(vbox),
+                                 GTK_ORIENTATION_VERTICAL);
+  gtk_container_add(GTK_CONTAINER(box), vbox);
 
   sw = gtk_scrolled_window_new(NULL, NULL);
   gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(sw),
                                       GTK_SHADOW_ETCHED_IN);
   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(sw),
                                  GTK_POLICY_AUTOMATIC, GTK_POLICY_ALWAYS);
-  gtk_box_pack_start(GTK_BOX(vbox), sw, TRUE, TRUE, 0);
+  gtk_container_add(GTK_CONTAINER(vbox), sw);
 
   text = gtk_text_view_new_with_buffer(pdialog->message_buffer);
+  gtk_widget_set_hexpand(text, TRUE);
+  gtk_widget_set_vexpand(text, TRUE);
   set_message_buffer_view_link_handlers(text);
   gtk_text_view_set_editable(GTK_TEXT_VIEW(text), FALSE);
   gtk_container_add(GTK_CONTAINER(sw), text);
@@ -224,7 +228,8 @@ static void luaconsole_dialog_create(struct luaconsole_data *pdialog)
 
   /* The lua console input line. */
   entry = gtk_entry_new();
-  gtk_box_pack_start(GTK_BOX(vbox), entry, FALSE, TRUE, 2);
+  g_object_set(entry, "margin", 2, NULL);
+  gtk_container_add(GTK_CONTAINER(vbox), entry);
   g_signal_connect(entry, "activate", G_CALLBACK(luaconsole_input_return),
                    NULL);
   g_signal_connect(entry, "key_press_event",
@@ -234,10 +239,10 @@ static void luaconsole_dialog_create(struct luaconsole_data *pdialog)
                    &pdialog->entry);
 
   /* Load lua script command button. */
+  gui_dialog_add_button(pdialog->shell, GTK_STOCK_CLOSE, GTK_RESPONSE_CLOSE);
+
   gui_dialog_add_stockbutton(pdialog->shell, GTK_STOCK_OPEN,
                              _("Load Lua Script"), LUACONSOLE_RES_OPEN);
-
-  gui_dialog_add_button(pdialog->shell, GTK_STOCK_CLOSE, GTK_RESPONSE_CLOSE);
   gui_dialog_response_set_callback(pdialog->shell,
                                    luaconsole_response_callback);
 
@@ -306,7 +311,11 @@ static void luaconsole_load_file_popup(void)
   GtkWidget *filesel;
 
   /* Create the selector */
-  filesel = gtk_file_selection_new("Load Lua file");
+  filesel = gtk_file_chooser_dialog_new("Load Lua file", GTK_WINDOW(toplevel),
+                GTK_FILE_CHOOSER_ACTION_OPEN,
+                GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+                GTK_STOCK_OPEN, GTK_RESPONSE_OK,
+                NULL);
   setup_dialog(filesel, toplevel);
   gtk_window_set_position(GTK_WINDOW(filesel), GTK_WIN_POS_MOUSE);
 
@@ -324,8 +333,8 @@ static void luaconsole_load_file_callback(GtkWidget *widget, gint response,
                                           gpointer data)
 {
   if (response == GTK_RESPONSE_OK) {
-    gchar *filename = g_filename_to_utf8(gtk_file_selection_get_filename
-                                         (GTK_FILE_SELECTION(widget)),
+    gchar *filename = g_filename_to_utf8(gtk_file_chooser_get_filename
+                                         (GTK_FILE_CHOOSER(widget)),
                                          -1, NULL, NULL, NULL);
 
     if (NULL != filename) {
@@ -348,7 +357,7 @@ static gboolean luaconsole_input_handler(GtkWidget *w, GdkEventKey *ev)
   fc_assert_ret_val(pdialog->history_list, FALSE);
 
   switch (ev->keyval) {
-  case GDK_Up:
+  case GDK_KEY_Up:
     if (pdialog->history_pos < genlist_size(pdialog->history_list) - 1) {
       gtk_entry_set_text(GTK_ENTRY(w), genlist_get(pdialog->history_list,
                                                    ++pdialog->history_pos));
@@ -356,7 +365,7 @@ static gboolean luaconsole_input_handler(GtkWidget *w, GdkEventKey *ev)
     }
     return TRUE;
 
-  case GDK_Down:
+  case GDK_KEY_Down:
     if (pdialog->history_pos >= 0) {
       pdialog->history_pos--;
     }
@@ -462,7 +471,7 @@ void real_luaconsole_append(const char *astring,
   gtk_text_buffer_insert(buf, &iter, "\n", -1);
   mark = gtk_text_buffer_create_mark(buf, NULL, &iter, TRUE);
 
-  if (gui_gtk2_show_chat_message_time) {
+  if (gui_gtk3_show_chat_message_time) {
     char timebuf[64];
     time_t now;
     struct tm *now_tm;
