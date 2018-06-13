@@ -1,107 +1,45 @@
 ## Process this file with automake to produce Makefile.in
 
-if CLIENT
-CLIENT_FILES =				\
-	hex2t.tilespec			\
-	amplio2.tilespec		\
-	cimpletoon.tilespec		\
-	isophex.tilespec		\
-	isotrident.tilespec		\
-	trident.tilespec		\
-	stdsounds.soundspec		\
-	helpdata.txt
-if CLIENT_GUI_XAW
-CLIENT_FILES += Freeciv
-endif
-if CLIENT_GUI_GTK_2_0
-CLIENT_FILES += \
-	freeciv.rc-2.0	\
-	gtk_menus.xml
-else
-if CLIENT_GUI_GTK_3_0
-CLIENT_FILES += \
-	gtk_menus.xml
-endif
-endif
-else
-CLIENT_FILES =
-endif
+## Override automake so that "make install" puts these in proper place:
+pkgdatadir = $(datadir)/$(PACKAGE)/amplio2
 
-if SERVER
-SERVER_FILES = \
-	civ1.serv \
-	civ2.serv \
-	classic.serv \
-	default.serv \
-	experimental.serv \
-	multiplayer.serv \
-	civ2civ3.serv
-else
-SERVER_FILES =
-endif
+pkgdata_DATA =          	\
+	ancientcities.png	\
+	ancientcities.spec	\
+	explosions.png		\
+	explosions.spec		\
+	fog.png			\
+	fog.spec		\
+	grid.png		\
+	grid.spec		\
+	hills.png		\
+	hills.spec		\
+	maglev.png		\
+	maglev.spec		\
+	medievalcities.png	\
+	medievalcities.spec	\
+	moderncities.png	\
+	moderncities.spec	\
+	mountains.png		\
+	mountains.spec		\
+	nuke.png		\
+	nuke.spec		\
+	ocean.png		\
+	ocean.spec		\
+	select-alpha.png	\
+	select.png		\
+	select.spec		\
+	terrain1.png		\
+	terrain1.spec		\
+	terrain2.png		\
+	terrain2.spec		\
+	tiles.png		\
+	tiles.spec		\
+	units.png		\
+	units.spec		\
+	veterancy.png		\
+	veterancy.spec		\
+	water.png		\
+	water.spec
 
-pkgdata_DATA = $(SERVER_FILES) $(CLIENT_FILES)
-
-EXTRA_DIST = \
-	Freeciv	\
-	freeciv-client.png \
-	freeciv.rc-2.0	\
-	gtk_menus.xml	\
-	civserver.dsc.in	\
-	civclient.dsc.in	\
-	civserver.room.in	\
-	hex2t.tilespec	\
-	amplio2.tilespec \
-	cimpletoon.tilespec \
-	isophex.tilespec	\
-	isotrident.tilespec \
-	trident.tilespec	\
-	stdsounds.soundspec	\
-	helpdata.txt	\
-	civ1.serv	\
-	civ2.serv	\
-	classic.serv	\
-	default.serv	\
-	experimental.serv \
-	multiplayer.serv \
-	civ2civ3.serv
-
-if CLIENT
-CLIENTDATADIRS = amplio2 misc flags buildings cimpletoon isotrident trident\
- isophex hex2t stdsounds themes wonders
-else
-CLIENTDATADIRS = 
-endif
-
-if SERVER
-SERVERDATADIRS = default classic civ1 civ2 experimental multiplayer civ2civ3 scenarios nation
-else
-SERVERDATADIRS = 
-endif
-
-if CLIENT
-ICONS = freeciv-client.png
-else
-ICONS = 
-endif
-
-icondir = $(prefix)/share/pixmaps
-icon_DATA=$(ICONS)
-
-SUBDIRS = icons $(CLIENTDATADIRS) $(SERVERDATADIRS)
-
-if GGZ_CLIENT
-install-data-local:
-	$(GGZ_CONFIG) -D --install --modfile=civclient.dsc --force
-
-uninstall-local:
-	$(GGZ_CONFIG) -D --remove --modfile=civclient.dsc
-endif
-
-if GGZ_SERVER
-ggzroom_DATA = civserver.room
-ggzroomdir = $(ggzdconfdir)/rooms/
-
-ggzgame_DATA = civserver.dsc
-ggzgamedir = $(ggzdconfdir)/games/
-endif
+EXTRA_DIST = $(pkgdata_DATA)
