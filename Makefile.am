@@ -1,45 +1,9 @@
 ## Process this file with automake to produce Makefile.in
 
-noinst_LTLIBRARIES = libdefaultai.la
+aimodule_LTLIBRARIES = fc_ai_stub.la
 
-AM_CPPFLAGS = -I$(top_srcdir)/utility -I$(top_srcdir)/common -I$(top_srcdir)/common/aicore -I$(top_srcdir)/server -I$(top_srcdir)/server/advisors -I$(top_srcdir)/ai -I$(top_srcdir)/server/generator
+AM_CPPFLAGS = -I$(top_srcdir)/utility -I$(top_srcdir)/common
 
-libdefaultai_la_SOURCES = \
-		advdomestic.c	\
-		advdomestic.h	\
-		advmilitary.c	\
-		advmilitary.h	\
-		advdiplomacy.c	\
-		advdiplomacy.h	\
-		aiair.c		\
-		aiair.h		\
-		aicity.c	\
-		aicity.h	\
-		aidata.c	\
-		aidata.h	\
-		aiferry.c	\
-		aiferry.h	\
-		aiguard.c	\
-		aiguard.h	\
-		aihand.c	\
-		aihand.h	\
-		aihunt.c	\
-		aihunt.h	\
-		ailog.c		\
-		ailog.h		\
-		aiparatrooper.c \
-		aiparatrooper.h \
-		aiplayer.c	\
-		aiplayer.h	\
-		aisettler.c	\
-		aisettler.h	\
-		aitech.c	\
-		aitech.h	\
-		aitools.c	\
-		aitools.h	\
-		aiunit.c	\
-		aiunit.h	\
-		aidiplomat.c	\
-		aidiplomat.h
+fc_ai_stub_la_SOURCES = stubai.c
 
-libdefaultai_la_LIBADD = -lm
+fc_ai_stub_la_LDFLAGS = -module
