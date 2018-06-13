@@ -1,103 +1,114 @@
 ## Process this file with automake to produce Makefile.in
 
-MOCCMD=@MOCCMD@
+noinst_LTLIBRARIES = libgui-sdl.la
 
-include $(top_srcdir)/bootstrap/Makerules.mk
+AM_CPPFLAGS = -I$(srcdir)/.. -I$(srcdir)/../include -I$(top_srcdir)/utility \
+        -I$(top_srcdir)/common -I$(top_srcdir)/common/aicore -I$(srcdir)/../agents \
+        $(gui_sdl_cflags)
 
-noinst_LTLIBRARIES = libgui-qt.la
-AM_CPPFLAGS = -I. -I$(srcdir)/.. -I$(srcdir)/../include -I$(top_srcdir)/utility \
-        -I$(top_srcdir)/common -I$(srcdir)/../agents -I$(top_srcdir)/common/aicore \
-        $(gui_qt_cppflags) $(SOUND_CFLAGS)
-
-AM_CFLAGS = $(gui_qt_cflags)
-
-AM_CXXFLAGS = $(gui_qt_cxxflags)
-
-MOC_FILES = \
-	meta_fc_client.cpp	\
-	meta_helpdlg.cpp	\
-	meta_ratesdlg.cpp	\
-	meta_mapview.cpp	\
-	meta_menu.cpp		\
-	meta_repodlgs.cpp	\
-	meta_dialogs.cpp	\
-	meta_optiondlg.cpp	\
-	meta_citydlg.cpp	\
-	meta_cityrep.cpp	\
-	meta_plrdlg.cpp		\
-	meta_diplodlg.cpp	\
-	meta_spaceshipdlg.cpp	\
-	meta_messagewin.cpp	\
-	meta_chatline.cpp	\
-	meta_messagedlg.cpp	\
-	meta_voteinfo_bar.cpp	\
-	meta_gotodlg.cpp
-
-libgui_qt_la_SOURCES = \
-	canvas.cpp	\
+libgui_sdl_la_SOURCES = \
+	alphablit.c	\
+	canvas.c	\
 	canvas.h	\
-	chatline.cpp	\
+	caravan_dialog.c \
+	chatline.c	\
 	chatline.h	\
-	citydlg.cpp	\
+	citydlg.c	\
 	citydlg.h	\
-	cityrep.cpp	\
+	cityrep.c	\
 	cityrep.h	\
-	colors.cpp	\
+	cma_fe.c	\
+	cma_fe.h	\
+	colors.c	\
 	colors.h	\
-	connectdlg.cpp	\
+	connectdlg.c	\
 	connectdlg.h	\
-	dialogs.cpp	\
+	dialogs.c	\
 	dialogs.h	\
-	diplodlg.cpp	\
+	diplodlg.c	\
 	diplodlg.h	\
-	fc_client.cpp	\
-	fc_client.h	\
-	finddlg.cpp	\
+	diplomat_dialog.c \
+	finddlg.c	\
 	finddlg.h	\
-	gotodlg.cpp	\
+	gotodlg.c	\
 	gotodlg.h	\
-	graphics.cpp	\
+	graphics.c	\
 	graphics.h	\
-	gui_main.cpp	\
+	gui_iconv.c	\
+	gui_iconv.h	\
+	gui_id.h	\
+	gui_main.c	\
 	gui_main.h	\
-	helpdlg.cpp	\
+	gui_mouse.c	\
+	gui_mouse.h	\
+	gui_string.c	\
+	gui_string.h	\
+	gui_tilespec.c	\
+	gui_tilespec.h  \
+	happiness.c	\
+	happiness.h	\
+	helpdlg.c	\
 	helpdlg.h	\
-	inteldlg.cpp	\
+	inputdlg.c	\
+	inputdlg.h	\
+	inteldlg.c	\
 	inteldlg.h	\
-	luaconsole.cpp	\
+	luaconsole.c	\
 	luaconsole.h	\
-	mapctrl.cpp	\
+	mapctrl.c	\
 	mapctrl.h	\
-	mapview.cpp	\
+	mapview.c	\
 	mapview.h	\
-	menu.cpp	\
+	menu.c		\
 	menu.h		\
-	messagedlg.cpp	\
+	messagedlg.c	\
 	messagedlg.h	\
-	messagewin.cpp	\
+	messagewin.c	\
 	messagewin.h	\
-	optiondlg.cpp	\
+	mmx.h		\
 	optiondlg.h	\
-	pages.cpp	\
+	optiondlg.c	\
+	pages.c		\
 	pages.h		\
-	plrdlg.cpp	\
+	plrdlg.c	\
 	plrdlg.h	\
-	qtg_cxxside.cpp \
-	qtg_cxxside.h	\
-	ratesdlg.cpp	\
 	ratesdlg.h	\
-	repodlgs.cpp	\
+	repodlgs.c	\
 	repodlgs.h	\
-	spaceshipdlg.cpp \
-	spaceshipdlg.h	\
-	sprite.cpp	\
+	spaceshipdlg.c	\
+	spaceshipdlg.h  \
+	sprite.c	\
 	sprite.h	\
-	themes.cpp	\
-	voteinfo_bar.cpp \
+	themebackgrounds.c \
+	themebackgrounds.h \
+	themecolors.c	\
+	themecolors.h	\
+	themes.c	\
+	themespec.c	\
+	themespec.h	\
+	unistring.c	\
+	unistring.h	\
+	voteinfo_bar.c	\
 	voteinfo_bar.h	\
-	wldlg.cpp	\
+	widget.c	\
+	widget.h	\
+	widget_button.c \
+	widget_button.h \
+	widget_checkbox.c \
+	widget_checkbox.h \
+	widget_combo.c \
+	widget_combo.h \
+	widget_core.c	\
+	widget_edit.c	\
+	widget_edit.h	\
+	widget_icon.c	\
+	widget_icon.h	\
+	widget_label.c  \
+	widget_label.h  \
+	widget_p.h	\
+	widget_scrollbar.c	\
+	widget_scrollbar.h	\
+	widget_window.c \
+	widget_window.h \
+	wldlg.c		\
 	wldlg.h
-
-nodist_libgui_qt_la_SOURCES = $(MOC_FILES)
-
-CLEANFILES = $(MOC_FILES)

@@ -11,73 +11,93 @@
    GNU General Public License for more details.
 ***********************************************************************/
 
+/**********************************************************************
+                          colors.c  -  description
+                             -------------------
+    begin                : Mon Jul 15 2002
+    copyright            : (C) 2002 by Rafał Bursig
+    email                : Rafał Bursig <bursig@poczta.fm>
+ **********************************************************************/
+
 #ifdef HAVE_CONFIG_H
 #include <fc_config.h>
 #endif
 
-#include <stdio.h>
+#include "SDL/SDL.h"
 
-#include <gtk/gtk.h>
+/* client */
+#include "tilespec.h"
 
-#include "log.h"
-#include "mem.h"
-
-#include "rgbcolor.h"
-
-#include "gui_main.h"
+/* gui-sdl */
+#include "themespec.h"
 
 #include "colors.h"
 
-/*************************************************************
-  Get display color type of default visual
-*************************************************************/
-enum Display_color_type get_visual(void)
+/**************************************************************************
+  Get color from theme.
+**************************************************************************/
+SDL_Color *get_theme_color(enum theme_color themecolor)
 {
-  GdkVisual *visual;
-  GdkVisualType type;
+  return theme_get_color(theme, themecolor)->color;
+}
 
-  visual = gdk_screen_get_system_visual(gdk_screen_get_default());
-  type = gdk_visual_get_visual_type(visual);
-
-  if (type == GDK_VISUAL_STATIC_GRAY) { 
-    /* StaticGray, use black and white */
-    log_verbose("found B/W display.");
-    return BW_DISPLAY;
-  }
-
-  if(type < GDK_VISUAL_STATIC_COLOR) {
-    /* No color visual available at default depth */
-    log_verbose("found grayscale(?) display.");
-    return GRAYSCALE_DISPLAY;
-  }
-
-  log_verbose("color system booted ok.");
-
-  return COLOR_DISPLAY;
+/**************************************************************************
+  Get color for some game object instance.
+**************************************************************************/
+SDL_Color *get_game_color(enum color_std stdcolor)
+{
+  return get_color(tileset, stdcolor)->color;
 }
 
 /****************************************************************************
-  Allocate a color (well, sort of)
-  and return a pointer to it.
+  Allocate a color with alpha channel and return a pointer to it. Alpha
+  channel is not really used yet.
 ****************************************************************************/
-struct color *color_alloc(int r, int g, int b)
-{
-  struct color *color = fc_malloc(sizeof(*color));
+struct color *color_alloc_rgba(int r, int g, int b, int a) {
 
-  color->color.red = (double)r/255;
-  color->color.green = (double)g/255;
-  color->color.blue = (double)b/255;
-  color->color.alpha = 1.0;
-
-  return color;
+  struct color *result = fc_malloc(sizeof(*result));	
+	
+  SDL_Color *pcolor = fc_malloc(sizeof(*pcolor));
+  pcolor->r = r;
+  pcolor->g = g;
+  pcolor->b = b;
+  pcolor->unused = a;
+	
+  result->color = pcolor;
+  
+  return result;
 }
 
 /****************************************************************************
-  Free a previously allocated color.  See color_alloc.
+  Allocate a solid color and return a pointer to it.
 ****************************************************************************/
-void color_free(struct color *color)
-{
-  free(color);
+struct color *color_alloc(int r, int g, int b) {
+
+  struct color *result = fc_malloc(sizeof(*result));	
+	
+  SDL_Color *pcolor = fc_malloc(sizeof(*pcolor));
+  pcolor->r = r;
+  pcolor->g = g;
+  pcolor->b = b;
+  pcolor->unused = 255;
+	
+  result->color = pcolor;
+  
+  return result;
+}
+
+/****************************************************************************
+  Free resources allocated for color.
+****************************************************************************/
+void color_free(struct color *pcolor) {
+  if (!pcolor) {
+    return;
+  }
+
+  if (pcolor->color) {
+    free(pcolor->color);
+  }
+  free(pcolor);
 }
 
 /****************************************************************************
@@ -86,9 +106,9 @@ void color_free(struct color *color)
 ****************************************************************************/
 int color_brightness_score(struct color *pcolor)
 {
-  struct rgbcolor *prgb = rgbcolor_new(pcolor->color.red * 255,
-                                       pcolor->color.green * 255,
-                                       pcolor->color.blue * 255);
+  struct rgbcolor *prgb = rgbcolor_new(pcolor->color->r,
+                                       pcolor->color->g,
+                                       pcolor->color->b);
   int score = rgbcolor_brightness_score(prgb);
 
   rgbcolor_destroy(prgb);

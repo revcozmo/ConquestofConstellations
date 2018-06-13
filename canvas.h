@@ -1,5 +1,5 @@
-/**********************************************************************
- Freeciv - Copyright (C) 1996 - A Kjeldberg, L Gregersen, P Unold
+/********************************************************************** 
+ Freeciv - Copyright (C) 2005 The Freeciv Team
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
@@ -14,22 +14,14 @@
 #ifndef FC__CANVAS_H
 #define FC__CANVAS_H
 
-extern "C" {
+#include "SDL/SDL.h"
+
 #include "canvas_g.h"
-}
-
-// Qt
-#include <QPixmap>
-
-// gui-qt
-#include "qtg_cxxside.h"
 
 struct canvas {
-  QPixmap map_pixmap;
+  SDL_Surface *surf;
 };
 
-struct canvas *qtg_canvas_create(int width, int height);
-void pixmap_copy(QPixmap *dest, QPixmap *src, int src_x, int src_y,
-                 int dest_x, int dest_y, int width, int height);
-
-#endif /* FC__CANVAS_H */
+struct canvas *canvas_create_with_alpha(int width, int height);
+    
+#endif				/* FC__CANVAS_H */

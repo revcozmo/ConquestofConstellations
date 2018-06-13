@@ -15,70 +15,36 @@
 #include <fc_config.h>
 #endif
 
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <gtk/gtk.h>
+#include "SDL/SDL.h"
 
 /* utility */
 #include "fcintl.h"
 #include "log.h"
-#include "shared.h"
-#include "support.h"
 
 /* common */
 #include "government.h"
-#include "packets.h"
-#include "player.h"
 #include "research.h"
 
 /* client */
 #include "client_main.h"
-#include "options.h"
 
-/* client/gui-gtk-3.0 */
+/* gui-sdl */
+#include "graphics.h"
+#include "gui_id.h"
 #include "gui_main.h"
-#include "gui_stuff.h"
+#include "gui_tilespec.h"
 #include "mapview.h"
+#include "repodlgs.h"
+#include "spaceshipdlg.h"
+#include "sprite.h"
+#include "widget.h"
 
 #include "inteldlg.h"
 
-/******************************************************************/
-static const char *table_text[] = {
-  N_("Ruler:"),
-  N_("Government:"),
-  N_("Capital:"),
-  N_("Gold:"),
-  NULL,
-  N_("Tax:"),
-  N_("Science:"),
-  N_("Luxury:"),
-  NULL,
-  N_("Researching:")
-};
-
-enum table_label {
-  LABEL_RULER,
-  LABEL_GOVERNMENT,
-  LABEL_CAPITAL,
-  LABEL_GOLD,
-  LABEL_SEP1,
-  LABEL_TAX,
-  LABEL_SCIENCE,
-  LABEL_LUXURY,
-  LABEL_SEP2,
-  LABEL_RESEARCHING,
-  LABEL_LAST
-};
-
-/******************************************************************/
 struct intel_dialog {
   struct player *pplayer;
-  GtkWidget *shell;
-
-  GtkTreeStore *diplstates;
-  GtkListStore *techs;
-  GtkWidget *table_labels[LABEL_LAST];
+  struct ADVANCED_DLG *pdialog;
+  int pos_x, pos_y;
 };
 
 #define SPECLIST_TAG dialog
@@ -93,24 +59,23 @@ static struct dialog_list *dialog_list;
 static struct intel_dialog *create_intel_dialog(struct player *p);
 
 /****************************************************************
-  Initialize intelligenze dialogs
+...
 *****************************************************************/
-void intel_dialog_init()
+void intel_dialog_init(void)
 {
   dialog_list = dialog_list_new();
 }
 
 /****************************************************************
-  Free resources allocated for intelligenze dialogs
+...
 *****************************************************************/
-void intel_dialog_done()
+void intel_dialog_done(void)
 {
   dialog_list_destroy(dialog_list);
 }
 
 /****************************************************************
-  Get intelligenze dialog between client user and other player
-  passed as parameter.
+...
 *****************************************************************/
 static struct intel_dialog *get_intel_dialog(struct player *pplayer)
 {
@@ -124,31 +89,42 @@ static struct intel_dialog *get_intel_dialog(struct player *pplayer)
 }
 
 /****************************************************************
-  Open intelligenze dialog
+...
 *****************************************************************/
-void popup_intel_dialog(struct player *p)
+static int intel_window_dlg_callback(struct widget *pWindow)
 {
-  struct intel_dialog *pdialog;
-
-  if (!(pdialog = get_intel_dialog(p))) {
-    pdialog = create_intel_dialog(p);
+  if (Main.event.button.button == SDL_BUTTON_LEFT) {
+    struct intel_dialog *pSelectedDialog = get_intel_dialog(pWindow->data.player);
+  
+    move_window_group(pSelectedDialog->pdialog->pBeginWidgetList, pWindow);
   }
-
-  update_intel_dialog(p);
-
-  gtk_window_present(GTK_WINDOW(pdialog->shell));
+  return -1;
 }
 
-/****************************************************************
-  Intelligenze dialog destruction requested
-*****************************************************************/
-static void intel_destroy_callback(GtkWidget *w, gpointer data)
+static int tech_callback(struct widget *pWidget)
 {
-  struct intel_dialog *pdialog = (struct intel_dialog *)data;
+  /* get tech help - PORT ME */
+  return -1;
+}
 
-  dialog_list_remove(dialog_list, pdialog);
+static int spaceship_callback(struct widget *pWidget)
+{
+  if (Main.event.button.button == SDL_BUTTON_LEFT) {
+    struct player *pPlayer = pWidget->data.player;
+    popdown_intel_dialog(pPlayer);
+    popup_spaceship_dialog(pPlayer);
+  }
+  return -1;
+}
 
-  free(pdialog);
+
+static int exit_intel_dlg_callback(struct widget *pWidget)
+{
+  if (Main.event.button.button == SDL_BUTTON_LEFT) {
+    popdown_intel_dialog(pWidget->data.player);
+    flush_dirty();
+  }
+  return -1;
 }
 
 /**************************************************************************
@@ -156,143 +132,71 @@ static void intel_destroy_callback(GtkWidget *w, gpointer data)
 **************************************************************************/
 void close_intel_dialog(struct player *p)
 {
-  struct intel_dialog *pdialog = get_intel_dialog(p);
-  intel_destroy_callback(NULL, pdialog);
+  popdown_intel_dialog(p);
 }
 
-/****************************************************************
-  Create new intelligenze dialog between client user and player
-  given as parameter.
-*****************************************************************/
-static struct intel_dialog *create_intel_dialog(struct player *p)
+static struct intel_dialog *create_intel_dialog(struct player *pPlayer) {
+
+  struct intel_dialog *pdialog = fc_calloc(1, sizeof(struct intel_dialog));
+
+  pdialog->pplayer = pPlayer;
+  
+  pdialog->pdialog = fc_calloc(1, sizeof(struct ADVANCED_DLG));
+      
+  pdialog->pos_x = 0;
+  pdialog->pos_y = 0;
+    
+  dialog_list_prepend(dialog_list, pdialog);  
+  
+  return pdialog;
+}
+
+
+/**************************************************************************
+  Popup an intelligence dialog for the given player.
+**************************************************************************/
+void popup_intel_dialog(struct player *p)
 {
   struct intel_dialog *pdialog;
 
-  GtkWidget *shell, *notebook, *label, *sw, *view, *table;
-  GtkCellRenderer *rend;
-  GtkTreeViewColumn *col;
-
-  int i;
- 
-  pdialog = fc_malloc(sizeof(*pdialog));
-  pdialog->pplayer = p;
- 
-  shell = gtk_dialog_new_with_buttons(NULL,
-      NULL,
-      0,
-      GTK_STOCK_CLOSE,
-      GTK_RESPONSE_CLOSE,
-      NULL);
-  pdialog->shell = shell;
-  gtk_window_set_default_size(GTK_WINDOW(shell), 350, 350);
-  setup_dialog(shell, toplevel);
-  gtk_dialog_set_default_response(GTK_DIALOG(shell), GTK_RESPONSE_CLOSE);
-
-  g_signal_connect(shell, "destroy",
-                   G_CALLBACK(intel_destroy_callback), pdialog);
-  g_signal_connect(shell, "response",
-                   G_CALLBACK(gtk_widget_destroy), NULL);
-
-  notebook = gtk_notebook_new();
-  gtk_notebook_set_tab_pos(GTK_NOTEBOOK(notebook), GTK_POS_BOTTOM);
-  gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(shell))), notebook);
- 
-  /* overview tab. */
-  table = gtk_grid_new();
-  g_object_set(table, "margin", 6, NULL);
-
-  gtk_grid_set_row_spacing(GTK_GRID(table), 2);
-  gtk_grid_set_column_spacing(GTK_GRID(table), 12);
-
-  /* TRANS: Overview tab of foreign intelligence report dialog */
-  label = gtk_label_new_with_mnemonic(_("_Overview"));
-  gtk_notebook_append_page(GTK_NOTEBOOK(notebook), table, label);
-
-  for (i = 0; i < ARRAY_SIZE(table_text); i++) {
-    if (table_text[i]) {
-      label = gtk_label_new(_(table_text[i]));
-      gtk_widget_set_halign(label, GTK_ALIGN_START);
-      gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
-      gtk_grid_attach(GTK_GRID(table), label, 0, i, 1, 1);
-
-      label = gtk_label_new(NULL);
-      pdialog->table_labels[i] = label;
-      gtk_widget_set_halign(label, GTK_ALIGN_START);
-      gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
-      gtk_grid_attach(GTK_GRID(table), label, 1, i, 1, 1);
-    } else {
-      pdialog->table_labels[i] = NULL;
-    }
+  if (!(pdialog = get_intel_dialog(p))) {
+    pdialog = create_intel_dialog(p);
+  } else {
+    /* bring existing dialog to front */
+    sellect_window_group_dialog(pdialog->pdialog->pBeginWidgetList,
+                                         pdialog->pdialog->pEndWidgetList);
   }
 
-  /* diplomacy tab. */
-  pdialog->diplstates = gtk_tree_store_new(1, G_TYPE_STRING);
+  update_intel_dialog(p);
+}
 
-  view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(pdialog->diplstates));
-  g_object_set(view, "margin", 6, NULL);
-  gtk_widget_set_hexpand(view, TRUE);
-  gtk_widget_set_vexpand(view, TRUE);
-  g_object_unref(pdialog->diplstates);
-  gtk_container_set_border_width(GTK_CONTAINER(view), 6);
-  gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(view), FALSE);
+/**************************************************************************
+  Popdown an intelligence dialog for the given player.
+**************************************************************************/
+void popdown_intel_dialog(struct player *p)
+{
+  struct intel_dialog *pdialog = get_intel_dialog(p);
+    
+  if (pdialog) {
+    popdown_window_group_dialog(pdialog->pdialog->pBeginWidgetList,
+			                  pdialog->pdialog->pEndWidgetList);
+      
+    dialog_list_remove(dialog_list, pdialog);
+      
+    FC_FREE(pdialog->pdialog->pScroll);
+    FC_FREE(pdialog->pdialog);  
+    FC_FREE(pdialog);
+  }
+}
 
-  rend = gtk_cell_renderer_text_new();
-  col = gtk_tree_view_column_new_with_attributes(NULL, rend,
-    "text", 0, NULL);
-  gtk_tree_view_append_column(GTK_TREE_VIEW(view), col);
-
-  gtk_tree_view_expand_all(GTK_TREE_VIEW(view));
-
-  sw = gtk_scrolled_window_new(NULL,NULL);
-  gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(sw),
-				      GTK_SHADOW_ETCHED_IN);
-  gtk_container_add(GTK_CONTAINER(sw), view);
-
-  gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(sw),
-	GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-
-  label = gtk_label_new_with_mnemonic(_("_Diplomacy"));
-  gtk_notebook_append_page(GTK_NOTEBOOK(notebook), sw, label);
-
-  /* techs tab. */
-  pdialog->techs = gtk_list_store_new(2, G_TYPE_BOOLEAN, G_TYPE_STRING);
-  gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(pdialog->techs),
-      1, GTK_SORT_ASCENDING);
-
-  view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(pdialog->techs));
-  g_object_set(view, "margin", 6, NULL);
-  gtk_widget_set_hexpand(view, TRUE);
-  gtk_widget_set_vexpand(view, TRUE);
-  g_object_unref(pdialog->techs);
-  gtk_container_set_border_width(GTK_CONTAINER(view), 6);
-  gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(view), FALSE);
-
-  rend = gtk_cell_renderer_toggle_new();
-  col = gtk_tree_view_column_new_with_attributes(NULL, rend,
-    "active", 0, NULL);
-  gtk_tree_view_append_column(GTK_TREE_VIEW(view), col);
-
-  rend = gtk_cell_renderer_text_new();
-  col = gtk_tree_view_column_new_with_attributes(NULL, rend,
-    "text", 1, NULL);
-  gtk_tree_view_append_column(GTK_TREE_VIEW(view), col);
-
-  sw = gtk_scrolled_window_new(NULL,NULL);
-  gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(sw),
-				      GTK_SHADOW_ETCHED_IN);
-  gtk_container_add(GTK_CONTAINER(sw), view);
-
-  gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(sw),
-	GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-
-  label = gtk_label_new_with_mnemonic(_("_Techs"));
-  gtk_notebook_append_page(GTK_NOTEBOOK(notebook), sw, label);
-
-  gtk_widget_show_all(gtk_dialog_get_content_area(GTK_DIALOG(shell)));
-
-  dialog_list_prepend(dialog_list, pdialog);
-
-  return pdialog;
+/**************************************************************************
+  Popdown all intelligence dialogs
+**************************************************************************/
+void popdown_intel_dialogs(void)
+{
+  dialog_list_iterate(dialog_list, pdialog) {
+    popdown_intel_dialog(pdialog->pplayer);
+  } dialog_list_iterate_end;
 }
 
 /****************************************************************************
@@ -302,128 +206,254 @@ static struct intel_dialog *create_intel_dialog(struct player *p)
 void update_intel_dialog(struct player *p)
 {
   struct intel_dialog *pdialog = get_intel_dialog(p);
-
+      
+  struct widget *pWindow = NULL, *pBuf = NULL, *pLast;
+  SDL_Surface *pLogo = NULL, *pTmpSurf = NULL;
+  SDL_Surface *pText1, *pInfo, *pText2 = NULL;
+  SDL_String16 *pStr;
+  SDL_Rect dst;
+  char cBuf[256], plr_buf[4 * MAX_LEN_NAME];
+  int n = 0, count = 0, col;
+  struct city *pCapital;
+  SDL_Rect area;
+  struct player_research* research;
+      
   if (pdialog) {
-    GtkTreeIter diplstates[DS_LAST];
-    int i;
 
-    /* window title. */
-    gchar *title = g_strdup_printf(_("Foreign Intelligence: %s Empire"),
-			  nation_adjective_for_player(p));
-    gtk_window_set_title(GTK_WINDOW(pdialog->shell), title);
-    g_free(title);
-
-    /* diplomacy tab. */
-    gtk_tree_store_clear(pdialog->diplstates);
-
-    for (i = 0; i < ARRAY_SIZE(diplstates); i++) {
-      GtkTreeIter it;
-      GValue v = { 0, };
-
-      gtk_tree_store_append(pdialog->diplstates, &it, NULL);
-      g_value_init(&v, G_TYPE_STRING);
-      g_value_set_static_string(&v, diplstate_text(i));
-      gtk_tree_store_set_value(pdialog->diplstates, &it, 0, &v);
-      g_value_unset(&v);
-      diplstates[i] = it;
+    /* save window position and delete old content */
+    if (pdialog->pdialog->pEndWidgetList) {
+      pdialog->pos_x = pdialog->pdialog->pEndWidgetList->size.x;
+      pdialog->pos_y = pdialog->pdialog->pEndWidgetList->size.y;
+        
+      popdown_window_group_dialog(pdialog->pdialog->pBeginWidgetList,
+                                            pdialog->pdialog->pEndWidgetList);
     }
+        
+    pStr = create_str16_from_char(_("Foreign Intelligence Report") , adj_font(12));
+    pStr->style |= TTF_STYLE_BOLD;
+    
+    pWindow = create_window_skeleton(NULL, pStr, 0);
+      
+    pWindow->action = intel_window_dlg_callback;
+    set_wstate(pWindow , FC_WS_NORMAL);
+    pWindow->data.player = p;
+    
+    add_to_gui_list(ID_WINDOW, pWindow);
+    pdialog->pdialog->pEndWidgetList = pWindow;
+    
+    area = pWindow->area;
+    
+    /* ---------- */
+    /* exit button */
+    pBuf = create_themeicon(pTheme->Small_CANCEL_Icon, pWindow->dst,
+                            WF_WIDGET_HAS_INFO_LABEL
+                            | WF_RESTORE_BACKGROUND);
+    pBuf->info_label = create_str16_from_char(_("Close Dialog (Esc)"),
+                                              adj_font(12));
+    area.w = MAX(area.w, pBuf->size.w + adj_size(10));
+    pBuf->action = exit_intel_dlg_callback;
+    set_wstate(pBuf, FC_WS_NORMAL);
+    pBuf->data.player = p;  
+    pBuf->key = SDLK_ESCAPE;
+    
+    add_to_gui_list(ID_BUTTON, pBuf);
+    /* ---------- */
+    
+    pLogo = get_nation_flag_surface(nation_of_player(p));
+    {
+      double zoom = DEFAULT_ZOOM * 60.0 / pLogo->h;
+      pText1 = zoomSurface(pLogo, zoom, zoom, 1);
+    }
+    pLogo = pText1;
+          
+    pBuf = create_icon2(pLogo, pWindow->dst,
+                        WF_RESTORE_BACKGROUND | WF_WIDGET_HAS_INFO_LABEL
+                        | WF_FREE_THEME);
+    pBuf->action = spaceship_callback;
+    set_wstate(pBuf, FC_WS_NORMAL);
+    pBuf->data.player = p;
+    fc_snprintf(cBuf, sizeof(cBuf),
+                _("Intelligence Information about the %s Spaceship"), 
+                nation_adjective_for_player(p));
+    pBuf->info_label = create_str16_from_char(cBuf, adj_font(12));
 
-    players_iterate(other) {
-      const struct player_diplstate *state;
-      GtkTreeIter it;
-      GValue v = { 0, };
+    add_to_gui_list(ID_ICON, pBuf);
+          
+    /* ---------- */
+    fc_snprintf(cBuf, sizeof(cBuf),
+                _("Intelligence Information for the %s Empire"), 
+                nation_adjective_for_player(p));
+    
+    pStr = create_str16_from_char(cBuf, adj_font(14));
+    pStr->style |= TTF_STYLE_BOLD;
+    pStr->bgcol = (SDL_Color) {0, 0, 0, 0};
+    
+    pText1 = create_text_surf_from_str16(pStr);
+    area.w = MAX(area.w, pText1->w + adj_size(20));
+    area.h += pText1->h + adj_size(20);
+      
+    /* ---------- */
+    
+    pCapital = player_capital(p);
+    research = player_research_get(p);
+    change_ptsize16(pStr, adj_font(10));
+    pStr->style &= ~TTF_STYLE_BOLD;
 
-      if (other == p || !other->is_alive) {
-	continue;
-      }
-      state = player_diplstate_get(p, other);
-      gtk_tree_store_append(pdialog->diplstates, &it,
-			    &diplstates[state->type]);
-      g_value_init(&v, G_TYPE_STRING);
-      g_value_set_static_string(&v, player_name(other));
-      gtk_tree_store_set_value(pdialog->diplstates, &it, 0, &v);
-      g_value_unset(&v);
-    } players_iterate_end;
-
-    /* techs tab. */
-    gtk_list_store_clear(pdialog->techs);
-
+    /* FIXME: these should use common gui code, and avoid duplication! */
+    switch (research->researching) {
+    case A_UNKNOWN:
+    case A_UNSET:
+      fc_snprintf(cBuf, sizeof(cBuf),
+                  _("Ruler: %s  Government: %s\n"
+                    "Capital: %s  Gold: %d\n"
+                    "Tax: %d%% Science: %d%% Luxury: %d%%\n"
+                    "Researching: unknown"),
+                  ruler_title_for_player(p, plr_buf, sizeof(plr_buf)),
+                  government_name_for_player(p),
+                  /* TRANS: "unknown" location */
+                  NULL != pCapital ? city_name(pCapital) : _("(unknown)"),
+                  p->economic.gold, p->economic.tax,
+                  p->economic.science, p->economic.luxury);
+      break;
+    default:
+      fc_snprintf(cBuf, sizeof(cBuf),
+                  _("Ruler: %s  Government: %s\n"
+                    "Capital: %s  Gold: %d\n"
+                    "Tax: %d%% Science: %d%% Luxury: %d%%\n"
+                    "Researching: %s(%d/%d)"),
+                  ruler_title_for_player(p, plr_buf, sizeof(plr_buf)),
+                  government_name_for_player(p),
+                  /* TRANS: "unknown" location */
+                  NULL != pCapital ? city_name(pCapital) : _("(unknown)"),
+                  p->economic.gold, p->economic.tax, p->economic.science,
+                  p->economic.luxury, advance_name_researching(p),
+                  research->bulbs_researched,
+                  research->client.researching_cost);
+      break;
+    };
+    
+    copy_chars_to_string16(pStr, cBuf);
+    pInfo = create_text_surf_from_str16(pStr);
+    area.w = MAX(area.w, pLogo->w + adj_size(10) + pInfo->w + adj_size(20));
+    area.h += MAX(pLogo->h + adj_size(20), pInfo->h + adj_size(20));
+      
+    /* ---------- */
+    pTmpSurf = get_tech_icon(A_FIRST);
+    col = area.w / (pTmpSurf->w + adj_size(4));
+    FREESURFACE(pTmpSurf);
+    n = 0;
+    pLast = pBuf;
     advance_index_iterate(A_FIRST, i) {
-      if(player_invention_state(p, i)==TECH_KNOWN) {
-	GtkTreeIter it;
+      if (TECH_KNOWN == player_invention_state(p, i)
+       && player_invention_reachable(client.conn.playing, i, FALSE)
+       && TECH_KNOWN != player_invention_state(client.conn.playing, i)) {
 
-	gtk_list_store_append(pdialog->techs, &it);
+        pBuf = create_icon2(get_tech_icon(i), pWindow->dst,
+                            WF_RESTORE_BACKGROUND | WF_WIDGET_HAS_INFO_LABEL
+                            | WF_FREE_THEME);
+        pBuf->action = tech_callback;
+        set_wstate(pBuf, FC_WS_NORMAL);
 
-	gtk_list_store_set(pdialog->techs, &it,
-			   0, (TECH_KNOWN != player_invention_state(client.conn.playing, i)),
-			   1, advance_name_for_player(p, i),
-			   -1);
+        pBuf->info_label =
+            create_str16_from_char(advance_name_translation
+                                   (advance_by_number(i)), adj_font(12));
+
+        add_to_gui_list(ID_ICON, pBuf);
+          
+        if(n > ((2 * col) - 1)) {
+          set_wflag(pBuf, WF_HIDDEN);
+        }
+        
+        n++;	
       }
-    } advance_index_iterate_end;
-
-    /* table labels. */
-    for (i = 0; i < ARRAY_SIZE(pdialog->table_labels); i++) {
-      if (pdialog->table_labels[i]) {
-        struct city *pcity;
-        gchar *buf = NULL;
-        char tbuf[256];
-
-        switch (i) {
-        case LABEL_RULER:
-          ruler_title_for_player(p, tbuf, sizeof(tbuf));
-          buf = g_strdup(tbuf);
-          break;
-        case LABEL_GOVERNMENT:
-          buf = g_strdup(government_name_for_player(p));
-          break;
-        case LABEL_CAPITAL:
-          pcity = player_capital(p);
-          /* TRANS: "unknown" location */
-          buf = g_strdup((!pcity) ? _("(unknown)") : city_name(pcity));
-          break;
-        case LABEL_GOLD:
-          buf = g_strdup_printf("%d", p->economic.gold);
-          break;
-        case LABEL_TAX:
-          buf = g_strdup_printf("%d%%", p->economic.tax);
-          break;
-        case LABEL_SCIENCE:
-          buf = g_strdup_printf("%d%%", p->economic.science);
-          break;
-        case LABEL_LUXURY:
-          buf = g_strdup_printf("%d%%", p->economic.luxury);
-          break;
-        case LABEL_RESEARCHING:
-          {
-            struct player_research *research = player_research_get(p);
-
-            switch (research->researching) {
-            case A_UNKNOWN:
-              /* TRANS: "Unknown" advance/technology */
-              buf = g_strdup(_("(Unknown)"));
-              break;
-            case A_UNSET:
-              /* TRANS: missing value */
-              buf = g_strdup(_("(none)"));
-              break;
-            default:
-              buf = g_strdup_printf("%s(%d/%d)",
-				    advance_name_researching(p),
-				    research->bulbs_researched,
-                                    research->client.researching_cost);
-              break;
-            }
-            break;
-          }
-        default:
-          break;
+    }  advance_index_iterate_end;
+    
+    pdialog->pdialog->pBeginWidgetList = pBuf;
+    
+    if (n > 0) {
+      pdialog->pdialog->pEndActiveWidgetList = pLast->prev;
+      pdialog->pdialog->pBeginActiveWidgetList = pdialog->pdialog->pBeginWidgetList;
+      if(n > 2 * col) {
+        pdialog->pdialog->pActiveWidgetList = pdialog->pdialog->pEndActiveWidgetList;
+        count = create_vertical_scrollbar(pdialog->pdialog, col, 2, TRUE, TRUE);
+        area.h += (2 * pBuf->size.h + adj_size(10));
+      } else {
+        count = 0;
+        if(n > col) {
+          area.h += pBuf->size.h;
         }
+        area.h += (adj_size(10) + pBuf->size.h);
+      }
+      
+      area.w = MAX(area.w, col * pBuf->size.w + count);
+      
+      fc_snprintf(cBuf, sizeof(cBuf), _("Their techs that we don't have :"));
+      copy_chars_to_string16(pStr, cBuf);
+      pStr->style |= TTF_STYLE_BOLD;
+      pText2 = create_text_surf_from_str16(pStr);
+    }
+    
+    FREESTRING16(pStr);
 
-        if (buf) {
-          gtk_label_set_text(GTK_LABEL(pdialog->table_labels[i]), buf);
-	  g_free(buf);
-        }
+    resize_window(pWindow, NULL, NULL,
+                  (pWindow->size.w - pWindow->area.w) + area.w,
+                  (pWindow->size.h - pWindow->area.h) + area.h);
+    
+    area = pWindow->area;
+    
+    /* ------------------------ */  
+    widget_set_position(pWindow,
+      (pdialog->pos_x) ? (pdialog->pos_x) : ((Main.screen->w - pWindow->size.w) / 2),
+      (pdialog->pos_y) ? (pdialog->pos_y) : ((Main.screen->h - pWindow->size.h) / 2));
+    
+    /* exit button */
+    pBuf = pWindow->prev; 
+    pBuf->size.x = area.x + area.w - pBuf->size.w - 1;
+    pBuf->size.y = pWindow->size.y + adj_size(2);
+    
+    dst.x = area.x + (area.w - pText1->w) / 2;
+    dst.y = area.y + adj_size(8);
+    
+    alphablit(pText1, NULL, pWindow->theme, &dst);
+    dst.y += pText1->h + adj_size(10);
+    FREESURFACE(pText1);
+    
+    /* space ship button */
+    pBuf = pBuf->prev;
+    dst.x = area.x + (area.w - (pBuf->size.w + adj_size(10) + pInfo->w)) / 2;
+    pBuf->size.x = dst.x;
+    pBuf->size.y = dst.y;
+    
+    dst.x += pBuf->size.w + adj_size(10);  
+    alphablit(pInfo, NULL, pWindow->theme, &dst);
+    dst.y += pInfo->h + adj_size(10);
+    FREESURFACE(pInfo);
+        
+    /* --------------------- */
+      
+    if(n) {
+      
+      dst.x = area.x + adj_size(5);
+      alphablit(pText2, NULL, pWindow->theme, &dst);
+      dst.y += pText2->h + adj_size(2);
+      FREESURFACE(pText2);
+      
+      setup_vertical_widgets_position(col,
+          area.x, dst.y,
+            0, 0, pdialog->pdialog->pBeginActiveWidgetList,
+                            pdialog->pdialog->pEndActiveWidgetList);
+      
+      if(pdialog->pdialog->pScroll) {
+        setup_vertical_scrollbar_area(pdialog->pdialog->pScroll,
+          area.x + area.w, dst.y,
+          area.h - (dst.y + 1), TRUE);
       }
     }
+
+    redraw_group(pdialog->pdialog->pBeginWidgetList, pdialog->pdialog->pEndWidgetList, 0);
+    widget_mark_dirty(pWindow);
+  
+    flush_dirty();
+    
   }
 }

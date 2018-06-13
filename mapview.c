@@ -1,4 +1,4 @@
-/***********************************************************************
+/**********************************************************************
  Freeciv - Copyright (C) 1996 - A Kjeldberg, L Gregersen, P Unold
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -11,287 +11,1032 @@
    GNU General Public License for more details.
 ***********************************************************************/
 
+/**********************************************************************
+                          mapview.c  -  description
+                             -------------------
+    begin                : Aug 10 2002
+    copyright            : (C) 2002 by Rafał Bursig
+    email                : Rafał Bursig <bursig@poczta.fm>
+ *********************************************************************/
+
 #ifdef HAVE_CONFIG_H
 #include <fc_config.h>
 #endif
 
-#include <stdio.h>
-
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
-
-#include <gtk/gtk.h>
+/* SDL */
+#include "SDL/SDL.h"
 
 /* utility */
+#include "astring.h"
 #include "fcintl.h"
 #include "log.h"
-#include "mem.h"
-#include "rand.h"
-#include "support.h"
-#include "timing.h"
 
 /* common */
 #include "game.h"
-#include "government.h"		/* government_graphic() */
-#include "map.h"
-#include "player.h"
+#include "goto.h"
+#include "government.h"
+#include "movement.h"
+#include "research.h"
+#include "unitlist.h"
 
 /* client */
+#include "citydlg_common.h"
 #include "client_main.h"
-#include "climap.h"
 #include "climisc.h"
-#include "colors.h"
-#include "control.h" /* get_unit_in_focus() */
-#include "editor.h"
-#include "options.h"
 #include "overview_common.h"
-#include "tilespec.h"
+#include "pages_g.h"
 #include "text.h"
 
-/* client/gui-gtk-3.0 */
-#include "citydlg.h" /* For reset_city_dialogs() */
-#include "editgui.h"
+/* gui-sdl */
+#include "colors.h"
+#include "dialogs.h"
 #include "graphics.h"
+#include "gui_id.h"
 #include "gui_main.h"
-#include "gui_stuff.h"
+#include "gui_mouse.h"
+#include "gui_tilespec.h"
 #include "mapctrl.h"
-#include "repodlgs.h"
-#include "wldlg.h"
+#include "sprite.h"
+#include "themespec.h"
+#include "widget.h"
 
 #include "mapview.h"
 
-static GtkAdjustment *map_hadj, *map_vadj;
-static int cursor_timer_id = 0, cursor_type = -1, cursor_frame = 0;
-static int mapview_frozen_level = 0;
+extern SDL_Event *pFlush_User_Event;
+extern SDL_Rect *pInfo_Area;
+
+int overview_start_x = 0;
+int overview_start_y = 0;
+
+static enum {
+  NORMAL = 0,
+  BORDERS = 1,
+  TEAMS
+} overview_mode = NORMAL;
+
+static struct canvas *overview_canvas;
+static struct canvas *city_map_canvas;
+static struct canvas *terrain_canvas;
+
+/* ================================================================ */
+
+void update_map_canvas_scrollbars_size(void)
+{
+  /* No scrollbars */
+}
+
+static bool is_flush_queued = FALSE;
 
 /**************************************************************************
-  If do_restore is FALSE it will invert the turn done button style. If
-  called regularly from a timer this will give a blinking turn done
-  button. If do_restore is TRUE this will reset the turn done button
-  to the default style.
+  Flush the given part of the buffer(s) to the screen.
 **************************************************************************/
-void update_turn_done_button(bool do_restore)
+void flush_mapcanvas(int canvas_x , int canvas_y ,
+		     int pixel_width , int pixel_height)
 {
-  static bool flip = FALSE;
+  SDL_Rect rect = {canvas_x, canvas_y, pixel_width, pixel_height};
+  alphablit(mapview.store->surf, &rect, Main.map, &rect);
+}
 
-  if (!get_turn_done_button_state()) {
+void flush_rect(SDL_Rect rect, bool force_flush)
+{
+  if (is_flush_queued && !force_flush) {
+    sdl_dirty_rect(rect);
+  } else {
+    static SDL_Rect src, dst;
+    
+    if (correct_rect_region(&rect)) {
+      static int i = 0;
+      dst = rect;
+      if (C_S_RUNNING == client_state()) {     
+        flush_mapcanvas(dst.x, dst.y, dst.w, dst.h);
+      }
+      alphablit(Main.map, &rect, Main.screen, &dst);
+      if (Main.guis) {
+        while((i < Main.guis_count) && Main.guis[i]) {
+          src = rect;
+          screen_rect_to_layer_rect(Main.guis[i], &src);
+          dst = rect;
+          alphablit(Main.guis[i++]->surface, &src, Main.screen, &dst);
+        }
+      }
+      i = 0;
+
+      /* flush main buffer to framebuffer */
+      SDL_UpdateRect(Main.screen, rect.x, rect.y, rect.w, rect.h);
+    }
+  }
+}
+
+/**************************************************************************
+  A callback invoked as a result of a FLUSH event, this function simply
+  flushes the mapview canvas.
+**************************************************************************/
+void unqueue_flush(void)
+{
+  flush_dirty();
+  redraw_selection_rectangle();
+  is_flush_queued = FALSE;
+}
+
+/**************************************************************************
+  Called when a region is marked dirty, this function queues a flush event
+  to be handled later by SDL.  The flush may end up being done
+  by freeciv before then, in which case it will be a wasted call.
+**************************************************************************/
+void queue_flush(void)
+{
+  if (!is_flush_queued) {
+    if (SDL_PushEvent(pFlush_User_Event) == 0) {
+      is_flush_queued = TRUE;
+    } else {
+      /* We don't want to set is_flush_queued in this case, since then
+       * the flush code would simply stop working.  But this means the
+       * below message may be repeated many times. */
+      log_error(_("The SDL event buffer is full;"
+                  " you may see drawing errors as a result."));
+      /* TRANS: No full stop after the URL, could cause confusion. */
+      log_error(_("Please report this message at %s"), BUG_URL);
+    }
+  }
+}
+
+/**************************************************************************
+  Save Flush area used by "end" flush.
+**************************************************************************/
+void dirty_rect(int canvas_x, int canvas_y,
+		     int pixel_width, int pixel_height)
+{
+  SDL_Rect Rect = {canvas_x, canvas_y, pixel_width, pixel_height};
+  if ((Main.rects_count < RECT_LIMIT) && correct_rect_region(&Rect)) {
+    Main.rects[Main.rects_count++] = Rect;
+    queue_flush();
+  }
+}
+
+/**************************************************************************
+  Save Flush rect used by "end" flush.
+**************************************************************************/
+void sdl_dirty_rect(SDL_Rect Rect)
+{
+  if ((Main.rects_count < RECT_LIMIT) && correct_rect_region(&Rect)) {
+    Main.rects[Main.rects_count++] = Rect;
+  }
+}
+
+/**************************************************************************
+  Sellect entire screen area to "end" flush and block "save" new areas.
+**************************************************************************/
+void dirty_all(void)
+{
+  Main.rects_count = RECT_LIMIT;
+  queue_flush();
+}
+
+/**************************************************************************
+  flush entire screen.
+**************************************************************************/
+void flush_all(void)
+{
+  is_flush_queued = FALSE;
+  Main.rects_count = RECT_LIMIT;
+  flush_dirty();
+}
+
+/**************************************************************************
+  Make "end" Flush "saved" parts/areas of the buffer(s) to the screen.
+  Function is called in handle_procesing_finished and handle_thaw_hint
+**************************************************************************/
+void flush_dirty(void)
+{
+  static int j = 0;
+  if(!Main.rects_count) {
     return;
   }
 
-  if ((do_restore && flip) || !do_restore) {
-    GdkRGBA fore;
-    GdkRGBA back;
-    GtkStyleContext *context = gtk_widget_get_style_context(turn_done_button);
+  if(Main.rects_count >= RECT_LIMIT) {
+    
+    if ((C_S_RUNNING == client_state()) &&
+        (get_client_page() == PAGE_GAME)) {
+      flush_mapcanvas(0, 0, Main.screen->w, Main.screen->h);
+      refresh_overview();
+    }
+    alphablit(Main.map, NULL, Main.screen, NULL);
+    if (Main.guis) {
+      while((j < Main.guis_count) && Main.guis[j]) {
+        SDL_Rect dst = Main.guis[j]->dest_rect;
+        alphablit(Main.guis[j++]->surface, NULL, Main.screen, &dst);
+      }
+    }
+    j = 0;
 
-    gtk_style_context_get_color(context, GTK_STATE_FLAG_NORMAL, &fore);
-    gtk_style_context_get_background_color(context, GTK_STATE_FLAG_NORMAL, &back);
-
-    gtk_widget_override_color(turn_done_button, GTK_STATE_FLAG_NORMAL, &back);
-    gtk_widget_override_background_color(turn_done_button, GTK_STATE_FLAG_NORMAL, &fore);
-
-    flip = !flip;
-  }
-}
-
-/**************************************************************************
-  Timeout label requires refreshing
-**************************************************************************/
-void update_timeout_label(void)
-{
-  gtk_label_set_text(GTK_LABEL(timeout_label), get_timeout_label_text());
-
-  if (client_current_turn_timeout() > 0) {
-    gtk_widget_set_tooltip_text(timeout_label, _("Time to forced turn change"));
+    draw_mouse_cursor();    
+    
+    /* flush main buffer to framebuffer */    
+    SDL_UpdateRect(Main.screen, 0, 0, 0, 0);
   } else {
-    gtk_widget_set_tooltip_text(timeout_label, _("Turn timeout disabled"));
+    static int i;
+    static SDL_Rect src, dst;
+    
+    for(i = 0; i<Main.rects_count; i++) {
+      
+      dst = Main.rects[i];
+      if (C_S_RUNNING == client_state()) {     
+        flush_mapcanvas(dst.x, dst.y, dst.w, dst.h);
+      }
+      alphablit(Main.map, &Main.rects[i], Main.screen, &dst);
+      if (Main.guis) {
+        while((j < Main.guis_count) && Main.guis[j]) {
+          src = Main.rects[i];
+          screen_rect_to_layer_rect(Main.guis[j], &src);
+          dst = Main.rects[i];
+          alphablit(Main.guis[j++]->surface, &src, Main.screen, &dst);
+        }
+      }
+      j = 0;
+      
+      /* restore widget info label if it overlaps with this area */
+      dst = Main.rects[i];
+      if (pInfo_Area && !(((dst.x + dst.w) < pInfo_Area->x)
+                          || (dst.x > (pInfo_Area->x + pInfo_Area->w)) 
+                          || ((dst.y + dst.h) < pInfo_Area->y) 
+                          || (dst.y > (pInfo_Area->y + pInfo_Area->h)))) {
+        redraw_widget_info_label(&dst);     
+      }
+      
+    }
+
+    draw_mouse_cursor();            
+    
+    /* flush main buffer to framebuffer */    
+    SDL_UpdateRects(Main.screen, Main.rects_count, Main.rects);
   }
+  Main.rects_count = 0;
 }
 
 /**************************************************************************
-  Refresh info label
+  This function is called when the map has changed.
+**************************************************************************/
+void gui_flush(void)
+{
+  if (C_S_RUNNING == client_state()) {
+    refresh_overview();
+  }    
+}
+
+/* ===================================================================== */
+
+/**************************************************************************
+  Set information for the indicator icons typically shown in the main
+  client window.  The parameters tell which sprite to use for the
+  indicator.
+**************************************************************************/
+void set_indicator_icons(struct sprite *bulb, struct sprite *sol,
+			 struct sprite *flake, struct sprite *gov)
+{
+  struct widget *pBuf = NULL;
+  char cBuf[128];
+  
+  pBuf = get_widget_pointer_form_main_list(ID_WARMING_ICON);
+  FREESURFACE(pBuf->theme);
+  pBuf->theme = adj_surf(GET_SURF(sol));
+  widget_redraw(pBuf);
+    
+  pBuf = get_widget_pointer_form_main_list(ID_COOLING_ICON);
+  FREESURFACE(pBuf->theme);
+  pBuf->theme = adj_surf(GET_SURF(flake));
+  widget_redraw(pBuf);
+    
+  pBuf = get_revolution_widget();
+  set_new_icon2_theme(pBuf, adj_surf(GET_SURF(gov)), TRUE);    
+  
+  if (NULL != client.conn.playing) {
+    fc_snprintf(cBuf, sizeof(cBuf), "%s (%s)\n%s", _("Revolution"), "Ctrl+Shift+R",
+                                    government_name_for_player(client.conn.playing));
+  } else {
+    fc_snprintf(cBuf, sizeof(cBuf), "%s (%s)\n%s", _("Revolution"), "Ctrl+Shift+R",
+                                    Q_("?gov:None"));
+  }
+  copy_chars_to_string16(pBuf->info_label, cBuf);
+      
+  widget_redraw(pBuf);
+  widget_mark_dirty(pBuf);
+
+  pBuf = get_tax_rates_widget();
+  if(!pBuf->theme) {
+    set_new_icon2_theme(pBuf, get_tax_surface(O_GOLD), TRUE);
+  }
+
+  pBuf = get_research_widget();
+
+  if (NULL == client.conn.playing) {
+    /* TRANS: Research report action */
+    fc_snprintf(cBuf, sizeof(cBuf), "%s (%s)\n%s (%d/%d)", _("Research"), "F6",
+                Q_("?tech:None"), 0, 0);
+  } else if (A_UNSET != player_research_get(client.conn.playing)->researching) {
+    /* TRANS: Research report action */
+    fc_snprintf(cBuf, sizeof(cBuf), "%s (%s)\n%s (%d/%d)", _("Research"), "F6",
+		advance_name_researching(client.conn.playing),
+		player_research_get(client.conn.playing)->bulbs_researched,
+                player_research_get(client_player())->client.researching_cost);
+  } else {
+    /* TRANS: Research report action */
+    fc_snprintf(cBuf, sizeof(cBuf), "%s (%s)\n%s (%d/%d)", _("Research"), "F6",
+		advance_name_researching(client.conn.playing),
+		player_research_get(client.conn.playing)->bulbs_researched,
+		0);
+  }
+
+  copy_chars_to_string16(pBuf->info_label, cBuf);
+
+  set_new_icon2_theme(pBuf, adj_surf(GET_SURF(bulb)), TRUE);  
+  
+  widget_redraw(pBuf);
+  widget_mark_dirty(pBuf);
+  
+}
+
+/****************************************************************************
+  Called when the map size changes. This may be used to change the
+  size of the GUI element holding the overview canvas. The
+  overview.width and overview.height are updated if this function is
+  called.
+****************************************************************************/
+void overview_size_changed(void)
+{
+  map_canvas_resized(Main.screen->w, Main.screen->h);  	
+  
+  if (overview_canvas) {
+    canvas_free(overview_canvas);
+  }      
+  overview_canvas = canvas_create(overview.width, overview.height);
+  
+  resize_minimap();
+}
+
+/**************************************************************************
+  Typically an info box is provided to tell the player about the state
+  of their civilization.  This function is called when the label is
+  changed.
 **************************************************************************/
 void update_info_label(void)
 {
-  GtkWidget *label;
-  const struct player *pplayer = client.conn.playing;
+  SDL_Color bg_color = {0, 0, 0, 80};
 
-  label = gtk_frame_get_label_widget(GTK_FRAME(main_frame_civ_name));
-  if (pplayer != NULL) {
-    const gchar *name;
-    gunichar c;
+  SDL_Surface *pTmp = NULL;
+  char buffer[512];
+#ifdef SMALL_SCREEN
+  SDL_Rect area = {0, 0, 0, 0};
+#else
+  SDL_Rect area = {0, 3, 0, 0};
+#endif
+  SDL_String16 *pText;
 
-    /* Capitalize the first character of the translated nation
-     * plural name so that the frame label looks good. */
-    name = nation_plural_for_player(pplayer);
-    c = g_utf8_get_char_validated(name, -1);
-    if ((gunichar) -1 != c && (gunichar) -2 != c) {
-      gchar nation[MAX_LEN_NAME];
-      gchar *next;
-      gint len;
-
-      len = g_unichar_to_utf8(g_unichar_toupper(c), nation);
-      nation[len] = '\0';
-      next = g_utf8_find_next_char(name, NULL);
-      if (NULL != next) {
-        sz_strlcat(nation, next);
-      }
-      gtk_label_set_text(GTK_LABEL(label), nation);
-    } else {
-      gtk_label_set_text(GTK_LABEL(label), name);
-    }
-  } else {
-    gtk_label_set_text(GTK_LABEL(label), "-");
+  if (get_current_client_page() != PAGE_GAME) {
+    return;
   }
+  
+#ifdef SMALL_SCREEN
+  pText = create_string16(NULL, 0, 8);
+#else
+  pText = create_string16(NULL, 0, 10);
+#endif
 
-  gtk_label_set_text(GTK_LABEL(main_label_info),
-                     get_info_label_text(!gui_gtk3_small_display_layout));
+  /* set text settings */
+  pText->style |= TTF_STYLE_BOLD;
+  pText->fgcol = *get_theme_color(COLOR_THEME_MAPVIEW_INFO_TEXT);
+  pText->bgcol = (SDL_Color) {0, 0, 0, 0};
+
+  if (NULL != client.conn.playing) {
+#ifdef SMALL_SCREEN
+    fc_snprintf(buffer, sizeof(buffer),
+                _("%s Population: %s  Year: %s  "
+                  "Gold %d "),
+                nation_adjective_for_player(client.conn.playing),
+                population_to_text(civ_population(client.conn.playing)),
+                textyear(game.info.year),
+                client.conn.playing->economic.gold);
+#else
+    fc_snprintf(buffer, sizeof(buffer),
+                _("%s Population: %s  Year: %s  "
+                  "Gold %d Tax: %d Lux: %d Sci: %d "),
+                nation_adjective_for_player(client.conn.playing),
+                population_to_text(civ_population(client.conn.playing)),
+                textyear(game.info.year),
+                client.conn.playing->economic.gold,
+                client.conn.playing->economic.tax,
+                client.conn.playing->economic.luxury,
+                client.conn.playing->economic.science);
+#endif
+    /* convert to unistr and create text surface */
+    copy_chars_to_string16(pText, buffer);
+    pTmp = create_text_surf_from_str16(pText);
+
+    area.x = (Main.screen->w - pTmp->w) / 2 - adj_size(5);
+    area.w = pTmp->w + adj_size(8);
+      area.h = pTmp->h + adj_size(4);
+  
+    SDL_FillRect(Main.gui->surface, &area , map_rgba(Main.gui->surface->format, bg_color));
+    
+    /* Horizontal lines */
+    putline(Main.gui->surface,
+               area.x + 1, area.y, area.x + area.w - 2, area.y,
+               get_theme_color(COLOR_THEME_MAPVIEW_INFO_FRAME));
+    putline(Main.gui->surface,
+               area.x + 1, area.y + area.h - 1, area.x + area.w - 2, area.y + area.h - 1,
+               get_theme_color(COLOR_THEME_MAPVIEW_INFO_FRAME));
+  
+    /* vertical lines */
+    putline(Main.gui->surface,
+               area.x + area.w - 1, area.y + 1, area.x + area.w - 1, area.y + area.h - 2,
+               get_theme_color(COLOR_THEME_MAPVIEW_INFO_FRAME));
+    putline(Main.gui->surface,
+               area.x, area.y + 1, area.x, area.y + area.h - 2,
+               get_theme_color(COLOR_THEME_MAPVIEW_INFO_FRAME));
+  
+    /* blit text to screen */  
+    blit_entire_src(pTmp, Main.gui->surface, area.x + adj_size(5), area.y + adj_size(2));
+    
+    sdl_dirty_rect(area);
+    
+    FREESURFACE(pTmp);
+  }
 
   set_indicator_icons(client_research_sprite(),
 		      client_warming_sprite(),
 		      client_cooling_sprite(),
 		      client_government_sprite());
 
-  if (NULL != client.conn.playing) {
-    int d = 0;
-
-    for (; d < client.conn.playing->economic.luxury /10; d++) {
-      struct sprite *sprite = get_tax_sprite(tileset, O_LUXURY);
-
-      gtk_pixcomm_set_from_sprite(GTK_PIXCOMM(econ_label[d]), sprite);
-    }
- 
-    for (; d < (client.conn.playing->economic.science
-		+ client.conn.playing->economic.luxury) / 10; d++) {
-      struct sprite *sprite = get_tax_sprite(tileset, O_SCIENCE);
-
-      gtk_pixcomm_set_from_sprite(GTK_PIXCOMM(econ_label[d]), sprite);
-    }
- 
-    for (; d < 10; d++) {
-      struct sprite *sprite = get_tax_sprite(tileset, O_GOLD);
-
-      gtk_pixcomm_set_from_sprite(GTK_PIXCOMM(econ_label[d]), sprite);
-    }
-  }
- 
   update_timeout_label();
 
-  /* update tooltips. */
-  gtk_widget_set_tooltip_text(econ_ebox,
-		       _("Shows your current luxury/science/tax rates; "
-			 "click to toggle them."));
+  FREESTRING16(pText);
+  
+  queue_flush();
+}
 
-  gtk_widget_set_tooltip_text(bulb_ebox, get_bulb_tooltip());
-  gtk_widget_set_tooltip_text(sun_ebox, get_global_warming_tooltip());
-  gtk_widget_set_tooltip_text(flake_ebox, get_nuclear_winter_tooltip());
-  gtk_widget_set_tooltip_text(government_ebox, get_government_tooltip());
+static int fucus_units_info_callback(struct widget *pWidget)
+{
+  if (Main.event.button.button == SDL_BUTTON_LEFT) {
+    struct unit *pUnit = pWidget->data.unit;
+    if (pUnit) {
+      request_new_unit_activity(pUnit, ACTIVITY_IDLE);
+      unit_focus_set(pUnit);
+    }
+  }
+  return -1;
 }
 
 /**************************************************************************
-  This function is used to animate the mouse cursor. 
+  Read Function Name :)
+  FIXME: should use same method as client/text.c popup_info_text()
 **************************************************************************/
-static gboolean anim_cursor_cb(gpointer data)
+void redraw_unit_info_label(struct unit_list *punitlist)
 {
-  if (!cursor_timer_id) {
-    return FALSE;
+  struct widget *pInfo_Window;
+  SDL_Rect src, area;
+  SDL_Rect dest;
+  SDL_Surface *pBuf_Surf, *pTmpSurf;
+  SDL_String16 *pStr;
+  struct canvas *destcanvas;
+  struct unit *pUnit;
+
+  if (punitlist != NULL && unit_list_size(punitlist) > 0) {
+    pUnit = unit_list_get(punitlist, 0);
+  } else {
+    pUnit = NULL;
   }
 
-  cursor_frame++;
-  if (cursor_frame == NUM_CURSOR_FRAMES) {
-    cursor_frame = 0;
-  }
+  if (SDL_Client_Flags & CF_UNITINFO_SHOWN) {
+    pInfo_Window = get_unit_info_window_widget();
 
-  if (cursor_type == CURSOR_DEFAULT) {
-    gdk_window_set_cursor(root_window, NULL);
-    cursor_timer_id = 0;
-    return FALSE; 
-  }
+    /* blit theme surface */
+    widget_redraw(pInfo_Window);
 
-  gdk_window_set_cursor(root_window,
-                fc_cursors[cursor_type][cursor_frame]);
-  control_mouse_cursor(NULL);
-  return TRUE;
+    if (pUnit) {
+      SDL_Surface *pName, *pVet_Name = NULL, *pInfo, *pInfo_II = NULL;
+      int sy, y, width, height, n;
+      bool right;
+      char buffer[512];
+      struct tile *pTile = unit_tile(pUnit);
+      const char *vetname;
+
+      /* get and draw unit name (with veteran status) */
+      pStr = create_str16_from_char(unit_name_translation(pUnit), adj_font(12));
+      pStr->style |= TTF_STYLE_BOLD;
+      pStr->bgcol = (SDL_Color) {0, 0, 0, 0};
+      pName = create_text_surf_from_str16(pStr);
+
+      pStr->style &= ~TTF_STYLE_BOLD;
+
+      if (pInfo_Window->size.w > 1.8 * 
+          ((pInfo_Window->size.w - pInfo_Window->area.w) + DEFAULT_UNITS_W)) {
+	width = pInfo_Window->area.w / 2;
+	right = TRUE;
+      } else {
+	width = pInfo_Window->area.w;
+	right = FALSE;
+      }
+
+      vetname = utype_veteran_name_translation(unit_type(pUnit), pUnit->veteran);
+      if (vetname != NULL) {
+        copy_chars_to_string16(pStr, vetname);
+        change_ptsize16(pStr, adj_font(10));
+        pStr->fgcol = *get_theme_color(COLOR_THEME_MAPVIEW_UNITINFO_VETERAN_TEXT);
+        pVet_Name = create_text_surf_from_str16(pStr);
+        pStr->fgcol = *get_theme_color(COLOR_THEME_MAPVIEW_UNITINFO_TEXT);
+      }
+
+      /* get and draw other info (MP, terran, city, etc.) */
+      change_ptsize16(pStr, adj_font(10));
+      pStr->style |= SF_CENTER;
+
+      copy_chars_to_string16(pStr,
+                             get_unit_info_label_text2(punitlist,
+                                                       TILE_LB_RESOURCE_POLL));
+      pInfo = create_text_surf_from_str16(pStr);
+      
+      if (pInfo_Window->size.h > 
+          (DEFAULT_UNITS_H + (pInfo_Window->size.h - pInfo_Window->area.h)) || right) {
+	int h = TTF_FontHeight(pInfo_Window->string16->font);
+				     
+	fc_snprintf(buffer, sizeof(buffer),"%s",
+				sdl_get_tile_defense_info_text(pTile));
+	
+        if (pInfo_Window->size.h > 
+            2 * h + (DEFAULT_UNITS_H + (pInfo_Window->size.h - pInfo_Window->area.h))|| right) {
+          struct city *pCity = tile_city(pTile);
+
+          if (BORDERS_DISABLED != game.info.borders && !pCity) {
+	    const char *diplo_nation_plural_adjectives[DS_LAST] =
+                       {"" /* unused, DS_ARMISTICE */, Q_("?nation:Hostile"),
+                        "" /* unused, DS_CEASEFIRE */,
+     			Q_("?nation:Peaceful"), Q_("?nation:Friendly"), 
+     			Q_("?nation:Mysterious")};
+            if (tile_owner(pTile) == client.conn.playing) {
+              cat_snprintf(buffer, sizeof(buffer), _("\nOur Territory"));
+            } else {
+	      if (tile_owner(pTile)) {
+                struct player_diplstate *ds
+                  = player_diplstate_get(client.conn.playing,
+                                         tile_owner(pTile));
+                if (DS_CEASEFIRE == ds->type) {
+                  int turns = ds->turns_left;
+                  cat_snprintf(buffer, sizeof(buffer),
+                        PL_("\n%s territory (%d turn ceasefire)",
+                            "\n%s territory (%d turn ceasefire)", turns),
+                        nation_adjective_for_player(tile_owner(pTile)), turns);
+                } else if (DS_ARMISTICE == ds->type) {
+                  int turns = ds->turns_left;
+                  cat_snprintf(buffer, sizeof(buffer),
+                        PL_("\n%s territory (%d turn armistice)",
+                            "\n%s territory (%d turn armistice)", turns),
+                        nation_adjective_for_player(tile_owner(pTile)), turns);
+                } else {
+                  cat_snprintf(buffer, sizeof(buffer), _("\nTerritory of the %s %s"),
+                    diplo_nation_plural_adjectives[ds->type],
+                    nation_plural_for_player(tile_owner(pTile)));
+                }
+              } else { /* !tile_owner(pTile) */
+                cat_snprintf(buffer, sizeof(buffer), _("\nUnclaimed territory"));
+              }
+	    }
+          } /* BORDERS_DISABLED != game.info.borders && !pCity */
+          
+          if (pCity) {
+            /* Look at city owner, not tile owner (the two should be the same, if
+             * borders are in use). */
+            struct player *pOwner = city_owner(pCity);
+/*            bool barrack = FALSE, airport = FALSE, port = FALSE;*/
+	    const char *diplo_city_adjectives[DS_LAST] =
+			{Q_("?city:Neutral"), Q_("?city:Hostile"),
+			  Q_("?city:Neutral"), Q_("?city:Peaceful"),
+			  Q_("?city:Friendly"), Q_("?city:Mysterious")};
+			  
+	    cat_snprintf(buffer, sizeof(buffer),
+			 _("\nCity of %s"),
+			 city_name(pCity));
+                          
+#if 0       
+            /* This has hardcoded assumption that EFT_LAND_REGEN is always
+             * provided by *building* named *Barracks*. Similar assumptions for
+             * other effects. */     
+	    if (pplayers_allied(client.conn.playing, pOwner)) {
+	      barrack = (get_city_bonus(pCity, EFT_LAND_REGEN) > 0);
+	      airport = (get_city_bonus(pCity, EFT_AIR_VETERAN) > 0);
+	      port = (get_city_bonus(pCity, EFT_SEA_VETERAN) > 0);
+	    }
+
+	    if (citywall || barrack || airport || port) {
+	      cat_snprintf(buffer, sizeof(buffer), Q_("?blistbegin: with "));
+	      if (barrack) {
+                cat_snprintf(buffer, sizeof(buffer), _("Barracks"));
+	        if (port || airport || citywall) {
+	          cat_snprintf(buffer, sizeof(buffer), Q_("?blistmore:, "));
+	        }
+	      }
+	      if (port) {
+	        cat_snprintf(buffer, sizeof(buffer), _("Port"));
+	        if (airport || citywall) {
+	          cat_snprintf(buffer, sizeof(buffer), Q_("?blistmore:, "));
+	        }
+	      }
+	      if (airport) {
+	        cat_snprintf(buffer, sizeof(buffer), _("Airport"));
+	        if (citywall) {
+	          cat_snprintf(buffer, sizeof(buffer), Q_("?blistmore:, "));
+	        }
+	      }
+	      if (citywall) {
+	        cat_snprintf(buffer, sizeof(buffer), _("City Walls"));
+              }
+
+              cat_snprintf(buffer, sizeof(buffer), Q_("?blistend:"));
+	    }
+#endif
+	    
+	    if (pOwner && pOwner != client.conn.playing) {
+              struct player_diplstate *ds
+                = player_diplstate_get(client.conn.playing, pOwner);
+              /* TRANS: (<nation>,<diplomatic_state>)" */
+              cat_snprintf(buffer, sizeof(buffer), _("\n(%s,%s)"),
+                nation_adjective_for_player(pOwner),
+                diplo_city_adjectives[ds->type]);
+	    }
+	    
+	  }
+        }
+		
+	if (pInfo_Window->size.h > 
+            4 * h + (DEFAULT_UNITS_H + (pInfo_Window->size.h - pInfo_Window->area.h)) || right) {
+          cat_snprintf(buffer, sizeof(buffer), _("\nFood/Prod/Trade: %s"),
+				get_tile_output_text(unit_tile(pUnit)));
+	}
+	
+	copy_chars_to_string16(pStr, buffer);
+      
+	pInfo_II = create_text_surf_smaller_that_w(pStr, width - BLOCKU_W - adj_size(4));
+	
+      }
+      
+      FREESTRING16(pStr);
+      
+      /* ------------------------------------------- */
+      
+      n = unit_list_size(pTile->units);
+      y = 0;
+      
+      if (n > 1 && ((!right && pInfo_II
+	 && (pInfo_Window->size.h - (DEFAULT_UNITS_H + (pInfo_Window->size.h - pInfo_Window->area.h)) - pInfo_II->h > 52))
+         || (right && pInfo_Window->size.h - (DEFAULT_UNITS_H + (pInfo_Window->size.h - pInfo_Window->area.h)) > 52))) {
+	height = (pInfo_Window->size.h - pInfo_Window->area.h) + DEFAULT_UNITS_H;
+      } else {
+	height = pInfo_Window->size.h;
+        if (pInfo_Window->size.h > (DEFAULT_UNITS_H + (pInfo_Window->size.h - pInfo_Window->area.h))) {
+	  y = (pInfo_Window->size.h - (DEFAULT_UNITS_H + (pInfo_Window->size.h - pInfo_Window->area.h)) -
+	                 (!right && pInfo_II ? pInfo_II->h : 0)) / 2;
+        }
+      }
+      
+      sy = y + adj_size(3);
+      area.y = pInfo_Window->area.y + sy;
+      area.x = pInfo_Window->area.x + BLOCKU_W + (width - pName->w - BLOCKU_W) / 2;
+      dest = area;
+      alphablit(pName, NULL, pInfo_Window->dst->surface, &dest);
+      sy += pName->h;
+      if(pVet_Name) {
+	area.y += pName->h - adj_size(3);
+        area.x = pInfo_Window->area.x + BLOCKU_W + (width - pVet_Name->w - BLOCKU_W) / 2;
+        alphablit(pVet_Name, NULL, pInfo_Window->dst->surface, &area);
+	sy += pVet_Name->h - adj_size(3);
+        FREESURFACE(pVet_Name);
+      }
+      FREESURFACE(pName);
+      
+      /* draw unit sprite */
+      pTmpSurf = ResizeSurfaceBox(get_unittype_surface(unit_type(pUnit), pUnit->facing),
+                                  adj_size(80), adj_size(80), 1, TRUE, TRUE);
+      pBuf_Surf = blend_surface(pTmpSurf, 32);
+      FREESURFACE(pTmpSurf);
+      src = (SDL_Rect){0, 0, pBuf_Surf->w, pBuf_Surf->h};
+
+      area.x = pInfo_Window->area.x + BLOCKU_W - adj_size(4) + 
+               ((width - BLOCKU_W + adj_size(3) - src.w)/2);
+      area.y = pInfo_Window->size.y + sy + (DEFAULT_UNITS_H - sy - src.h)/2;
+      alphablit(pBuf_Surf, &src, pInfo_Window->dst->surface, &area);
+      FREESURFACE(pBuf_Surf);
+
+      /* blit unit info text */
+      area.x = pInfo_Window->area.x + BLOCKU_W - adj_size(4) + 
+                 ((width - BLOCKU_W + adj_size(4) - pInfo->w)/2);
+      area.y = pInfo_Window->size.y + sy + (DEFAULT_UNITS_H - sy - pInfo->h)/2;
+
+      alphablit(pInfo, NULL, pInfo_Window->dst->surface, &area);
+      FREESURFACE(pInfo);
+
+      if (pInfo_II) {
+        if (right) {
+	  area.x = pInfo_Window->area.x + width + (width - pInfo_II->w) / 2;
+	  area.y = pInfo_Window->area.y + (height - pInfo_II->h) / 2;
+        } else {
+	  area.y = pInfo_Window->area.y + DEFAULT_UNITS_H + y;
+          area.x = pInfo_Window->area.x + BLOCKU_W + 
+                   (width - BLOCKU_W - pInfo_II->w) / 2;
+        }
+      
+        /* blit unit info text */
+        alphablit(pInfo_II, NULL, pInfo_Window->dst->surface, &area);
+              
+        if (right) {
+          sy = (DEFAULT_UNITS_H + (pInfo_Window->size.h - pInfo_Window->area.h));
+        } else {
+	  sy = area.y - pInfo_Window->size.y + pInfo_II->h;
+        }
+        FREESURFACE(pInfo_II);
+      } else {
+	sy = (DEFAULT_UNITS_H + (pInfo_Window->size.h - pInfo_Window->area.h));
+      }
+      
+      if (n > 1 && (pInfo_Window->size.h - sy > 52)) {
+	struct ADVANCED_DLG *pDlg = pInfo_Window->private_data.adv_dlg;
+	struct widget *pBuf = NULL, *pEnd = NULL, *pDock;
+	struct city *pHome_City;
+        struct unit_type *pUType;
+	int num_w, num_h;
+	  
+	if (pDlg->pEndActiveWidgetList && pDlg->pBeginActiveWidgetList) {
+	  del_group(pDlg->pBeginActiveWidgetList, pDlg->pEndActiveWidgetList);
+	}
+	num_w = (pInfo_Window->area.w - BLOCKU_W) / 68;
+	num_h = (pInfo_Window->area.h - sy) / 52;
+	pDock = pInfo_Window;
+	n = 0;
+        unit_list_iterate(pTile->units, aunit) {
+          const char *vetname;
+
+          if (aunit == pUnit) {
+            continue;
+	  }
+
+          pUType = unit_type(aunit);
+          vetname = utype_veteran_name_translation(pUType, aunit->veteran);
+          pHome_City = game_city_by_number(aunit->homecity);
+          fc_snprintf(buffer, sizeof(buffer), "%s (%d,%d,%s)%s%s\n%s\n(%d/%d)\n%s",
+                      utype_name_translation(pUType),
+                      pUType->attack_strength,
+                      pUType->defense_strength,
+                      move_points_text(pUType->move_rate, FALSE),
+                      (vetname != NULL ? "\n" : ""),
+                      (vetname != NULL ? vetname : ""),
+                      unit_activity_text(aunit),
+                      aunit->hp, pUType->hp,
+                      pHome_City ? city_name(pHome_City) : Q_("?homecity:None"));
+
+	  pBuf_Surf = create_surf(tileset_full_tile_width(tileset),
+                                  tileset_full_tile_height(tileset), SDL_SWSURFACE);
+
+          destcanvas = canvas_create(tileset_full_tile_width(tileset),
+                                     tileset_full_tile_height(tileset));
+  
+          put_unit(aunit, destcanvas, 0, 0);
+          
+          pTmpSurf = adj_surf(destcanvas->surf);
+          
+          alphablit(pTmpSurf, NULL, pBuf_Surf, NULL);
+          
+          FREESURFACE(pTmpSurf);
+          canvas_free(destcanvas);
+
+          if (pBuf_Surf->w > 64) {
+            float zoom = 64.0 / pBuf_Surf->w;    
+            SDL_Surface *pZoomed = zoomSurface(pBuf_Surf, zoom, zoom, 1);
+            FREESURFACE(pBuf_Surf);
+            pBuf_Surf = pZoomed;
+          }
+	    
+	  pStr = create_str16_from_char(buffer, 10);
+          pStr->style |= SF_CENTER;
+    
+          pBuf = create_icon2(pBuf_Surf, pInfo_Window->dst,
+                              WF_FREE_THEME | WF_RESTORE_BACKGROUND
+                              | WF_WIDGET_HAS_INFO_LABEL);
+          pBuf->info_label = pStr;
+          pBuf->data.unit = aunit;
+	  pBuf->ID = ID_ICON;
+	  DownAdd(pBuf, pDock);
+          pDock = pBuf;
+
+          if (!pEnd) {
+            pEnd = pBuf;
+          }
+    
+          if (++n > num_w * num_h) {
+             set_wflag(pBuf, WF_HIDDEN);
+          }
+
+          if (unit_owner(aunit) == client.conn.playing) {
+            set_wstate(pBuf, FC_WS_NORMAL);
+          }
+    
+          pBuf->action = fucus_units_info_callback;
+    
+	} unit_list_iterate_end;	  
+	    
+	pDlg->pBeginActiveWidgetList = pBuf;
+	pDlg->pEndActiveWidgetList = pEnd;
+	pDlg->pActiveWidgetList = pDlg->pEndActiveWidgetList;
+	  	  	  
+	if (n > num_w * num_h) {
+    
+	  if (!pDlg->pScroll) {
+            
+            create_vertical_scrollbar(pDlg, num_w, num_h, FALSE, TRUE);
+          
+	  } else {
+	    pDlg->pScroll->active = num_h;
+            pDlg->pScroll->step = num_w;
+            pDlg->pScroll->count = n;
+	    show_scrollbar(pDlg->pScroll);
+	  }
+	    
+	  /* create up button */
+          pBuf = pDlg->pScroll->pUp_Left_Button;
+          pBuf->size.x = pInfo_Window->area.x + pInfo_Window->area.w - pBuf->size.w;
+          pBuf->size.y = pInfo_Window->area.y + sy +
+                         (pInfo_Window->size.h - sy - num_h * 52) / 2;
+          pBuf->size.h = (num_h * 52) / 2;
+        
+          /* create down button */
+          pBuf = pDlg->pScroll->pDown_Right_Button;
+          pBuf->size.x = pDlg->pScroll->pUp_Left_Button->size.x;
+          pBuf->size.y = pDlg->pScroll->pUp_Left_Button->size.y +
+	      			pDlg->pScroll->pUp_Left_Button->size.h;
+          pBuf->size.h = pDlg->pScroll->pUp_Left_Button->size.h;
+	    	    
+        } else {
+	  if (pDlg->pScroll) {
+	    hide_scrollbar(pDlg->pScroll);
+	  }
+	  num_h = (n + num_w - 1) / num_w;
+	}
+	  
+	setup_vertical_widgets_position(num_w,
+          pInfo_Window->area.x + BLOCKU_W + adj_size(2),
+			pInfo_Window->size.y + sy +
+	  			(pInfo_Window->size.h - sy - num_h * 52) / 2,
+	  		0, 0, pDlg->pBeginActiveWidgetList,
+			  pDlg->pEndActiveWidgetList);
+	  	  
+      } else {
+	if (pInfo_Window->private_data.adv_dlg->pEndActiveWidgetList) {
+	  del_group(pInfo_Window->private_data.adv_dlg->pBeginActiveWidgetList,
+	    		pInfo_Window->private_data.adv_dlg->pEndActiveWidgetList);
+	}
+	if (pInfo_Window->private_data.adv_dlg->pScroll) {
+	  hide_scrollbar(pInfo_Window->private_data.adv_dlg->pScroll);
+	}
+      }
+    
+    } else { /* pUnit */
+
+      if (pInfo_Window->private_data.adv_dlg->pEndActiveWidgetList) {
+	del_group(pInfo_Window->private_data.adv_dlg->pBeginActiveWidgetList,
+	    		pInfo_Window->private_data.adv_dlg->pEndActiveWidgetList);
+      }
+      if (pInfo_Window->private_data.adv_dlg->pScroll) {
+	hide_scrollbar(pInfo_Window->private_data.adv_dlg->pScroll);
+      }
+
+      if (!client_is_observer() && !client.conn.playing->phase_done
+          && (!client.conn.playing->ai_controlled || ai_manual_turn_done)) {
+        char buf[256];
+        fc_snprintf(buf, sizeof(buf), "%s\n%s\n%s",
+                    _("End of Turn"), _("Press"), _("Shift+Return"));
+        pStr = create_str16_from_char(buf, adj_font(14));
+        pStr->style = SF_CENTER;
+        pStr->bgcol = (SDL_Color) {0, 0, 0, 0};
+        pBuf_Surf = create_text_surf_from_str16(pStr);
+        area.x = pInfo_Window->size.x + BLOCKU_W +
+                          (pInfo_Window->size.w - BLOCKU_W - pBuf_Surf->w)/2;
+        area.y = pInfo_Window->size.y + (pInfo_Window->size.h - pBuf_Surf->h)/2;
+        alphablit(pBuf_Surf, NULL, pInfo_Window->dst->surface, &area);
+        FREESURFACE(pBuf_Surf);
+        FREESTRING16(pStr);
+      }
+    }
+
+    /* draw buttons */
+    redraw_group(pInfo_Window->private_data.adv_dlg->pBeginWidgetList,
+	    	pInfo_Window->private_data.adv_dlg->pEndWidgetList->prev, 0);
+    
+    widget_mark_dirty(pInfo_Window);
+  }
+}
+
+static bool is_anim_enabled(void)
+{
+  return (SDL_Client_Flags & CF_FOCUS_ANIMATION) == CF_FOCUS_ANIMATION;
 }
 
 /**************************************************************************
-  This function will change the current mouse cursor.
+  Set one of the unit icons in the information area based on punit.
+  NULL will be pased to clear the icon. idx==-1 will be passed to
+  indicate this is the active unit, or idx in [0..num_units_below-1] for
+  secondary (inactive) units on the same tile.
 **************************************************************************/
-void update_mouse_cursor(enum cursor_type new_cursor_type)
+void set_unit_icon(int idx, struct unit *punit)
 {
-  cursor_type = new_cursor_type;
-  if (!cursor_timer_id) {
-    cursor_timer_id = g_timeout_add(CURSOR_INTERVAL, anim_cursor_cb, NULL);
-  }
+/* FIXME */
+/*  update_unit_info_label(punit);*/
 }
 
 /**************************************************************************
-  Update the information label which gives info on the current unit and the
-  square under the current unit, for specified unit.  Note that in practice
-  punit is always the focus unit.
-  Clears label if punit is NULL.
-  Also updates the cursor for the map_canvas (this is related because the
-  info label includes a "select destination" prompt etc).
-  Also calls update_unit_pix_label() to update the icons for units on this
-  square.
+  Most clients use an arrow (e.g., sprites.right_arrow) to indicate when
+  the units_below will not fit. This function is called to activate and
+  deactivate the arrow.
 **************************************************************************/
-void update_unit_info_label(struct unit_list *punits)
+void set_unit_icons_more_arrow(bool onoff)
 {
-  GtkWidget *label;
-
-  label = gtk_frame_get_label_widget(GTK_FRAME(unit_info_frame));
-  gtk_label_set_text(GTK_LABEL(label),
-		     get_unit_info_label_text1(punits));
-
-  gtk_label_set_text(GTK_LABEL(unit_info_label),
-		     get_unit_info_label_text2(punits, 0));
-
-  update_unit_pix_label(punits);
-}
-
-
-/**************************************************************************
-  Get sprite for treaty acceptance or rejection.
-**************************************************************************/
-GdkPixbuf *get_thumb_pixbuf(int onoff)
-{
-  return sprite_get_pixbuf(get_treaty_thumb_sprite(tileset, BOOL_VAL(onoff)));
+/* Balast */
 }
 
 /****************************************************************************
-  Set information for the indicator icons typically shown in the main
-  client window.  The parameters tell which sprite to use for the
-  indicator.
+  Called when the set of units in focus (get_units_in_focus()) changes.
+  Standard updates like update_unit_info_label() are handled in the platform-
+  independent code, so some clients will not need to do anything here.
 ****************************************************************************/
-void set_indicator_icons(struct sprite *bulb, struct sprite *sol,
-			 struct sprite *flake, struct sprite *gov)
+void real_focus_units_changed(void)
 {
-  gtk_pixcomm_set_from_sprite(GTK_PIXCOMM(bulb_label), bulb);
-  gtk_pixcomm_set_from_sprite(GTK_PIXCOMM(sun_label), sol);
-  gtk_pixcomm_set_from_sprite(GTK_PIXCOMM(flake_label), flake);
-  gtk_pixcomm_set_from_sprite(GTK_PIXCOMM(government_label), gov);
-}
-
-/****************************************************************************
-  Return the maximum dimensions of the area (container widget) for the
-  overview. Due to the fact that the scaling factor is at least 1, the real
-  size could be larger. The calculation in calculate_overview_dimensions()
-  limit it to the smallest possible size.
-****************************************************************************/
-void get_overview_area_dimensions(int *width, int *height)
-{
-  *width = GUI_GTK_OVERVIEW_MIN_XSIZE;
-  *height = GUI_GTK_OVERVIEW_MIN_YSIZE;
+  /* Nothing to do */
 }
 
 /**************************************************************************
-  Size of overview changed
+  Update the information label which gives info on the current unit and
+  the square under the current unit, for specified unit.  Note that in
+  practice punit is always the focus unit.
+
+  Clears label if punitlist is NULL or empty.
+
+  Typically also updates the cursor for the map_canvas (this is related
+  because the info label may includes  "select destination" prompt etc).
+  And it may call update_unit_pix_label() to update the icons for units
+  on this square.
 **************************************************************************/
-void overview_size_changed(void)
+void update_unit_info_label(struct unit_list *punitlist)
 {
-  gtk_widget_set_size_request(overview_canvas,
-			      overview.width, overview.height);
-  update_map_canvas_scrollbars_size();
+  if (C_S_RUNNING != client_state()) {
+    return;
+  }
+  
+  /* draw unit info window */
+  redraw_unit_info_label(punitlist);
+  
+  if (punitlist) {
+    if(!is_anim_enabled()) {
+      enable_focus_animation();
+    }
+  } else {
+    disable_focus_animation();
+  }
+}
+
+void update_timeout_label(void)
+{
+  log_debug("MAPVIEW: update_timeout_label : PORT ME");
+}
+
+void update_turn_done_button(bool do_restore)
+{
+  log_debug("MAPVIEW: update_turn_done_button : PORT ME");
+}
+
+/* ===================================================================== */
+/* ========================== City Descriptions ======================== */
+/* ===================================================================== */
+
+/**************************************************************************
+  Update (refresh) all of the city descriptions on the mapview.
+**************************************************************************/
+void update_city_descriptions(void)
+{
+  /* redraw buffer */
+  show_city_descriptions(0, 0, mapview.store_width, mapview.store_height);
+  dirty_all();  
+}
+
+/* ===================================================================== */
+/* =============================== Mini Map ============================ */
+/* ===================================================================== */
+
+/**************************************************************************
+...
+**************************************************************************/
+void toggle_overview_mode(void)
+{
+  /* FIXME: has no effect anymore */
+  if (overview_mode == BORDERS) {
+    overview_mode = NORMAL;
+  } else {
+    overview_mode = BORDERS;
+  }
 }
 
 /****************************************************************************
@@ -299,423 +1044,92 @@ void overview_size_changed(void)
 ****************************************************************************/
 struct canvas *get_overview_window(void)
 {
-#if 0
-  static struct canvas store;
-
-  store.surface = NULL;
-  store.drawable = gdk_cairo_create(gtk_widget_get_window(overview_canvas));
-
-  return &store;
-#endif /* 0 */
-  if (can_client_change_view()) {
-    gtk_widget_queue_draw(overview_canvas);
-  }
-  return NULL;
-}
-
-/**************************************************************************
-  Redraw overview canvas
-**************************************************************************/
-gboolean overview_canvas_draw(GtkWidget *w, cairo_t *cr, gpointer data)
-{
-  gpointer source = (can_client_change_view()) ?
-                     (gpointer)overview.window : (gpointer)radar_gfx_sprite;
-
-  if (source) {
-    cairo_surface_t *surface = (can_client_change_view()) ?
-                                overview.window->surface :
-                                radar_gfx_sprite->surface;
-
-    cairo_set_source_surface(cr, surface, 0, 0);
-    cairo_paint(cr);
-  }
-  return TRUE;
+  return overview_canvas;  
 }
 
 /****************************************************************************
-  Freeze the drawing of the map.
+  Return the dimensions of the area (container widget; maximum size) for
+  the overview.
 ****************************************************************************/
-void mapview_freeze(void)
+void get_overview_area_dimensions(int *width, int *height)
 {
-  mapview_frozen_level++;
-}
+  /* calculate the dimensions in a way to always get a resulting
+     overview with a height bigger than or equal to DEFAULT_OVERVIEW_H.
+     First, the default dimensions are fed to the same formula that
+     is used in overview_common.c. If the resulting height is
+     smaller than DEFAULT_OVERVIEW_H, increase OVERVIEW_TILE_SIZE
+     by 1 until the height condition is met.
+  */
+  
+  int overview_tile_size_bak = OVERVIEW_TILE_SIZE;
+  
+  int xfact = MAP_IS_ISOMETRIC ? 2 : 1;
+  int shift = (MAP_IS_ISOMETRIC && !current_topo_has_flag(TF_WRAPX)) ? -1 : 0;
+  
+  OVERVIEW_TILE_SIZE = MIN((DEFAULT_OVERVIEW_W - 1) / (map.xsize * xfact),
+                           (DEFAULT_OVERVIEW_H - 1) / map.ysize) + 1;
 
-/****************************************************************************
-  Thaw the drawing of the map.
-****************************************************************************/
-void mapview_thaw(void)
-{
-  if (1 < mapview_frozen_level) {
-    mapview_frozen_level--;
-  } else {
-    fc_assert(0 < mapview_frozen_level);
-    mapview_frozen_level = 0;
-    dirty_all();
-  }
-}
-
-/****************************************************************************
-  Return whether the map should be drawn or not.
-****************************************************************************/
-bool mapview_is_frozen(void)
-{
-  return (0 < mapview_frozen_level);
-}
-
-/**************************************************************************
-  Update on canvas widget size change
-**************************************************************************/
-gboolean map_canvas_configure(GtkWidget *w, GdkEventConfigure *ev,
-                              gpointer data)
-{
-  map_canvas_resized(ev->width, ev->height);
-  return TRUE;
-}
-
-/**************************************************************************
-  Redraw map canvas.
-**************************************************************************/
-gboolean map_canvas_draw(GtkWidget *w, cairo_t *cr, gpointer data)
-{
-  if (can_client_change_view() && map_exists() && !mapview_is_frozen()) {
-    /* First we mark the area to be updated as dirty.  Then we unqueue
-     * any pending updates, to make sure only the most up-to-date data
-     * is written (otherwise drawing bugs happen when old data is copied
-     * to screen).  Then we draw all changed areas to the screen. */
-    unqueue_mapview_updates(FALSE);
-    cairo_set_source_surface(cr, mapview.store->surface, 0, 0);
-    cairo_paint(cr);
-  }
-  return TRUE;
-}
-
-/**************************************************************************
-  Flush the given part of the canvas buffer (if there is one) to the
-  screen.
-**************************************************************************/
-void flush_mapcanvas(int canvas_x, int canvas_y,
-                     int pixel_width, int pixel_height)
-{
-  GdkRectangle rectangle = {canvas_x, canvas_y, pixel_width, pixel_height};
-  if (gtk_widget_get_realized(map_canvas) && !mapview_is_frozen()) {
-    gdk_window_invalidate_rect(gtk_widget_get_window(map_canvas), &rectangle, FALSE);
-  }
-}
-
-/**************************************************************************
-  Mark the rectangular region as "dirty" so that we know to flush it
-  later.
-**************************************************************************/
-void dirty_rect(int canvas_x, int canvas_y,
-                int pixel_width, int pixel_height)
-{
-  GdkRectangle rectangle = {canvas_x, canvas_y, pixel_width, pixel_height};
-  if (gtk_widget_get_realized(map_canvas)) {
-    gdk_window_invalidate_rect(gtk_widget_get_window(map_canvas), &rectangle, FALSE);
-  }
-}
-
-/**************************************************************************
-  Mark the entire screen area as "dirty" so that we can flush it later.
-**************************************************************************/
-void dirty_all(void)
-{
-  if (gtk_widget_get_realized(map_canvas)) {
-    gdk_window_invalidate_rect(gtk_widget_get_window(map_canvas), NULL, FALSE);
-  }
-}
-
-/**************************************************************************
-  Flush all regions that have been previously marked as dirty.  See
-  dirty_rect and dirty_all.  This function is generally called after we've
-  processed a batch of drawing operations.
-**************************************************************************/
-void flush_dirty(void)
-{
-  if (map_canvas != NULL && gtk_widget_get_realized(map_canvas)) {
-    gdk_window_process_updates(gtk_widget_get_window(map_canvas), FALSE);
-  }
-}
-
-/****************************************************************************
-  Do any necessary synchronization to make sure the screen is up-to-date.
-  The canvas should have already been flushed to screen via flush_dirty -
-  all this function does is make sure the hardware has caught up.
-****************************************************************************/
-void gui_flush(void)
-{
-  cairo_surface_flush(mapview.store->surface);
-}
-
-/**************************************************************************
- Update display of descriptions associated with cities on the main map.
-**************************************************************************/
-void update_city_descriptions(void)
-{
-  update_map_canvas_visible();
-}
-
-/**************************************************************************
-  Fill pixcomm with unit gfx
-**************************************************************************/
-void put_unit_gpixmap(struct unit *punit, GtkPixcomm *p)
-{
-  struct canvas canvas_store = FC_STATIC_CANVAS_INIT;
-
-  canvas_store.surface = gtk_pixcomm_get_surface(p);
-
-  gtk_pixcomm_clear(p);
-
-  put_unit(punit, &canvas_store, 0, 0);
-}
-
-
-/**************************************************************************
-  FIXME:
-  For now only two food, two gold one shield and two masks can be drawn per
-  unit, the proper way to do this is probably something like what Civ II does.
-  (One food/shield/mask drawn N times, possibly one top of itself. -- SKi 
-**************************************************************************/
-void put_unit_gpixmap_city_overlays(struct unit *punit, GtkPixcomm *p,
-                                    int *upkeep_cost, int happy_cost)
-{
-  struct canvas store = FC_STATIC_CANVAS_INIT;
- 
-  store.surface = gtk_pixcomm_get_surface(p);
-
-  put_unit_city_overlays(punit, &store, 0, tileset_unit_layout_offset_y(tileset),
-                         upkeep_cost, happy_cost);
-}
-
-/**************************************************************************
-  Put overlay tile to pixmap
-**************************************************************************/
-void pixmap_put_overlay_tile(GdkWindow *pixmap,
-			     int canvas_x, int canvas_y,
-			     struct sprite *ssprite)
-{
-  cairo_t *cr;
-
-  if (!ssprite) {
-    return;
-  }
-
-  cr = gdk_cairo_create(pixmap);
-  cairo_set_source_surface(cr, ssprite->surface, canvas_x, canvas_y);
-  cairo_paint(cr);
-  cairo_destroy(cr);
-}
-
-/**************************************************************************
-  Only used for isometric view.
-**************************************************************************/
-void pixmap_put_overlay_tile_draw(struct canvas *pcanvas,
-				  int canvas_x, int canvas_y,
-				  struct sprite *ssprite,
-				  bool fog)
-{
-  cairo_t *cr;
-  int sswidth, ssheight;
-
-  if (!ssprite) {
-    return;
-  }
-
-  get_sprite_dimensions(ssprite, &sswidth, &ssheight);
-
-  if (fog) {
-    struct color *fogcol = color_alloc(0.0, 0.0, 0.0);
-    cairo_surface_t *fog_surface;
-    struct sprite *fogged;
-    unsigned char *mask_in;
-    unsigned char *mask_out;
-    int i, j;
-
-    /* Create sprites fully transparent */
-    fogcol->color.alpha = 0.0;
-    fogged = create_sprite(sswidth, ssheight, fogcol);
-    fog_surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, sswidth, ssheight);
-
-    /* Calculate black fog mask from the original sprite,
-     * we don't want to blacken transparent parts of the sprite */
-    mask_in = cairo_image_surface_get_data(ssprite->surface);
-    mask_out = cairo_image_surface_get_data(fog_surface);
-
-    for (i = 0; i < sswidth; i++) {
-      for (j = 0; j < ssheight; j++) {
-#ifndef WORDS_BIGENDIAN
-        mask_out[(j * sswidth + i) * 4 + 3] = 0.65 * mask_in[(j * sswidth + i) * 4 + 3];
-#else  /* WORDS_BIGENDIAN */
-        mask_out[(j * sswidth + i) * 4 + 0] = 0.65 * mask_in[(j * sswidth + i) * 4 + 0];
-#endif /* WORDS_BIGENDIAN */
-      }
+  do {
+    *height = OVERVIEW_TILE_HEIGHT * map.ysize;
+    if (*height < DEFAULT_OVERVIEW_H) {
+      OVERVIEW_TILE_SIZE++;
     }
+  } while (*height < DEFAULT_OVERVIEW_H);
 
-    cairo_surface_mark_dirty(fog_surface);
-
-    /* First copy original sprite canvas to intermediate sprite canvas */
-    cr = cairo_create(fogged->surface);
-    cairo_set_source_surface(cr, ssprite->surface, 0, 0);
-    cairo_paint(cr);
-
-    /* Then apply created fog to the intermediate sprite */
-    cairo_set_source_surface(cr, fog_surface, 0, 0);
-    cairo_paint(cr);
-    cairo_destroy(cr);
-
-    /* Put intermediate sprite to the target canvas */
-    canvas_put_sprite(pcanvas, canvas_x, canvas_y,
-                      fogged, 0, 0, sswidth, ssheight);
-
-    /* Free intermediate stuff */
-    cairo_surface_destroy(fog_surface);
-    free_sprite(fogged);
-    color_free(fogcol);
-  } else {
-    canvas_put_sprite(pcanvas, canvas_x, canvas_y,
-                      ssprite, 0, 0, sswidth, ssheight);
-  }
+  *width = OVERVIEW_TILE_WIDTH * map.xsize + shift * OVERVIEW_TILE_SIZE; 
+  
+  OVERVIEW_TILE_SIZE = overview_tile_size_bak;
 }
 
 /**************************************************************************
- Draws a cross-hair overlay on a tile
+  Refresh (update) the viewrect on the overview. This is the rectangle
+  showing the area covered by the mapview.
 **************************************************************************/
-void put_cross_overlay_tile(struct tile *ptile)
+void refresh_overview(void)
 {
-  int canvas_x, canvas_y;
+  struct widget *pMMap;
+  SDL_Rect overview_area;
 
-  if (tile_to_canvas_pos(&canvas_x, &canvas_y, ptile)) {
-    pixmap_put_overlay_tile(gtk_widget_get_window(map_canvas),
-			    canvas_x, canvas_y,
-			    get_attention_crosshair_sprite(tileset));
+  if (SDL_Client_Flags & CF_OVERVIEW_SHOWN) {
+    pMMap = get_minimap_window_widget();
+      
+    overview_area = (SDL_Rect) {
+      pMMap->area.x + overview_start_x, pMMap->area.x + overview_start_y, 
+      overview_canvas->surf->w, overview_canvas->surf->h
+    };
+  
+    alphablit(overview_canvas->surf, NULL, pMMap->dst->surface, &overview_area);
+    
+    widget_mark_dirty(pMMap);
   }
 }
 
-/*****************************************************************************
- Sets the position of the overview scroll window based on mapview position.
-*****************************************************************************/
-void update_overview_scroll_window_pos(int x, int y)
-{
-  gdouble ov_scroll_x, ov_scroll_y;
-  GtkAdjustment *ov_hadj, *ov_vadj;
-
-  ov_hadj = gtk_scrolled_window_get_hadjustment(
-    GTK_SCROLLED_WINDOW(overview_scrolled_window));
-  ov_vadj = gtk_scrolled_window_get_vadjustment(
-    GTK_SCROLLED_WINDOW(overview_scrolled_window));
-
-  ov_scroll_x = MIN(x - (overview_canvas_store_width / 2),
-                    gtk_adjustment_get_upper(ov_hadj)
-                    - gtk_adjustment_get_page_size(ov_hadj));
-  ov_scroll_y = MIN(y - (overview_canvas_store_height / 2),
-                    gtk_adjustment_get_upper(ov_vadj)
-                    - gtk_adjustment_get_page_size(ov_vadj));
-
-  gtk_adjustment_set_value(ov_hadj, ov_scroll_x);
-  gtk_adjustment_set_value(ov_vadj, ov_scroll_y);
-}
-
 /**************************************************************************
-  Refresh map canvas scrollbars
+  Update (refresh) the locations of the mapview scrollbars (if it uses
+  them).
 **************************************************************************/
 void update_map_canvas_scrollbars(void)
 {
-  int scroll_x, scroll_y;
-
-  get_mapview_scroll_pos(&scroll_x, &scroll_y);
-  gtk_adjustment_set_value(map_hadj, scroll_x);
-  gtk_adjustment_set_value(map_vadj, scroll_y);
-  if (can_client_change_view()) {
-    gtk_widget_queue_draw(overview_canvas);
-  }
+  /* No scrollbars. */
 }
 
 /**************************************************************************
-  Refresh map canvas scrollbar as canvas size changes
+  Draw a cross-hair overlay on a tile.
 **************************************************************************/
-void update_map_canvas_scrollbars_size(void)
+void put_cross_overlay_tile(struct tile *ptile)
 {
-  int xmin, ymin, xmax, ymax, xsize, ysize, xstep, ystep;
-
-  get_mapview_scroll_window(&xmin, &ymin, &xmax, &ymax, &xsize, &ysize);
-  get_mapview_scroll_step(&xstep, &ystep);
-
-  map_hadj = gtk_adjustment_new(-1, xmin, xmax, xstep, xsize, xsize);
-  map_vadj = gtk_adjustment_new(-1, ymin, ymax, ystep, ysize, ysize);
-
-  gtk_range_set_adjustment(GTK_RANGE(map_horizontal_scrollbar), map_hadj);
-  gtk_range_set_adjustment(GTK_RANGE(map_vertical_scrollbar), map_vadj);
-
-  g_signal_connect(map_hadj, "value_changed",
-	G_CALLBACK(scrollbar_jump_callback),
-	GINT_TO_POINTER(TRUE));
-  g_signal_connect(map_vadj, "value_changed",
-	G_CALLBACK(scrollbar_jump_callback),
-	GINT_TO_POINTER(FALSE));
+  log_debug("MAPVIEW: put_cross_overlay_tile : PORT ME");
 }
 
 /**************************************************************************
-  Scrollbar has moved
-**************************************************************************/
-void scrollbar_jump_callback(GtkAdjustment *adj, gpointer hscrollbar)
-{
-  int scroll_x, scroll_y;
-
-  if (!can_client_change_view()) {
-    return;
-  }
-
-  get_mapview_scroll_pos(&scroll_x, &scroll_y);
-
-  if (hscrollbar) {
-    scroll_x = gtk_adjustment_get_value(adj);
-  } else {
-    scroll_y = gtk_adjustment_get_value(adj);
-  }
-
-  set_mapview_scroll_pos(scroll_x, scroll_y);
-}
-
-/**************************************************************************
-  Draws a rectangle with top left corner at (canvas_x, canvas_y), and
-  width 'w' and height 'h'. It is drawn using the 'selection_gc' context,
-  so the pixel combining function is XOR. This means that drawing twice
-  in the same place will restore the image to its original state.
-
-  NB: A side effect of this function is to set the 'selection_gc' color
-  to COLOR_MAPVIEW_SELECTION.
+ Area Selection
 **************************************************************************/
 void draw_selection_rectangle(int canvas_x, int canvas_y, int w, int h)
 {
-  double dashes[2] = {4.0, 4.0};
-  struct color *pcolor;
-  cairo_t *cr;
-
-  if (w == 0 || h == 0) {
-    return;
-  }
-
-  pcolor = get_color(tileset, COLOR_MAPVIEW_SELECTION);
-  if (!pcolor) {
-    return;
-  }
-
-  cr = gdk_cairo_create(gtk_widget_get_window(map_canvas));
-  gdk_cairo_set_source_rgba(cr, &pcolor->color);
-  cairo_set_line_width(cr, 2.0);
-  cairo_set_dash(cr, dashes, 2, 0);
-#ifdef WIN32_NATIVE
-  if (cairo_version() < CAIRO_VERSION_ENCODE(1, 12, 0)) {
-    /* Cairo has crashing CAIRO_OPERATOR_DIFFERENCE on win32 surface */
-    cairo_set_operator(cr, CAIRO_OPERATOR_XOR);
-  } else
-#endif /* WIN32_NATIVE */
-  {
-    cairo_set_operator(cr, CAIRO_OPERATOR_DIFFERENCE);
-  }
-  cairo_rectangle(cr, canvas_x, canvas_y, w, h);
-  cairo_stroke(cr);
-  cairo_destroy(cr);
+  /* PORTME */
+  putframe(Main.map,
+           canvas_x, canvas_y, canvas_x + w, canvas_y + h,
+           get_theme_color(COLOR_THEME_SELECTIONRECTANGLE));
 }
 
 /**************************************************************************
@@ -723,20 +1137,52 @@ void draw_selection_rectangle(int canvas_x, int canvas_y, int w, int h)
 **************************************************************************/
 void tileset_changed(void)
 {
-  science_report_dialog_redraw();
-  reset_city_dialogs();
-  reset_unit_table();
-  blank_max_unit_size();
-  editgui_tileset_changed();
+  /* PORTME */
+  /* Here you should do any necessary redraws (for instance, the city
+   * dialogs usually need to be resized). */
+  popdown_all_game_dialogs();
+}
 
-  /* keep the icon of the executable on Windows (see PR#36491) */
-#ifndef WIN32_NATIVE
-  {
-    GdkPixbuf *pixbuf = sprite_get_pixbuf(get_icon_sprite(tileset, ICON_FREECIV));
+/* =====================================================================
+				City MAP
+   ===================================================================== */
 
-    /* Only call this after tileset_load_tiles is called. */
-    gtk_window_set_icon(GTK_WINDOW(toplevel), pixbuf);
-    g_object_unref(pixbuf);
+SDL_Surface *create_city_map(struct city *pCity)
+{
+  /* city map dimensions might have changed, so create a new canvas each time */
+
+  if (city_map_canvas) {
+    canvas_free(city_map_canvas);
   }
-#endif /* WIN32_NATIVE */
+
+  city_map_canvas = canvas_create(get_citydlg_canvas_width(), 
+                                  get_citydlg_canvas_height());
+
+  city_dialog_redraw_map(pCity, city_map_canvas);  
+
+  return city_map_canvas->surf;
+}
+
+SDL_Surface *get_terrain_surface(struct tile *ptile)
+{
+  /* tileset dimensions might have changed, so create a new canvas each time */
+  
+  if (terrain_canvas) {
+    canvas_free(terrain_canvas);
+  }
+    
+  terrain_canvas = canvas_create_with_alpha(tileset_full_tile_width(tileset),
+                                            tileset_full_tile_height(tileset));
+
+  put_terrain(ptile, terrain_canvas, 0, 0);
+  
+  return terrain_canvas->surf;
+}
+
+/**************************************************************************
+ Sets the position of the overview scroll window based on mapview position.
+**************************************************************************/
+void update_overview_scroll_window_pos(int x, int y)
+{
+  /* TODO: PORTME. */
 }

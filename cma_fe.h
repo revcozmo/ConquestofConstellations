@@ -11,47 +11,13 @@
    GNU General Public License for more details.
 ***********************************************************************/
 
-#ifndef FC__GTK_CMA_H
-#define FC__GTK_CMA_H
+#ifndef FC__SDL_CMA_H
+#define FC__SDL_CMA_H
 
-#include <gtk/gtk.h>
-
-/* common */
-#include "fc_types.h"
-
-/* client/agents */
 #include "cma_core.h"
 
-enum cma_refresh {
-  REFRESH_ALL,
-  DONT_REFRESH_SELECT,
-  DONT_REFRESH_HSCALES
-};
+void update_city_cma_dialog(void);
+void popup_city_cma_dialog(struct city *pCity);
+void popdown_city_cma_dialog(void);
 
-struct cma_dialog {
-  struct city *pcity;
-  GtkWidget *shell;
-  GtkWidget *name_shell;
-  GtkWidget *preset_remove_shell;
-  GtkWidget *preset_list;
-  GtkWidget *result_label;
-  GtkWidget *add_preset_command;
-  GtkWidget *del_preset_command;
-  GtkWidget *active_label;
-  GtkWidget *active_image;
-  GtkWidget *active_command;
-  GtkWidget *minimal_surplus[O_LAST];
-  GtkWidget *happy_button;
-  GtkWidget *factor[O_LAST + 1];
-  GtkTreeSelection *selection;
-  GtkListStore *store;
-  int id;			/* needed to pass a preset_index */
-};
-
-void cma_fe_init(void);
-void cma_fe_done(void);
-struct cma_dialog *create_cma_dialog(struct city *pcity, bool tiny);
-void close_cma_dialog(struct city *pcity);
-void refresh_cma_dialog(struct city *pcity, enum cma_refresh refresh);
-
-#endif /* FC__GTK_CMA_H */
+#endif

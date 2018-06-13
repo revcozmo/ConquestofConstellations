@@ -11,420 +11,308 @@
    GNU General Public License for more details.
 ***********************************************************************/
 
+/**********************************************************************
+                          messagewin.c  -  description
+                             -------------------
+    begin                : Feb 2 2003
+    copyright            : (C) 2003 by Rafał Bursig
+    email                : Rafał Bursig <bursig@poczta.fm>
+ **********************************************************************/
 #ifdef HAVE_CONFIG_H
 #include <fc_config.h>
 #endif
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include <gtk/gtk.h>
+#include "SDL/SDL.h"
 
 /* utility */
 #include "fcintl.h"
 #include "log.h"
 
-/* common */
-#include "events.h"
-#include "game.h"
-#include "map.h"
-#include "player.h"
-
 /* client */
 #include "options.h"
 
-/* client/gui-gtk-3.0 */
-#include "chatline.h"
+/* gui-sdl */
 #include "citydlg.h"
+#include "colors.h"
+#include "graphics.h"
+#include "gui_id.h"
 #include "gui_main.h"
-#include "gui_stuff.h"
+#include "gui_tilespec.h"
 #include "mapview.h"
+#include "themespec.h"
+#include "unistring.h"
+#include "widget.h"
 
 #include "messagewin.h"
 
 
-struct meswin_dialog {
-  struct gui_dialog *shell;
-  GtkTreeView *tree_view;
-};
+#ifdef SMALL_SCREEN
+#define N_MSG_VIEW               3    /* max before scrolling happens */
+#else
+#define N_MSG_VIEW		 6          
+#endif
 
-/* Those values must match meswin_dialog_store_new(). */
-enum meswin_columns {
-  MESWIN_COL_MESSAGE,
+#define PTSIZE_LOG_FONT		adj_font(10)
 
-  /* Not visible. */
-  MESWIN_COL_WEIGHT,
-  MESWIN_COL_STYLE,
-  MESWIN_COL_ID,
+static struct ADVANCED_DLG *pMsg_Dlg = NULL;
 
-  MESWIN_COL_NUM
-};
-
-enum meswin_responses {
-  MESWIN_RES_GOTO = 1,
-  MESWIN_RES_POPUP_CITY
-};
-
-static struct meswin_dialog meswin = { NULL, };
-
-/****************************************************************************
-  Create a tree model for the message window.
-****************************************************************************/
-static GtkListStore *meswin_dialog_store_new(void)
+/**************************************************************************
+ Called from default clicks on a message.
+**************************************************************************/
+static int msg_callback(struct widget *pWidget)
 {
-  return gtk_list_store_new(MESWIN_COL_NUM,
-                            G_TYPE_STRING,      /* MESWIN_COL_MESSAGE */
-                            G_TYPE_INT,         /* MESWIN_COL_WEIGHT */
-                            G_TYPE_INT,         /* MESWIN_COL_STYLE */
-                            G_TYPE_INT);        /* MESWIN_COL_ID */
-}
+  if (Main.event.button.button == SDL_BUTTON_LEFT) {
+    int message_index = *(int*)pWidget->data.ptr;
+      
+    pWidget->string16->fgcol = *get_theme_color(COLOR_THEME_MESWIN_ACTIVE_TEXT2);
+    unsellect_widget_action();
 
-/****************************************************************************
-  Get the pango attributes for the visited state.
-****************************************************************************/
-static void meswin_dialog_visited_get_attr(bool visited, gint *weight,
-                                           gint *style)
-{
-  if (NULL != weight) {
-    *weight = (visited ? PANGO_WEIGHT_NORMAL : PANGO_WEIGHT_BOLD);
+    meswin_double_click(message_index);
+    meswin_set_visited_state(message_index, TRUE);
   }
-  if (NULL != style) {
-    *style = (visited ? PANGO_STYLE_ITALIC : PANGO_STYLE_NORMAL);
-  }
-}
-
-/****************************************************************************
-  Set the visited state of the store.
-****************************************************************************/
-static void meswin_dialog_set_visited(GtkTreeModel *model,
-                                      GtkTreeIter *iter, bool visited)
-{
-  gint row, weight, style;
-
-  gtk_tree_model_get(model, iter, MESWIN_COL_ID, &row, -1);
-  meswin_dialog_visited_get_attr(visited, &weight, &style);
-  gtk_list_store_set(GTK_LIST_STORE(model), iter,
-                     MESWIN_COL_WEIGHT, weight,
-                     MESWIN_COL_STYLE, style,
-                     -1);
-  meswin_set_visited_state(row, visited);
-}
-
-/****************************************************************************
-  Refresh a message window dialog.
-****************************************************************************/
-static void meswin_dialog_refresh(struct meswin_dialog *pdialog)
-{
-  GtkTreeSelection *selection;
-  GtkTreeModel *model;
-  GtkListStore *store;
-  GtkTreeIter iter;
-  const struct message *pmsg;
-  gint weight, style;
-  int selected, i, num;
-  bool need_alert = FALSE;
-
-  fc_assert_ret(NULL != pdialog);
-
-  /* Save the selection. */
-  selection = gtk_tree_view_get_selection(pdialog->tree_view);
-  if (gtk_tree_selection_get_selected(selection, &model, &iter)) {
-    gtk_tree_model_get(model, &iter, MESWIN_COL_ID, &selected, -1);
-  } else {
-    selected = -1;
-  }
-
-  model = gtk_tree_view_get_model(pdialog->tree_view);
-  store = GTK_LIST_STORE(model);
-  num = meswin_get_num_messages();
-
-  gtk_list_store_clear(store);
-  for (i = 0; i < num; i++) {
-    pmsg = meswin_get_message(i);
-
-    if (gui_gtk3_new_messages_go_to_top) {
-      gtk_list_store_prepend(store, &iter);
-    } else {
-      gtk_list_store_append(store, &iter);
-    }
-
-    meswin_dialog_visited_get_attr(pmsg->visited, &weight, &style);
-    gtk_list_store_set(store, &iter,
-                       MESWIN_COL_MESSAGE, pmsg->descr,
-                       MESWIN_COL_WEIGHT, weight,
-                       MESWIN_COL_STYLE, style,
-                       MESWIN_COL_ID, i,
-                       -1);
-    if (i == selected) {
-      /* Restore the selection. */
-      gtk_tree_selection_select_iter(selection, &iter);
-    }
-
-    if (!pmsg->visited) {
-      need_alert = TRUE;
-    }
-  }
-
-  if (need_alert) {
-    gui_dialog_alert(pdialog->shell);
-  }
+  
+  return -1;
 }
 
 /**************************************************************************
-  Selection changed callback.
+ Called from default clicks on a messages window.
 **************************************************************************/
-static void meswin_dialog_selection_callback(GtkTreeSelection *selection,
-                                             gpointer data)
+static int move_msg_window_callback(struct widget *pWindow)
 {
-  struct meswin_dialog *pdialog = data;
-  const struct message *pmsg;
-  GtkTreeModel *model;
-  GtkTreeIter iter;
-  gint row;
+  if (Main.event.button.button == SDL_BUTTON_LEFT) {
+    move_window_group(pMsg_Dlg->pBeginWidgetList, pWindow);
+  }
+  return -1;
+}
 
-  if (!gtk_tree_selection_get_selected(selection, &model, &iter)) {
-    return;
+/* ======================================================================
+				Public
+   ====================================================================== */
+
+/**************************************************************************
+ ...
+**************************************************************************/
+void real_meswin_dialog_update(void)
+{
+  int msg_count;
+  int current_count;
+  const struct message *pMsg = NULL;
+  struct widget *pBuf = NULL, *pWindow = NULL;
+  SDL_String16 *pStr = NULL;
+  SDL_Rect area = {0, 0, 0, 0};
+  bool create;
+  int label_width;
+
+  if (pMsg_Dlg == NULL) {
+    meswin_dialog_popup(TRUE);
   }
 
-  gtk_tree_model_get(model, &iter, MESWIN_COL_ID, &row, -1);
-  pmsg = meswin_get_message(row);
+  msg_count = meswin_get_num_messages();
+  current_count = pMsg_Dlg->pScroll->count;
+  
+  if (current_count > 0) {
+    undraw_group(pMsg_Dlg->pBeginActiveWidgetList, pMsg_Dlg->pEndActiveWidgetList);
+    del_group_of_widgets_from_gui_list(pMsg_Dlg->pBeginActiveWidgetList,
+					pMsg_Dlg->pEndActiveWidgetList);
+    pMsg_Dlg->pBeginActiveWidgetList = NULL;
+    pMsg_Dlg->pEndActiveWidgetList = NULL;
+    pMsg_Dlg->pActiveWidgetList = NULL;
+    /* hide scrollbar */
+    hide_scrollbar(pMsg_Dlg->pScroll);
+    pMsg_Dlg->pScroll->count = 0;
+    current_count = 0;
+  }
+  create = (current_count == 0);
 
-  gui_dialog_set_response_sensitive(pdialog->shell, MESWIN_RES_GOTO,
-                                    NULL != pmsg && pmsg->location_ok);
-  gui_dialog_set_response_sensitive(pdialog->shell, MESWIN_RES_POPUP_CITY,
-                                    NULL != pmsg && pmsg->city_ok);
+  pWindow = pMsg_Dlg->pEndWidgetList;
+
+  area = pWindow->area;
+  
+  label_width = area.w - pMsg_Dlg->pScroll->pUp_Left_Button->size.w - adj_size(3);
+  
+  if (msg_count > 0) {
+    for(; current_count < msg_count; current_count++)
+    {
+      pMsg = meswin_get_message(current_count);
+      pStr = create_str16_from_char(pMsg->descr , PTSIZE_LOG_FONT);
+
+      if (convert_string_to_const_surface_width(pStr, label_width - adj_size(10))) {
+        /* string must be divided to fit into the given area */
+        SDL_String16 *pStr2;      
+        Uint16 **UniTexts = create_new_line_unistrings(pStr->text);
+        int count = 0;
+        
+        while (UniTexts[count]) {
+          pStr2 = create_string16(UniTexts[count],
+      			          unistrlen(UniTexts[count]) + 1, PTSIZE_LOG_FONT);
+        
+          pBuf = create_iconlabel(NULL, pWindow->dst, pStr2, 
+                    (WF_RESTORE_BACKGROUND|WF_DRAW_TEXT_LABEL_WITH_SPACE|WF_FREE_DATA));
+
+          /* this block is duplicated in the "else" branch */
+          {
+            pBuf->string16->bgcol = (SDL_Color) {0, 0, 0, 0};
+      
+            pBuf->size.w = label_width;
+            pBuf->data.ptr = fc_calloc(1, sizeof(int));
+            *(int*)pBuf->data.ptr = current_count;	
+            pBuf->action = msg_callback;
+            if(pMsg->tile) {
+              set_wstate(pBuf, FC_WS_NORMAL);
+              if (pMsg->visited) {
+                pBuf->string16->fgcol = *get_theme_color(COLOR_THEME_MESWIN_ACTIVE_TEXT2);
+              } else {
+                pBuf->string16->fgcol = *get_theme_color(COLOR_THEME_MESWIN_ACTIVE_TEXT);
+              }
+            }
+            
+            pBuf->ID = ID_LABEL;
+      
+            widget_set_area(pBuf, area);
+            
+            /* add to widget list */
+            if(create) {
+              add_widget_to_vertical_scroll_widget_list(pMsg_Dlg,
+                                      pBuf, pWindow, FALSE,
+                                      area.x, area.y);
+               create = FALSE;
+            } else {
+              add_widget_to_vertical_scroll_widget_list(pMsg_Dlg,
+                                      pBuf, pMsg_Dlg->pBeginActiveWidgetList, FALSE,
+                                      area.x, area.y);
+            }
+          }
+          count++;
+        } /* while */
+        FREESTRING16(pStr);
+      } else {          
+        pBuf = create_iconlabel(NULL, pWindow->dst, pStr, 
+                  (WF_RESTORE_BACKGROUND|WF_DRAW_TEXT_LABEL_WITH_SPACE|WF_FREE_DATA));
+        
+        /* duplicated block */
+        {    
+          pBuf->string16->bgcol = (SDL_Color) {0, 0, 0, 0};
+    
+          pBuf->size.w = label_width;
+          pBuf->data.ptr = fc_calloc(1, sizeof(int));
+          *(int*)pBuf->data.ptr = current_count;	
+          pBuf->action = msg_callback;
+          if(pMsg->tile) {
+            set_wstate(pBuf, FC_WS_NORMAL);
+            if (pMsg->visited) {
+              pBuf->string16->fgcol = *get_theme_color(COLOR_THEME_MESWIN_ACTIVE_TEXT2);
+            } else {
+              pBuf->string16->fgcol = *get_theme_color(COLOR_THEME_MESWIN_ACTIVE_TEXT);
+            }
+          }
+          
+          pBuf->ID = ID_LABEL;
+    
+          widget_set_area(pBuf, area);
+          
+          /* add to widget list */
+          if(create) {
+            add_widget_to_vertical_scroll_widget_list(pMsg_Dlg,
+                                    pBuf, pWindow, FALSE,
+                                    area.x, area.y);
+             create = FALSE;
+          } else {
+            add_widget_to_vertical_scroll_widget_list(pMsg_Dlg,
+                                    pBuf, pMsg_Dlg->pBeginActiveWidgetList, FALSE,
+                                    area.x, area.y);
+          }
+        }
+      } /* if */
+    } /* for */
+  } /* if */
+
+  redraw_group(pMsg_Dlg->pBeginWidgetList, pWindow, 0);
+  widget_flush(pWindow);
 }
 
 /**************************************************************************
-  A row has been activated by the user.
+  Popup (or raise) the message dialog; typically triggered by 'F9'.
 **************************************************************************/
-static void meswin_dialog_row_activated_callback(GtkTreeView *view,
-                                                 GtkTreePath *path,
-                                                 GtkTreeViewColumn *col,
-                                                 gpointer data)
-{
-  GtkTreeModel *model = gtk_tree_view_get_model(view);
-  GtkTreeIter iter;
-  gint row;
-
-  if (!gtk_tree_model_get_iter(model, &iter, path)) {
-    return;
-  }
-
-  gtk_tree_model_get(model, &iter, MESWIN_COL_ID, &row, -1);
-
-  if (NULL != meswin_get_message(row)) {
-    meswin_double_click(row);
-    meswin_dialog_set_visited(model, &iter, TRUE);
-  }
-}
-
-/****************************************************************************
-  Mouse button press handler for the message window treeview. We only
-  care about right clicks on a row; this action centers on the tile
-  associated with the event at that row (if applicable).
-****************************************************************************/
-static gboolean meswin_dialog_button_press_callback(GtkWidget *widget,
-                                                    GdkEventButton *ev,
-                                                    gpointer data)
-{
-  GtkTreePath *path = NULL;
-  GtkTreeModel *model;
-  GtkTreeIter iter;
-  gint row;
-
-  fc_assert_ret_val(GTK_IS_TREE_VIEW(widget), FALSE);
-
-  if (GDK_BUTTON_PRESS  != ev->type || 3 != ev->button) {
-    return FALSE;
-  }
-
-  if (!gtk_tree_view_get_path_at_pos(GTK_TREE_VIEW(widget), ev->x, ev->y,
-                                     &path, NULL, NULL, NULL)) {
-    return TRUE;
-  }
-
-  model = gtk_tree_view_get_model(GTK_TREE_VIEW(widget));
-  if (gtk_tree_model_get_iter(model, &iter, path)) {
-    gtk_tree_model_get(model, &iter, MESWIN_COL_ID, &row, -1);
-    meswin_goto(row);
-  }
-  gtk_tree_path_free(path);
-
-  return TRUE;
-}
-
-/**************************************************************************
-  Dialog response callback.
-**************************************************************************/
-static void meswin_dialog_response_callback(struct gui_dialog *pgui_dialog,
-                                            int response, gpointer data)
-{
-  struct meswin_dialog *pdialog = data;
-  GtkTreeSelection *selection;
-  GtkTreeModel *model;
-  GtkTreeIter iter;
-  gint row;
-
-  switch (response) {
-  case MESWIN_RES_GOTO:
-  case MESWIN_RES_POPUP_CITY:
-    break;
-  default:
-    gui_dialog_destroy(pgui_dialog);
-    return;
-  }
-
-  selection = gtk_tree_view_get_selection(pdialog->tree_view);
-  if (!gtk_tree_selection_get_selected(selection, &model, &iter)) {
-    return;
-  }
-
-  gtk_tree_model_get(model, &iter, MESWIN_COL_ID, &row, -1);
-
-  switch (response) {
-  case MESWIN_RES_GOTO:
-    meswin_goto(row);
-    break;
-  case MESWIN_RES_POPUP_CITY:
-    meswin_popup_city(row);
-    break;
-  }
-  meswin_dialog_set_visited(model, &iter, TRUE);
-}
-
-/****************************************************************************
-  Initilialize a message window dialog.
-****************************************************************************/
-static void meswin_dialog_init(struct meswin_dialog *pdialog)
-{
-  GtkWidget *view, *sw, *cmd, *notebook;
-  GtkContainer *vbox;
-  GtkListStore *store;
-  GtkTreeSelection *selection;
-  GtkCellRenderer *renderer;
-  GtkTreeViewColumn *col;
-
-  fc_assert_ret(NULL != pdialog);
-
-  if (gui_gtk3_message_chat_location == GUI_GTK_MSGCHAT_SPLIT) {
-    notebook = right_notebook;
-  } else {
-    notebook = bottom_notebook;
-  }
-
-  gui_dialog_new(&pdialog->shell, GTK_NOTEBOOK(notebook), pdialog, TRUE);
-  gui_dialog_set_title(pdialog->shell, _("Messages"));
-  vbox = GTK_CONTAINER(pdialog->shell->vbox);
-
-  sw = gtk_scrolled_window_new(NULL, NULL);
-  gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(sw),
-                                      GTK_SHADOW_ETCHED_IN);
-  gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(sw),
-                                 GTK_POLICY_AUTOMATIC, GTK_POLICY_ALWAYS);
-  gtk_container_add(vbox, sw);
-
-  store = meswin_dialog_store_new();
-  view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
-  gtk_widget_set_hexpand(view, TRUE);
-  gtk_widget_set_vexpand(view, TRUE);
-  g_object_unref(store);
-  gtk_tree_view_columns_autosize(GTK_TREE_VIEW(view));
-  gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(view), FALSE);
-  g_signal_connect(view, "row_activated",
-                   G_CALLBACK(meswin_dialog_row_activated_callback), NULL);
-  g_signal_connect(view, "button-press-event",
-                   G_CALLBACK(meswin_dialog_button_press_callback), NULL);
-  pdialog->tree_view = GTK_TREE_VIEW(view);
-
-  renderer = gtk_cell_renderer_text_new();
-  col = gtk_tree_view_column_new_with_attributes(NULL, renderer,
-                                                 "text", MESWIN_COL_MESSAGE,
-                                                 "weight", MESWIN_COL_WEIGHT,
-                                                 "style", MESWIN_COL_STYLE,
-                                                 NULL);
-  gtk_tree_view_append_column(GTK_TREE_VIEW(view), col);
-  gtk_container_add(GTK_CONTAINER(sw), view);
-
-  selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(view));
-  g_signal_connect(selection, "changed",
-                   G_CALLBACK(meswin_dialog_selection_callback), pdialog);
-
-  gui_dialog_add_button(pdialog->shell, GTK_STOCK_CLOSE, GTK_RESPONSE_CLOSE);
-
-  if (gui_gtk3_show_message_window_buttons) {
-    cmd = gui_dialog_add_stockbutton(pdialog->shell, GTK_STOCK_ZOOM_IN,
-                                     _("I_nspect City"),
-                                     MESWIN_RES_POPUP_CITY);
-    gtk_widget_set_sensitive(cmd, FALSE);
-
-    cmd = gui_dialog_add_stockbutton(pdialog->shell, GTK_STOCK_JUMP_TO,
-                                     _("Goto _Location"), MESWIN_RES_GOTO);
-    gtk_widget_set_sensitive(cmd, FALSE);
-  }
-
-  gui_dialog_response_set_callback(pdialog->shell,
-                                   meswin_dialog_response_callback);
-  gui_dialog_set_default_size(pdialog->shell, 520, 300);
-
-  meswin_dialog_refresh(pdialog);
-  gui_dialog_show_all(pdialog->shell);
-}
-
-/****************************************************************************
-  Closes a message window dialog.
-****************************************************************************/
-static void meswin_dialog_free(struct meswin_dialog *pdialog)
-{
-  fc_assert_ret(NULL != pdialog);
-
-  gui_dialog_destroy(pdialog->shell);
-  fc_assert(NULL == pdialog->shell);
-
-  memset(pdialog, 0, sizeof(*pdialog));
-}
-
-/****************************************************************************
-  Popup the dialog inside the main-window, and optionally raise it.
-****************************************************************************/
 void meswin_dialog_popup(bool raise)
 {
-  if (NULL == meswin.shell) {
-    meswin_dialog_init(&meswin);
+  SDL_String16 *pStr;
+  struct widget *pWindow = NULL;
+  SDL_Surface *pBackground;
+  SDL_Rect area;
+  
+  if(pMsg_Dlg) {
+    return;
+  }
+  
+  pMsg_Dlg = fc_calloc(1, sizeof(struct ADVANCED_DLG));
+
+  /* create window */
+  pStr = create_str16_from_char(_("Messages"), adj_font(12));
+  pStr->style = TTF_STYLE_BOLD;
+  
+  pWindow = create_window_skeleton(NULL, pStr, 0);
+  
+  pWindow->action = move_msg_window_callback;
+  set_wstate(pWindow, FC_WS_NORMAL);
+  add_to_gui_list(ID_CHATLINE_WINDOW, pWindow);
+  
+  pMsg_Dlg->pEndWidgetList = pWindow;
+  pMsg_Dlg->pBeginWidgetList = pWindow;
+
+/*  area = pWindow->area;*/
+  
+  /* create scrollbar */
+  create_vertical_scrollbar(pMsg_Dlg, 1, N_MSG_VIEW, TRUE, TRUE);
+
+  pStr = create_str16_from_char("sample text", PTSIZE_LOG_FONT);
+  
+  /* define content area */
+  area.w = (adj_size(520) - (pWindow->size.w - pWindow->area.w));
+  area.h = (N_MSG_VIEW + 1) * str16height(pStr);
+
+  FREESTRING16(pStr);
+
+  /* create window background */
+  pBackground = theme_get_background(theme, BACKGROUND_MESSAGEWIN);
+  if (resize_window(pWindow, pBackground, NULL,
+                    (pWindow->size.w - pWindow->area.w) + area.w,
+                    (pWindow->size.h - pWindow->area.h) + area.h)) {
+    FREESURFACE(pBackground);
   }
 
-  gui_dialog_present(meswin.shell);
-  if (raise) {
-    gui_dialog_raise(meswin.shell);
-  }
+  area = pWindow->area;
+  
+  setup_vertical_scrollbar_area(pMsg_Dlg->pScroll,
+		area.x + area.w, area.y,
+                area.h, TRUE);
+  
+  hide_scrollbar(pMsg_Dlg->pScroll);
+
+  widget_set_position(pWindow, (Main.screen->w - pWindow->size.w)/2, adj_size(25));
+
+  widget_redraw(pWindow);
+
+  real_meswin_dialog_update();
 }
 
 /****************************************************************************
-  Closes the message window dialog.
+  Popdown the messages dialog; called by void popdown_all_game_dialogs(void)
 ****************************************************************************/
 void meswin_dialog_popdown(void)
 {
-  if (NULL != meswin.shell) {
-    meswin_dialog_free(&meswin);
-    fc_assert(NULL == meswin.shell);
+  if(pMsg_Dlg) {
+    popdown_window_group_dialog(pMsg_Dlg->pBeginWidgetList,
+				  pMsg_Dlg->pEndWidgetList);
+    FC_FREE(pMsg_Dlg->pScroll);
+    FC_FREE(pMsg_Dlg);
   }
+  
 }
 
-/****************************************************************************
-  Return TRUE iff the message window is open.
-****************************************************************************/
+/**************************************************************************
+  Return whether the message dialog is open.
+**************************************************************************/
 bool meswin_dialog_is_open(void)
 {
-  return (NULL != meswin.shell);
-}
-
-/****************************************************************************
-  Update the message window dialog.
-****************************************************************************/
-void real_meswin_dialog_update(void)
-{
-  if (NULL != meswin.shell) {
-    meswin_dialog_refresh(&meswin);
-  }
+  return (pMsg_Dlg != NULL);
 }

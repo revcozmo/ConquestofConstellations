@@ -11,62 +11,24 @@
    GNU General Public License for more details.
 ***********************************************************************/
 
+/**********************************************************************
+                          chatline.h  -  description
+                             -------------------
+    begin                : Sun Jun 30 2002
+    copyright            : (C) 2002 by Rafał Bursig
+    email                : Rafał Bursig <bursig@poczta.fm>
+ **********************************************************************/
+
 #ifndef FC__CHATLINE_H
 #define FC__CHATLINE_H
 
-#ifdef HAVE_CONFIG_H
-#include <fc_config.h>
-#endif
-
-extern "C" {
 #include "chatline_g.h"
-}
 
-//Qt
-#include <QEvent>
-#include <QTextBrowser>
-#include <QLineEdit>
-#include <QCheckBox>
+void popup_input_line(void);
+bool popdown_conn_list_dialog(void);
+void popdown_load_game_dialog(void);
 
-class QPushButton;
+#define set_output_window_text( pString )	\
+	output_window_append( ftc_any, pString )
 
-QString apply_tags(QString str, const struct text_tag_list *tags,
-                   bool colors_change);
-/***************************************************************************
-  Class for chat widget
-***************************************************************************/
-class chatwdg : public QWidget
-{
-  Q_OBJECT
-public:
-  chatwdg(QWidget *parent);
-  void append(QString str);
-  QLineEdit *chat_line;
-  void make_link(struct tile *ptile);
-  void update_font();
-  void update_widgets();
-private slots:
-  void send();
-  void state_changed(int state);
-  void rm_links();
-  void anchor_clicked(const QUrl &link);
-protected:
-  void paint(QPainter *painter, QPaintEvent *event);
-  void paintEvent(QPaintEvent *event);
-  bool eventFilter(QObject *obj, QEvent *event);
-private:
-  QTextBrowser *chat_output;
-  QPushButton *remove_links;
-  QCheckBox *cb;
-
-};
-
-class version_message_event : public QEvent
-{
-  QString message;
-public:
-  explicit version_message_event(const QString &message);
-  QString get_message() const { return message; }
-};
-
-#endif                        /* FC__CHATLINE_H */
+#endif	/* FC__CHATLINE_H */

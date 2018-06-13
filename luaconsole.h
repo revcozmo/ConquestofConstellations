@@ -13,8 +13,6 @@
 #ifndef FC__LUACONSOLE_H
 #define FC__LUACONSOLE_H
 
-extern "C" {
 #include "luaconsole_g.h"
-}
 
 #endif  /* FC__LUACONSOLE_H */

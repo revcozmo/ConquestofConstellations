@@ -1,5 +1,5 @@
 /********************************************************************** 
- Freeciv - Copyright (C) 1996-2005 - Freeciv Development Team
+ Freeciv - Copyright (C) 1996-2006 - Freeciv Development Team
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
@@ -15,135 +15,237 @@
 #include <fc_config.h>
 #endif
 
-#include <gtk/gtk.h>
-
 /* utility */
-#include "support.h"
+#include "fcintl.h"
 
 /* common */
-#include "game.h"
 #include "traderoutes.h"
-#include "unit.h"
 
 /* client */
-#include "dialogs_g.h"
-#include "chatline.h"
-#include "choice_dialog.h"
 #include "client_main.h"
-#include "climisc.h"
 #include "control.h"
-#include "gui_main.h"
-#include "gui_stuff.h"
+
+/* gui-sdl */
+#include "gui_id.h"
+#include "graphics.h"
+#include "mapview.h"
+#include "gui_tilespec.h"
+#include "widget.h"
 
 #include "dialogs.h"
-#include "wldlg.h"
+
+extern bool is_unit_move_blocked;
+
+void popdown_caravan_dialog(void);
 
 static int caravan_city_id;
 static int caravan_unit_id;
 
-static GtkWidget *caravan_dialog;
+/* ====================================================================== */
+/* ============================ CARAVAN DIALOG ========================== */
+/* ====================================================================== */
+static struct SMALL_DLG *pCaravan_Dlg = NULL;
 
-/****************************************************************
-  User selected traderoute from caravan dialog
-*****************************************************************/
-static void caravan_establish_trade_callback(GtkWidget *w, gpointer data)
+static int caravan_dlg_window_callback(struct widget *pWindow)
 {
-  dsend_packet_unit_establish_trade(&client.conn, caravan_unit_id);
+  if (Main.event.button.button == SDL_BUTTON_LEFT) {
+    move_window_group(pCaravan_Dlg->pBeginWidgetList, pWindow);
+  }
+  return -1;
 }
 
 /****************************************************************
-  User selected wonder building helping from caravan dialog
+  User selected that caravan should establish traderoute.
 *****************************************************************/
-static void caravan_help_build_wonder_callback(GtkWidget *w, gpointer data)
+static int caravan_establish_trade_callback(struct widget *pWidget)
 {
-  dsend_packet_unit_help_build_wonder(&client.conn, caravan_unit_id);
+  if (Main.event.button.button == SDL_BUTTON_LEFT) {
+    dsend_packet_unit_establish_trade(&client.conn, pWidget->data.cont->id0);
+    
+    popdown_caravan_dialog();
+  }
+  return -1;
 }
 
+
+/****************************************************************
+  User selected that caravan should help in wonder building.
+*****************************************************************/
+static int caravan_help_build_wonder_callback(struct widget *pWidget)
+{
+  if (Main.event.button.button == SDL_BUTTON_LEFT) {
+    dsend_packet_unit_help_build_wonder(&client.conn, pWidget->data.cont->id0);
+    
+    popdown_caravan_dialog();  
+  }
+  return -1;
+}
+
+/****************************************************************
+  User selected that caravan should not do anything special
+*****************************************************************/
+static int exit_caravan_dlg_callback(struct widget *pWidget)
+{
+  if (Main.event.button.button == SDL_BUTTON_LEFT) {
+    popdown_caravan_dialog();
+    process_caravan_arrival(NULL);
+  }
+  return -1;
+}
+ 
 /****************************************************************
   Close caravan dialog
 *****************************************************************/
-static void caravan_destroy_callback(GtkWidget *w, gpointer data)
+void popdown_caravan_dialog(void)
 {
-  caravan_dialog = NULL;
-  process_caravan_arrival(NULL);
-}
-
-/****************************************************************
-  Returns the proper text (g_strdup'd - must be g_free'd) which should
-  be displayed on the helpbuild wonder button.
-*****************************************************************/
-static gchar *get_help_build_wonder_button_label(bool* help_build_possible)
-{
-  struct city* destcity = game_city_by_number(caravan_city_id);
-  struct unit* caravan = game_unit_by_number(caravan_unit_id);
-  
-  if (destcity && caravan
-      && unit_can_help_build_wonder(caravan, destcity)) {
-    *help_build_possible = TRUE;
-    return g_strdup_printf(_("Help build _Wonder (%d remaining)"),
-                           impr_build_shield_cost(destcity->production.value.building)
-                           - destcity->shield_stock);
-  } else {
-    *help_build_possible = FALSE;
-    return g_strdup(_("Help build _Wonder"));
+  if (pCaravan_Dlg) {
+    is_unit_move_blocked = FALSE;
+    popdown_window_group_dialog(pCaravan_Dlg->pBeginWidgetList,
+				pCaravan_Dlg->pEndWidgetList);
+    FC_FREE(pCaravan_Dlg);
+    flush_dirty();
   }
 }
 
-/****************************************************************
-  Open caravan dialog
-*****************************************************************/
-void popup_caravan_dialog(struct unit *punit,
-			  struct city *phomecity, struct city *pdestcity)
+/**************************************************************************
+  Popup a dialog giving a player choices when their caravan arrives at
+  a city (other than its home city).  Example:
+    - Establish trade route.
+    - Help build wonder.
+    - Keep moving.
+**************************************************************************/
+void popup_caravan_dialog(struct unit *pUnit,
+			  struct city *pHomecity, struct city *pDestcity)
 {
-  char title_buf[128], buf[128];
-  bool can_establish, can_trade, can_wonder;
-  gchar *wonder;
-
-  fc_snprintf(title_buf, sizeof(title_buf),
-              /* TRANS: %s is a unit type */
-              _("Your %s Has Arrived"), unit_name_translation(punit));
-  fc_snprintf(buf, sizeof(buf),
-              _("Your %s from %s reaches the city of %s.\nWhat now?"),
-              unit_name_translation(punit),
-              city_name(phomecity), city_name(pdestcity));
+  struct widget *pWindow = NULL, *pBuf = NULL;
+  SDL_String16 *pStr;
+  struct CONTAINER *pCont;
+  char cBuf[128];
+  SDL_Rect area;
   
-  caravan_city_id=pdestcity->id; /* callbacks need these */
-  caravan_unit_id=punit->id;
-  
-  wonder = get_help_build_wonder_button_label(&can_wonder);
-  
-  can_trade = (unit_has_type_flag(punit, UTYF_TRADE_ROUTE)
-               && can_cities_trade(phomecity, pdestcity));
-  can_establish = can_trade
-  		  && can_establish_trade_route(phomecity, pdestcity);
+  if (pCaravan_Dlg) {
+    return;
+  }
 
-
-  caravan_dialog = popup_choice_dialog(GTK_WINDOW(toplevel),
-    title_buf, buf,
-    (can_establish ? _("Establish _Trade route") :
-    _("Enter Marketplace")),caravan_establish_trade_callback, NULL,
-    wonder,caravan_help_build_wonder_callback, NULL,
-    _("_Keep moving"), NULL, NULL,
-    NULL);
-
-  g_signal_connect(caravan_dialog, "destroy",
-		   G_CALLBACK(caravan_destroy_callback), NULL);
+  caravan_unit_id=pUnit->id;
+  caravan_city_id=pDestcity->id;
   
-  if (!can_trade) {
-    choice_dialog_button_set_sensitive(caravan_dialog, 0, FALSE);
+  pCont = fc_calloc(1, sizeof(struct CONTAINER));
+  pCont->id0 = pUnit->id;
+  pCont->id1 = pDestcity->id;
+  
+  pCaravan_Dlg = fc_calloc(1, sizeof(struct SMALL_DLG));
+  is_unit_move_blocked = TRUE;
+      
+  fc_snprintf(cBuf, sizeof(cBuf), _("Your %s has arrived at %s"),
+              unit_name_translation(pUnit), city_name(pDestcity));
+
+  /* window */
+  pStr = create_str16_from_char(cBuf, adj_font(12));
+  pStr->style |= TTF_STYLE_BOLD;
+  
+  pWindow = create_window_skeleton(NULL, pStr, 0);
+    
+  pWindow->action = caravan_dlg_window_callback;
+  set_wstate(pWindow, FC_WS_NORMAL);
+  
+  add_to_gui_list(ID_CARAVAN_DLG_WINDOW, pWindow);
+  pCaravan_Dlg->pEndWidgetList = pWindow;
+
+  area = pWindow->area;
+  area.h = MAX(area.h, adj_size(2));
+  
+  /* ---------- */
+  if (unit_has_type_flag(pUnit, UTYF_TRADE_ROUTE)
+      && can_cities_trade(pHomecity, pDestcity))
+  {
+    int revenue = get_caravan_enter_city_trade_bonus(pHomecity, pDestcity);
+    
+    if (can_establish_trade_route(pHomecity, pDestcity)) {
+      fc_snprintf(cBuf, sizeof(cBuf),
+                  _("Establish Trade route with %s ( %d R&G + %d trade )"),
+                  city_name(pHomecity),
+                  revenue,
+                  trade_between_cities(pHomecity, pDestcity));
+    } else {
+      revenue = (revenue + 2) / 3;
+      fc_snprintf(cBuf, sizeof(cBuf),
+		_("Enter Marketplace ( %d R&G bonus )"), revenue);
+    }
+
+    create_active_iconlabel(pBuf, pWindow->dst, pStr,
+	    cBuf, caravan_establish_trade_callback);
+    pBuf->data.cont = pCont;
+    set_wstate(pBuf, FC_WS_NORMAL);
+
+    add_to_gui_list(ID_LABEL, pBuf);
+    
+    area.w = MAX(area.w, pBuf->size.w);
+    area.h += pBuf->size.h;
   }
   
-  if (!can_wonder) {
-    choice_dialog_button_set_sensitive(caravan_dialog, 1, FALSE);
+  /* ---------- */
+  if (unit_can_help_build_wonder(pUnit, pDestcity)) {
+        
+    create_active_iconlabel(pBuf, pWindow->dst, pStr,
+	_("Help build Wonder"), caravan_help_build_wonder_callback);
+    
+    pBuf->data.cont = pCont;
+    set_wstate(pBuf, FC_WS_NORMAL);
+  
+    add_to_gui_list(ID_LABEL, pBuf);
+    
+    area.w = MAX(area.w, pBuf->size.w);
+    area.h += pBuf->size.h;
   }
-  g_free(wonder);
+  /* ---------- */
+  
+  create_active_iconlabel(pBuf, pWindow->dst, pStr,
+	    _("Keep moving"), exit_caravan_dlg_callback);
+  
+  pBuf->data.cont = pCont;
+  set_wstate(pBuf, FC_WS_NORMAL);
+  set_wflag(pBuf, WF_FREE_DATA);
+  pBuf->key = SDLK_ESCAPE;
+  
+  add_to_gui_list(ID_LABEL, pBuf);
+    
+  area.w = MAX(area.w, pBuf->size.w);
+  area.h += pBuf->size.h;
+  /* ---------- */
+  pCaravan_Dlg->pBeginWidgetList = pBuf;
+  
+  /* setup window size and start position */
+  
+  resize_window(pWindow, NULL, NULL,
+                (pWindow->size.w - pWindow->area.w) + area.w,
+                (pWindow->size.h - pWindow->area.h) + area.h);
+  
+  area = pWindow->area;
+  
+  auto_center_on_focus_unit();
+  put_window_near_map_tile(pWindow, pWindow->size.w, pWindow->size.h,
+                           unit_tile(pUnit));
+
+  /* setup widget size and start position */
+    
+  pBuf = pWindow->prev;
+  setup_vertical_widgets_position(1,
+	area.x,
+  	area.y + 1, area.w, 0,
+	pCaravan_Dlg->pBeginWidgetList, pBuf);
+  /* --------------------- */
+  /* redraw */
+  redraw_group(pCaravan_Dlg->pBeginWidgetList, pWindow, 0);
+
+  widget_flush(pWindow);
 }
 
-/****************************************************************
-  Returns whether the caravan dialog is open, and sets 
-  caravan id and destination city id, if they are not NULL.
-*****************************************************************/
-bool caravan_dialog_is_open(int* unit_id, int* city_id)
+/**************************************************************************
+  Is there currently a caravan dialog open?  This is important if there
+  can be only one such dialog at a time; otherwise return FALSE.
+**************************************************************************/
+bool caravan_dialog_is_open(int *unit_id, int *city_id)
 {
   if (unit_id) {
     *unit_id = caravan_unit_id;
@@ -151,17 +253,14 @@ bool caravan_dialog_is_open(int* unit_id, int* city_id)
   if (city_id) {
     *city_id = caravan_city_id;
   }
-  return caravan_dialog != NULL;
+
+  return pCaravan_Dlg != NULL;
 }
 
-/****************************************************************
+/**************************************************************************
   Updates caravan dialog
-****************************************************************/
+**************************************************************************/
 void caravan_dialog_update(void)
 {
-  bool can_help;
-  gchar *buf = get_help_build_wonder_button_label(&can_help);
-  choice_dialog_button_set_label(caravan_dialog, 1, buf);
-  choice_dialog_button_set_sensitive(caravan_dialog, 1, can_help);
-  g_free(buf);
+  /* PORT ME */
 }

@@ -11,18 +11,28 @@
    GNU General Public License for more details.
 ***********************************************************************/
 
+/**********************************************************************
+                          colors.h  -  description
+                             -------------------
+    begin                : Mon Jul 15 2002
+    copyright            : (C) 2002 by Rafał Bursig
+    email                : Rafał Bursig <bursig@poczta.fm>
+ **********************************************************************/
+
 #ifndef FC__COLORS_H
 #define FC__COLORS_H
 
-extern "C" {
-#include "colors_g.h"
-}
+#include "SDL/SDL.h"
+#include "themecolors.h"
 
-// Qt
-#include "QColor"
+#include "colors_g.h"
 
 struct color {
-  QColor qcolor;
+  SDL_Color *color;
 };
 
-#endif /* FC__COLORS_H */
+struct color *color_alloc_rgba(int r, int g, int b, int a);
+SDL_Color *get_theme_color(enum theme_color themecolor);
+SDL_Color *get_game_color(enum color_std stdcolor);
+
+#endif	/* FC__COLORS_H */

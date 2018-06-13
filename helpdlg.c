@@ -1,4 +1,4 @@
-/********************************************************************** 
+/**********************************************************************
  Freeciv - Copyright (C) 1996 - A Kjeldberg, L Gregersen, P Unold
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -15,1578 +15,2082 @@
 #include <fc_config.h>
 #endif
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <math.h> /* sqrt */
-
-#include <gtk/gtk.h>
-#include "gtkpixcomm.h"
+#include "SDL/SDL.h"
 
 /* utility */
 #include "fcintl.h"
-#include "mem.h"
-#include "shared.h"
-#include "support.h"
+#include "log.h"
 
 /* common */
-#include "city.h"
+#include "game.h"
 #include "government.h"
 #include "movement.h"
-#include "specialist.h"
-#include "tech.h"
-#include "unit.h"
-#include "map.h"
-#include "version.h"
 
 /* client */
 #include "client_main.h"
-#include "climisc.h"
+#include "helpdata.h"
+
+/* gui-sdl */
 #include "colors.h"
 #include "graphics.h"
+#include "gui_id.h"
 #include "gui_main.h"
-#include "gui_stuff.h"
-#include "helpdata.h"
-#include "options.h"
-#include "tilespec.h"
+#include "gui_tilespec.h"
+#include "mapview.h"
+#include "repodlgs.h"
+#include "sprite.h"
+#include "themespec.h"
+#include "widget.h"
 
 #include "helpdlg.h"
 
-#define TECH_TREE_DEPTH         20
+static struct ADVANCED_DLG *pHelpDlg = NULL;
 
-/*
- * Globals.
- */
-static GtkWidget *help_dialog_shell;
-static GtkWidget *help_view_sw;
-
-static GtkWidget *help_view;
-
-static GtkWidget *help_frame;
-static GtkTextBuffer *help_text;
-static GtkWidget *help_text_sw;
-static GtkWidget *help_vbox;
-static GtkWidget *help_tile;
-static GtkWidget *help_box;
-static GtkWidget *help_itable;
-static GtkWidget *help_wtable;
-static GtkWidget *help_utable;
-static GtkWidget *help_ttable;
-static GtkWidget *help_btable;
-static GtkWidget *help_rtable;
-static GtkWidget *help_tree;
-static GtkTreeStore *tstore;
-
-static GtkWidget *help_tree_sw;
-static GtkWidget *help_tree_expand;
-static GtkWidget *help_tree_collapse;
-static GtkWidget *help_tree_buttons_hbox;
-static GtkWidget *help_ilabel[6];
-static GtkWidget *help_wlabel[6];
-static GtkWidget *help_ulabel[5][5];
-static GtkWidget *help_tlabel[4][5];
-static GtkWidget *help_blabel[4];
-static GtkWidget *help_rlabel[4];
-
-static bool help_advances[A_LAST];
-
-static GPtrArray *help_history;
-static int	  help_history_pos;
-
-
-static const char *help_ilabel_name[6] =
-{ N_("Cost:"), NULL, N_("Upkeep:"), NULL, N_("Requirement:"), NULL };
-
-static const char *help_wlabel_name[6] =
-{ N_("Cost:"), NULL, N_("Requirement:"), NULL, N_("Obsolete by:"), NULL };
-
-static const char *help_ulabel_name[5][5] =
-{
-    { N_("Cost:"),		NULL, NULL, N_("Attack:"),	NULL },
-    { N_("Defense:"),		NULL, NULL, N_("Move:")	,	NULL },
-    { N_("FirePower:"),		NULL, NULL, N_("Hitpoints:"),	NULL },
-    { N_("Basic Upkeep:"),	NULL, NULL, N_("Vision:"),	NULL },
-    { N_("Requirement:"),	NULL, NULL, N_("Obsolete by:"),	NULL }
+struct TECHS_BUTTONS {
+  struct widget *pTargets[6], *pSub_Targets[6];
+  struct widget *pRequirementButton[2], *pSub_Req[4];
+  struct widget *pDock;
+  bool show_tree;
+  bool show_full_tree;
 };
 
-static const char *help_tlabel_name[4][5] =
-{
-    { N_("Move/Defense:"),	NULL, NULL, N_("Food/Res/Trade:"),	NULL },
-    { N_("Resources:"),		NULL, NULL, NULL,			NULL },
-    { N_("Irrig. Rslt/Time:"),	NULL, NULL, N_("Mine Rslt/Time:"),	NULL },
-    { N_("Trans. Rslt/Time:"),	NULL, NULL, NULL,                       NULL }
+struct UNITS_BUTTONS {
+  struct widget *pObsoleteByButton;
+  struct widget *pRequirementButton;
+  struct widget *pDock;
 };
 
-static const char *help_blabel_name[4] =
-/* TRANS: Label for build cost for bases in help. Will be followed by
- * something like "3 MP" (where MP = Movement Points) */
-{ N_("Build:"), NULL,
-/* TRANS: Base conflicts in help. Will be followed by a list of bases
- * that can't be built on the same tile as this one. */
-  N_("Conflicts with:"), NULL };
+enum help_page_type current_help_dlg = HELP_LAST;
 
-static const char *help_rlabel_name[4] =
-/* TRANS: Label for build cost for roads in help. Will be followed by
- * something like "3 MP" (where MP = Movement Points) */
-{ N_("Build:"), NULL,
-/* TRANS: Road bonus in help. Will be followed by food/production/trade
- * stats like "0/0/+1", "0/+50%/0" */
-  N_("Bonus (F/P/T):"), NULL };
+static const int bufsz = 8192;
 
+static int change_tech_callback(struct widget *pWidget);
 
-#define REQ_LABEL_NONE _("?tech:None")
-#define REQ_LABEL_NEVER _("(Never)")
-
-static void create_help_dialog(void);
-static void help_update_dialog(const struct help_item *pitem);
-static void create_help_page(enum help_page_type type);
-
-static void select_help_item_string(const char *item,
-				    enum help_page_type htype);
-static void help_command_update(void);
-static void help_command_callback(GtkWidget *w, gint response_id);
-
-/****************************************************************
-  Set topic specific title for help_frame
-*****************************************************************/
-static void set_title_topic(char *topic)
+/**************************************************************************
+  Open Help Browser without any specific topic in mind
+**************************************************************************/
+void popup_help_browser(void)
 {
-  if (strcmp(topic, _(HELP_ABOUT_ITEM)) == 0) {
-    gtk_frame_set_label(GTK_FRAME(help_frame), freeciv_name_version());
-  } else {
-    gtk_frame_set_label(GTK_FRAME(help_frame), topic);
-  }
-  return;
+  popup_tech_info(A_NONE);
 }
 
-/****************************************************************
-  Close help dialog
-*****************************************************************/
-void popdown_help_dialog(void)
-{
-  if(help_dialog_shell) {
-    gtk_widget_destroy(help_dialog_shell);
-  }
-}
+/**************************************************************************
+  Popup the help dialog to get help on the given string topic.  Note that
+  the topic may appear in multiple sections of the help (it may be both
+  an improvement and a unit, for example).
 
-/****************************************************************
-  Popup help dialog for given item of given type.
-*****************************************************************/
-void popup_help_dialog_typed(const char *item, enum help_page_type htype)
-{
-  if(!help_dialog_shell) {
-    create_help_dialog();
-    gtk_set_relative_position(toplevel, help_dialog_shell, 10, 10);
-  }
-  gtk_window_present(GTK_WINDOW(help_dialog_shell));
-
-  select_help_item_string(item, htype);
-}
-
-
-/****************************************************************
-Not sure if this should call Q_(item) as it does, or whether all
-callers of this function should do so themselves... --dwp
-*****************************************************************/
+  The string will be untranslated.
+**************************************************************************/
 void popup_help_dialog_string(const char *item)
 {
   popup_help_dialog_typed(Q_(item), HELP_ANY);
 }
 
 /**************************************************************************
-Called by help_update_tech and itself
-Creates a node in the given tree for the given tech, and creates child
-nodes for any children it has up to levels deep. These are then expanded
-if they are less than expanded_levels deep. Avoids generating redundant
-subtrees, so that if Literacy occurs twice in a tech tree, only the first
-will have children. Color codes the node based on when it will be
-discovered: red >2 turns, yellow 1 turn, green 0 turns (discovered).
+  Popup the help dialog to display help on the given string topic from
+  the given section.
+
+  The string will be translated.
 **************************************************************************/
-static void create_tech_tree(int tech, int levels, GtkTreeIter *parent)
+void popup_help_dialog_typed(const char *item, enum help_page_type eHPT)
 {
-  int	        bg;
-  int           turns_to_tech;
-  bool          original;
-  GtkTreeIter   l;
-  GValue        value = { 0, };
+  log_debug("popup_help_dialog_typed : PORT ME");
+}
 
-  if (advance_required(tech, AR_ONE) == A_LAST
-   && advance_required(tech, AR_TWO) == A_LAST) {
-    bg = COLOR_REQTREE_UNKNOWN;
-
-    gtk_tree_store_append(tstore, &l, parent);
-    help_advances[tech] = TRUE;
-
-    g_value_init(&value, G_TYPE_STRING);
-    g_value_set_static_string(&value, _("Removed"));
-    gtk_tree_store_set_value(tstore, &l, 0, &value);
-    g_value_unset(&value);
-
-    gtk_tree_store_set(tstore, &l,
-		       1, -1,
-		       2, tech,
-		       3, &get_color(tileset, bg)->color
-		       -1);
-    return;
+/**************************************************************************
+  Close the help dialog.
+**************************************************************************/
+void popdown_help_dialog(void)
+{
+  if (pHelpDlg)
+  {
+    popdown_window_group_dialog(pHelpDlg->pBeginWidgetList,
+                                           pHelpDlg->pEndWidgetList);
+    FC_FREE(pHelpDlg->pScroll);
+    FC_FREE(pHelpDlg);
+    current_help_dlg = HELP_LAST;
   }
+}
 
-  bg = COLOR_REQTREE_BACKGROUND;
-  switch (player_invention_state(client.conn.playing, tech)) {
-  case TECH_UNKNOWN:
-    bg = COLOR_REQTREE_UNKNOWN;
-    break;
-  case TECH_KNOWN:
-    bg = COLOR_REQTREE_KNOWN;
-    break;
-  case TECH_PREREQS_KNOWN:
-    bg = COLOR_REQTREE_PREREQS_KNOWN;
-    break;
+static int help_dlg_window_callback(struct widget *pWindow)
+{
+  return -1;
+}
+
+static int exit_help_dlg_callback(struct widget *pWidget)
+{
+  if (Main.event.button.button == SDL_BUTTON_LEFT) {
+    popdown_help_dialog();
+    flush_dirty();
   }
-  turns_to_tech = num_unknown_techs_for_goal(client.conn.playing, tech);
+  return -1;
+}
 
-  /* l is the original in the tree. */
-  original = !help_advances[tech];
+/* =============================================== */
 
-  gtk_tree_store_append(tstore, &l, parent);
-  help_advances[tech] = TRUE;
-
-  g_value_init(&value, G_TYPE_STRING);
-  g_value_set_static_string(&value, advance_name_for_player(client.conn.playing, tech));
-  gtk_tree_store_set_value(tstore, &l, 0, &value);
-  g_value_unset(&value);
-
-  gtk_tree_store_set(tstore, &l,
-		     1, turns_to_tech,
-		     2, tech,
-		     3, &get_color(tileset, bg)->color,
-		     -1);
-
-  if (--levels <= 0)
-      return;
-
-  if (original) {
-    /* only add children to orginals */
-    if (advance_required(tech, AR_ONE) != A_NONE)
-      create_tech_tree(advance_required(tech, AR_ONE), levels, &l);
-    if (advance_required(tech, AR_TWO) != A_NONE)
-      create_tech_tree(advance_required(tech, AR_TWO), levels, &l);
+static int change_gov_callback(struct widget *pWidget)
+{
+  if (Main.event.button.button == SDL_BUTTON_LEFT) {
+    popup_gov_info(MAX_ID - pWidget->ID);
   }
-  return;
+  return -1;
 }
 
-/**************************************************************************
-Selects the help page for the tech in the tree that was double clicked.
-**************************************************************************/
-static void help_tech_tree_activated_callback(GtkTreeView *view,
-					      GtkTreePath *path,
-					      GtkTreeViewColumn *col,
-					      gpointer data)
+void popup_gov_info(int gov)
 {
-  GtkTreeIter it;
-  gint tech;
-
-  gtk_tree_model_get_iter(GTK_TREE_MODEL(tstore), &it, path);
-  gtk_tree_model_get(GTK_TREE_MODEL(tstore), &it, 2, &tech, -1);
-  select_help_item_string(advance_name_for_player(client.conn.playing, tech), HELP_TECH);
 }
 
-/**************************************************************************
-Called when "Expand All" button is clicked
-**************************************************************************/
-static void help_tech_tree_expand_callback(GtkWidget *w, gpointer data)
+
+static int change_impr_callback(struct widget *pWidget)
 {
-  gtk_tree_view_expand_all(GTK_TREE_VIEW(data));
-}
-
-/**************************************************************************
-Called when "Collapse All" button is clicked
-**************************************************************************/
-static void help_tech_tree_collapse_callback(GtkWidget *w, gpointer data)
-{
-  gtk_tree_view_collapse_all(GTK_TREE_VIEW(data));
-}
-
-/**************************************************************************
-  Hyperlink clicked
-**************************************************************************/
-static void help_hyperlink_callback(GtkWidget *w)
-{
-  const char *s;
-  enum help_page_type type;
-
-  s=gtk_label_get_text(GTK_LABEL(w));
-  type=GPOINTER_TO_UINT(g_object_get_data(G_OBJECT(w), "page_type"));
-
-  /* FIXME: May be able to skip, or may need to modify, advances[A_NONE]
-     below, depending on which i18n is done elsewhere.
-  */
-  if (strcmp(s, REQ_LABEL_NEVER) != 0
-      && strcmp(s, skip_intl_qualifier_prefix(REQ_LABEL_NONE)) != 0
-      && strcmp(s, advance_name_translation(advance_by_number(A_NONE))) != 0)
-    select_help_item_string(s, type);
-}
-
-/**************************************************************************
-  Create new hyperlink button
-**************************************************************************/
-static GtkWidget *help_hyperlink_new(GtkWidget *label, enum help_page_type type)
-{
-  GtkWidget *button;
-
-  button = gtk_button_new();
-  gtk_button_set_relief(GTK_BUTTON(button), GTK_RELIEF_NONE);
-  gtk_widget_set_halign(label, GTK_ALIGN_CENTER);
-  gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
-  gtk_widget_set_name(label, "help_link");
-  gtk_container_add(GTK_CONTAINER(button), label);
-  gtk_widget_show(button);
-  g_signal_connect_swapped(button, "clicked",
-			   G_CALLBACK(help_hyperlink_callback), label);
-  g_object_set_data(G_OBJECT(label), "page_type", GUINT_TO_POINTER(type));
-  return button;
-}
-
-/**************************************************************************
-  Create new hyperlink button with text
-**************************************************************************/
-static GtkWidget *help_slink_new(const gchar *txt, enum help_page_type type)
-{
-  GtkWidget *button, *label;
-
-  label = gtk_label_new(txt);
-  gtk_widget_set_halign(label, GTK_ALIGN_CENTER);
-  gtk_widget_set_valign(label, GTK_ALIGN_CENTER);
-  button = help_hyperlink_new(label, type);
-
-  return button;
-}
-
-/**************************************************************************
-  Hide help box
-**************************************************************************/
-static void help_box_hide(void)
-{
-  gtk_widget_hide(help_box);
-
-  gtk_widget_hide(help_tile);
-
-  gtk_widget_hide(help_itable);
-  gtk_widget_hide(help_wtable);
-  gtk_widget_hide(help_utable);
-  gtk_widget_hide(help_ttable);
-  gtk_widget_hide(help_btable);
-  gtk_widget_hide(help_rtable);
- 
-  gtk_widget_hide(help_tile); /* FIXME: twice? */
-
-  gtk_widget_hide(help_vbox);
-  gtk_widget_hide(help_text_sw);
-
-  gtk_widget_hide(help_tree_sw);
-  gtk_widget_hide(help_tree_buttons_hbox);
-}
-
-/**************************************************************************
-  Completely destory help dialog
-**************************************************************************/
-static void help_destroy_callback(GtkWidget *w, gpointer data)
-{
-  g_ptr_array_free(help_history, TRUE);
-  help_dialog_shell = NULL;
-}
-
-/**************************************************************************
-  New topic activated from help dialog
-**************************************************************************/
-static void activated_topic(GtkTreeView *view, gpointer data)
-{
-  GtkTreePath *path;
-  GtkTreeViewColumn *col;
-  GtkTreeModel *model;
-  GtkTreeIter it;
-  struct help_item *pitem;
-
-  model = gtk_tree_view_get_model(view);
-
-  gtk_tree_view_get_cursor(view, &path, &col);
-  gtk_tree_model_get_iter(model, &it, path);
-  gtk_tree_path_free(path);
-
-  if (!path) {
-    return;
+  if (Main.event.button.button == SDL_BUTTON_LEFT) {
+    popup_impr_info(MAX_ID - pWidget->ID);
   }
+  return -1;
+}
+
+static void redraw_impr_info_dlg(void)
+{
+  SDL_Color bg_color = {255, 255, 255, 64};
+
+  struct widget *pWindow = pHelpDlg->pEndWidgetList;
+  struct UNITS_BUTTONS *pStore = (struct UNITS_BUTTONS *)pWindow->data.ptr;
+  SDL_Rect dst;
+
+  redraw_group(pWindow->prev, pWindow, FALSE);
+
+  dst.x = pStore->pDock->prev->size.x - adj_size(10);
+  dst.y = pStore->pDock->prev->size.y - adj_size(10);
+  dst.w = pWindow->size.w - (dst.x - pWindow->size.x) - adj_size(10);
+  dst.h = pWindow->size.h - (dst.y - pWindow->size.y) - adj_size(10);
+
+  SDL_FillRectAlpha(pWindow->dst->surface, &dst, &bg_color);
+  putframe(pWindow->dst->surface,
+           dst.x, dst.y, dst.x + dst.w, dst.y + dst.h,
+           get_theme_color(COLOR_THEME_HELPDLG_FRAME));
+
+  /*------------------------------------- */
+  redraw_group(pHelpDlg->pBeginWidgetList, pWindow->prev->prev, FALSE);
+  widget_flush(pWindow);
+}
+
+
+void popup_impr_info(Impr_type_id impr)
+{
+  SDL_Color bg_color = {255, 255, 255, 128};
+
+  struct widget *pWindow;
+  struct UNITS_BUTTONS *pStore;
+
+  struct widget *pCloseButton = NULL;
+  struct widget *pListToggleButton = NULL;
+  struct widget *pImprovementButton = NULL;
+  struct widget *pImprNameLabel = NULL;
+  struct widget *pCostLabel = NULL;
+  struct widget *pUpkeepLabel = NULL;
+  struct widget *pRequirementLabel = NULL;
+  struct widget *pRequirementLabel2 = NULL;
+  struct widget *pObsoleteByLabel = NULL;
+  struct widget *pObsoleteByLabel2 = NULL;
+  struct widget *pHelptextLabel = NULL;
   
-  gtk_tree_model_get(model, &it, 1, &pitem, -1);
+  struct widget *pDock;
+  SDL_String16 *pTitle, *pStr;
+  SDL_Surface *pSurf;
+  int h, start_x, start_y, impr_type_count;
+  bool created, text = FALSE;
+  int scrollbar_width = 0;
+  struct impr_type *pImpr_type;
+  char buffer[64000];
+  SDL_Rect area;
 
-  if (help_history_pos >= 0 &&
-      g_ptr_array_index(help_history, help_history_pos) == (gpointer) pitem) {
-    return;
+  if(current_help_dlg != HELP_IMPROVEMENT) {
+    popdown_help_dialog();
   }
 
-  help_update_dialog(pitem);
+  if (!pHelpDlg) {
+    SDL_Surface *pBackgroundTmpl, *pBackground, *pText, *pIcon;
+    SDL_Rect dst;
 
-  /* add to history. */
-  if (help_history_pos < help_history->len - 1) {
-    g_ptr_array_set_size(help_history, help_history_pos + 1);
-  }
-  help_history_pos++;
+    current_help_dlg = HELP_IMPROVEMENT;
+    created = TRUE;
+    
+    /* create dialog */
+    pHelpDlg = fc_calloc(1, sizeof(struct ADVANCED_DLG));
+    pStore = fc_calloc(1, sizeof(struct UNITS_BUTTONS));
 
-  g_ptr_array_add(help_history, (gpointer)pitem);
-  help_command_update();
-}
+    /* create window */
+    pTitle = create_str16_from_char(_("Help : Improvements"), adj_font(12));
+    pTitle->style |= TTF_STYLE_BOLD;
 
-/**************************************************************************
-  Create help dialog
-**************************************************************************/
-static void create_help_dialog(void)
-{
-  GtkWidget *hbox;
-  GtkWidget *button;
-  GtkWidget *text;
-  int	     i, j;
-  GtkCellRenderer   *rend;
-  GtkTreeViewColumn *col;
-  GArray            *array;
-  GtkTreeStore      *store;
-  GtkTreeSelection  *selection;
+    pWindow = create_window_skeleton(NULL, pTitle, WF_FREE_DATA);
+    pWindow->action = help_dlg_window_callback;
+    set_wstate(pWindow , FC_WS_NORMAL);
+    pWindow->data.ptr = (void *)pStore;
+    add_to_gui_list(ID_WINDOW, pWindow);
+    
+    pHelpDlg->pEndWidgetList = pWindow;
 
-  help_history = g_ptr_array_new();
-  help_history_pos = -1;
+    area = pWindow->area;
+    /* ------------------ */
 
-  help_dialog_shell = gtk_dialog_new_with_buttons(_("Freeciv Help Browser"),
-						  NULL,
-						  0,
-						  GTK_STOCK_GO_BACK,
-						  1,
-						  GTK_STOCK_GO_FORWARD,
-						  2,
-						  GTK_STOCK_CLOSE,
-						  GTK_RESPONSE_CLOSE,
-						  NULL);
-  setup_dialog(help_dialog_shell, toplevel);
-  gtk_dialog_set_default_response(GTK_DIALOG(help_dialog_shell),
-				  GTK_RESPONSE_CLOSE);
-  gtk_widget_set_name(help_dialog_shell, "Freeciv");
+    /* close button */
+    pCloseButton = create_themeicon(pTheme->Small_CANCEL_Icon, pWindow->dst,
+                                    WF_WIDGET_HAS_INFO_LABEL
+                                    | WF_RESTORE_BACKGROUND);
+    pCloseButton->info_label =
+        create_str16_from_char(_("Close Dialog (Esc)"), adj_font(12));
+    pCloseButton->action = exit_help_dlg_callback;
+    set_wstate(pCloseButton, FC_WS_NORMAL);
+    pCloseButton->key = SDLK_ESCAPE;
 
-  g_signal_connect(help_dialog_shell, "response",
-		   G_CALLBACK(help_command_callback), NULL);
-  g_signal_connect(help_dialog_shell, "destroy",
-		   G_CALLBACK(help_destroy_callback), NULL);
+    add_to_gui_list(ID_BUTTON, pCloseButton);
 
-  hbox = gtk_grid_new();
-  gtk_grid_set_column_spacing(GTK_GRID(hbox), 5);
-  gtk_container_add(GTK_CONTAINER(gtk_dialog_get_content_area(GTK_DIALOG(help_dialog_shell))), hbox);
-  gtk_widget_show(hbox);
+    /* ------------------ */
+    pDock = pCloseButton;
 
-  /* build tree store. */
-  store = gtk_tree_store_new(2, G_TYPE_STRING, G_TYPE_POINTER);
+    pStr = create_string16(NULL, 0, adj_font(10));
+    pStr->style |= (TTF_STYLE_BOLD | SF_CENTER);
 
-  array = g_array_new(FALSE, FALSE, sizeof(GtkTreeIter));
-  help_items_iterate(pitem) {
-    GtkTreeIter *it, *parent;
-    const char *s;
-    int depth;
+    /* background template for entries in scroll list */
+    pBackgroundTmpl = create_surf_alpha(adj_size(135), adj_size(40), SDL_SWSURFACE);
+    SDL_FillRect(pBackgroundTmpl, NULL, map_rgba(pBackgroundTmpl->format, bg_color));
+    putframe(pBackgroundTmpl,
+             0, 0, pBackgroundTmpl->w - 1, pBackgroundTmpl->h - 1,
+             get_theme_color(COLOR_THEME_HELPDLG_FRAME));
 
-    for (s = pitem->topic; *s == ' '; s++) {
-      /* nothing */
-    }
-    depth = s - pitem->topic;
+    impr_type_count = 0;
+    improvement_iterate(pImprove) {
+      
+      /* copy background surface */  
+      pBackground = SDL_DisplayFormatAlpha(pBackgroundTmpl);
+      
+      /* blit improvement name */
+      copy_chars_to_string16(pStr, improvement_name_translation(pImprove));
+      pText = create_text_surf_smaller_that_w(pStr, adj_size(100 - 4));
+      dst.x = adj_size(40) + (pBackground->w - pText->w - adj_size(40)) / 2;
+      dst.y = (pBackground->h - pText->h) / 2;
+      alphablit(pText, NULL, pBackground, &dst);
+      FREESURFACE(pText);
 
-    array = g_array_set_size(array, depth+1);
+      /* blit improvement icon */
+      pIcon = ResizeSurfaceBox(get_building_surface(pImprove),
+                               adj_size(36), adj_size(36), 1, TRUE, TRUE);
+      dst.x = adj_size(5);
+      dst.y = (pBackground->h - pIcon->h) / 2;
+      alphablit(pIcon, NULL, pBackground, &dst);
+      FREESURFACE(pIcon);
 
-    if (depth > 0) {
-      parent = &g_array_index(array, GtkTreeIter, depth-1);
-    } else {
-      parent = NULL;
-    }
+      pImprovementButton = create_icon2(pBackground, pWindow->dst,
+                                        WF_FREE_THEME | WF_RESTORE_BACKGROUND);
 
-    it = &g_array_index(array, GtkTreeIter, depth);
-    gtk_tree_store_append(store, it, parent);
+      set_wstate(pImprovementButton, FC_WS_NORMAL);
+      pImprovementButton->action = change_impr_callback;
+      add_to_gui_list(MAX_ID - improvement_number(pImprove), pImprovementButton);
 
-    gtk_tree_store_set(store, it, 0, pitem->topic, 1, pitem, -1);
-  } help_items_iterate_end;
-
-
-  /* create tree view. */
-  help_view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
-  g_object_unref(store);
-  gtk_tree_view_columns_autosize(GTK_TREE_VIEW(help_view));
-  gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(help_view), FALSE);
-
-  g_signal_connect(help_view, "cursor-changed",
-		   G_CALLBACK(activated_topic), NULL);
-
-  selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(help_view));
-  gtk_tree_selection_set_mode(selection, GTK_SELECTION_BROWSE);
-
-  rend = gtk_cell_renderer_text_new();
-  col = gtk_tree_view_column_new_with_attributes(NULL, rend, "text", 0, NULL);
-  gtk_tree_view_append_column(GTK_TREE_VIEW(help_view), col);
-
-  help_view_sw = gtk_scrolled_window_new(NULL, NULL);
-  gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(help_view_sw),
-  			  GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-  gtk_widget_set_size_request(help_view_sw, 190, -1);
-  gtk_container_add(GTK_CONTAINER(help_view_sw), help_view);
-  gtk_widget_show(help_view);
-  gtk_container_add(GTK_CONTAINER(hbox), help_view_sw);
-  gtk_widget_show(help_view_sw);
-
-  help_frame = gtk_frame_new("");
-  gtk_container_add(GTK_CONTAINER(hbox), help_frame);
-  gtk_widget_set_size_request(help_frame, 520, 350);
-  gtk_widget_show(help_frame);
-
-  help_box = gtk_grid_new();
-  gtk_grid_set_row_spacing(GTK_GRID(help_box), 5);
-  gtk_orientable_set_orientation(GTK_ORIENTABLE(help_box),
-                                 GTK_ORIENTATION_VERTICAL);
-  gtk_container_add(GTK_CONTAINER(help_frame), help_box);
-
-  help_tile = gtk_pixcomm_new(tileset_full_tile_width(tileset), tileset_full_tile_height(tileset));
-  gtk_container_add(GTK_CONTAINER(help_box), help_tile);
-
-  help_itable = gtk_grid_new();
-  gtk_container_add(GTK_CONTAINER(help_box), help_itable);
-
-  for (i=0; i<6; i++) {
-    help_ilabel[i] =
-	gtk_label_new(help_ilabel_name[i] ? _(help_ilabel_name[i]) : "");
-    gtk_widget_set_hexpand(help_ilabel[i], TRUE);
-
-    if (i==5) {
-      button = help_hyperlink_new(help_ilabel[i], HELP_TECH);
-      gtk_grid_attach(GTK_GRID(help_itable), button, i, 0, 1, 1);
-    } else {
-      gtk_grid_attach(GTK_GRID(help_itable), help_ilabel[i], i, 0, 1, 1);
-      gtk_widget_set_name(help_ilabel[i], "help_label");
-    }
-    gtk_widget_show(help_ilabel[i]);
-  }
-
-  help_wtable = gtk_grid_new();
-  gtk_container_add(GTK_CONTAINER(help_box), help_wtable);
-
-  for (i=0; i<6; i++) {
-    help_wlabel[i] =
-	gtk_label_new(help_wlabel_name[i] ? _(help_wlabel_name[i]) : "");
-    gtk_widget_set_hexpand(help_wlabel[i], TRUE);
-
-    if (i==3 || i==5) {
-      button = help_hyperlink_new(help_wlabel[i], HELP_TECH);
-      gtk_grid_attach(GTK_GRID(help_wtable), button, i, 0, 1, 1);
-    } else {
-      gtk_grid_attach(GTK_GRID(help_wtable), help_wlabel[i], i, 0, 1, 1);
-      gtk_widget_set_name(help_wlabel[i], "help_label");
-    }
-    gtk_widget_show(help_wlabel[i]);
-  }
-
-
-  help_utable = gtk_grid_new();
-  gtk_container_add(GTK_CONTAINER(help_box), help_utable);
-
-  for (i=0; i<5; i++)
-    for (j=0; j<5; j++) {
-      help_ulabel[j][i] =
-	  gtk_label_new(help_ulabel_name[j][i] ? _(help_ulabel_name[j][i]) : "");
-      gtk_widget_set_hexpand(help_ulabel[j][i], TRUE);
-
-      if (j==4 && (i==1 || i==4)) {
-	if (i==1)
-	  button = help_hyperlink_new(help_ulabel[j][i], HELP_TECH);
-	else
-	  button = help_hyperlink_new(help_ulabel[j][i], HELP_UNIT);
-
-        gtk_grid_attach(GTK_GRID(help_utable), button, i, j, 1, 1);
-      } else {
-        gtk_grid_attach(GTK_GRID(help_utable), help_ulabel[j][i],
-                        i, j, 1, 1);
-        gtk_widget_set_name(help_ulabel[j][i], "help_label");
+      if (++impr_type_count > 10) {
+        set_wflag(pImprovementButton, WF_HIDDEN);
       }
-      gtk_widget_show(help_ulabel[j][i]);
-    }
 
-
-  help_ttable = gtk_grid_new();
-  gtk_container_add(GTK_CONTAINER(help_box), help_ttable);
-
-  for (j=0; j<4; j++) {
-    for (i=0; i<5; i++) {
-      help_tlabel[j][i] =
-	  gtk_label_new(help_tlabel_name[j][i] ? _(help_tlabel_name[j][i]) : "");
-      gtk_widget_set_hexpand(help_tlabel[j][i], TRUE);
-      gtk_widget_set_name(help_tlabel[j][i], "help_label");
-
-      /* Ugly (but these numbers are hardcoded in help_update_terrain() too) */
-      if (j==1 && i==1) {
-          /* Extra wide cell for terrain specials */
-          gtk_grid_attach(GTK_GRID(help_ttable), help_tlabel[j][i],
-                          i, j, 4, 1);
-          gtk_widget_show(help_tlabel[j][i]);
-          break; /* skip rest of row */
-      } else {
-          gtk_grid_attach(GTK_GRID(help_ttable), help_tlabel[j][i],
-                          i, j, 1, 1);
-          gtk_widget_show(help_tlabel[j][i]);
-      }
-    }
-  }
-
-  help_btable = gtk_grid_new();
-  gtk_container_add(GTK_CONTAINER(help_box), help_btable);
-
-  for (i = 0; i < 4; i++) {
-    help_blabel[i] =
-      gtk_label_new(help_blabel_name[i] ? _(help_blabel_name[i]) : "");
-    gtk_widget_set_hexpand(help_blabel[i], TRUE);
-    gtk_grid_attach(GTK_GRID(help_btable), help_blabel[i], i, 0, 1, 1);
-    gtk_widget_set_name(help_blabel[i], "help_label");
-    gtk_widget_show(help_blabel[i]);
-  }
-
-  help_rtable = gtk_grid_new();
-  gtk_container_add(GTK_CONTAINER(help_box), help_rtable);
-
-  for (i = 0; i < 4; i++) {
-    help_rlabel[i] =
-      gtk_label_new(help_rlabel_name[i] ? _(help_rlabel_name[i]) : "");
-    gtk_widget_set_hexpand(help_rlabel[i], TRUE);
-    gtk_grid_attach(GTK_GRID(help_rtable), help_rlabel[i], i, 0, 1, 1);
-    gtk_widget_set_name(help_rlabel[i], "help_label");
-    gtk_widget_show(help_rlabel[i]);
-  }
-
-  help_vbox = gtk_grid_new();
-  gtk_grid_set_row_spacing(GTK_GRID(help_vbox), 1);
-  gtk_orientable_set_orientation(GTK_ORIENTABLE(help_vbox),
-                                 GTK_ORIENTATION_VERTICAL);
-  gtk_container_set_border_width(GTK_CONTAINER(help_vbox), 5);
-  gtk_container_add(GTK_CONTAINER(help_box), help_vbox);
-					     
-  text = gtk_text_view_new();
-  gtk_widget_set_hexpand(text, TRUE);
-  gtk_widget_set_vexpand(text, TRUE);
-  gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(text), FALSE);
-  gtk_text_view_set_editable(GTK_TEXT_VIEW(text), FALSE);
-  gtk_container_set_border_width(GTK_CONTAINER(text), 5);
-  gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(text), GTK_WRAP_WORD);
-  gtk_widget_set_name(text, "help_text");
-  help_text = gtk_text_view_get_buffer(GTK_TEXT_VIEW(text));
-  gtk_widget_show(text);
-
-  help_text_sw = gtk_scrolled_window_new(NULL, NULL);
-  gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(help_text_sw),
-				 GTK_POLICY_AUTOMATIC, GTK_POLICY_ALWAYS);
-  gtk_container_add(GTK_CONTAINER(help_text_sw), text);
-  gtk_container_add(GTK_CONTAINER(help_box), help_text_sw);
-
-  /* build tech store. */
-  tstore = gtk_tree_store_new(4,
-			      G_TYPE_STRING,	/* tech name */
-			      G_TYPE_INT,	/* turns to tech */
-			      G_TYPE_INT,	/* tech id */
-			      GDK_TYPE_RGBA);	/* color */
-  help_tree = gtk_tree_view_new_with_model(GTK_TREE_MODEL(tstore));
-  gtk_widget_set_hexpand(help_tree, TRUE);
-  gtk_widget_set_vexpand(help_tree, TRUE);
-  g_object_unref(tstore);
-  gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(help_tree), FALSE);
-
-  g_signal_connect(help_tree, "row_activated",
-		   G_CALLBACK(help_tech_tree_activated_callback), NULL);
-
-
-  col = gtk_tree_view_column_new();
-
-  rend = gtk_cell_renderer_text_new();
-  g_object_set(rend, "weight", "bold", NULL);
-  gtk_tree_view_column_pack_start(col, rend, TRUE);
-  gtk_tree_view_column_set_attributes(col, rend,
-				      "text", 0,
-				      "background-rgba", 3,
-				      NULL);
-  rend = gtk_cell_renderer_text_new();
-  g_object_set(rend, "weight", "bold", "xalign", 1.0, NULL);
-  gtk_tree_view_column_pack_start(col, rend, FALSE);
-  gtk_tree_view_column_set_attributes(col, rend,
-				      "text", 1,
-				      "background-rgba", 3,
-				      NULL);
-
-  gtk_tree_view_append_column(GTK_TREE_VIEW(help_tree), col);
-
-
-  help_tree_sw = gtk_scrolled_window_new(NULL, NULL);
-  gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(help_tree_sw),
-				 GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-  gtk_container_add(GTK_CONTAINER(help_tree_sw), help_tree);
-  gtk_widget_show(help_tree);
-  gtk_container_add(GTK_CONTAINER(help_box), help_tree_sw);
-
-  help_tree_expand =
-	gtk_button_new_with_label(_("Expand All"));
-  help_tree_collapse = gtk_button_new_with_label(_("Collapse All"));
-
-  g_signal_connect(help_tree_expand, "clicked",
-		   G_CALLBACK(help_tech_tree_expand_callback), help_tree);
-  g_signal_connect(help_tree_collapse, "clicked",
-		   G_CALLBACK(help_tech_tree_collapse_callback), help_tree);
-
-  help_tree_buttons_hbox = gtk_button_box_new(GTK_ORIENTATION_HORIZONTAL);
-  gtk_container_add(GTK_CONTAINER(help_tree_buttons_hbox), help_tree_expand);
-  gtk_container_add(GTK_CONTAINER(help_tree_buttons_hbox), help_tree_collapse);
-  gtk_container_add(GTK_CONTAINER(help_box), help_tree_buttons_hbox);
-  gtk_widget_show_all(help_tree_buttons_hbox);
-
-  create_help_page(HELP_TEXT);
-  return;
-}
-
-
-
-/**************************************************************************
-  Create page for help type
-**************************************************************************/
-static void create_help_page(enum help_page_type type)
-{
-}
-
-/**************************************************************************
-  Display updated help about improvement
-**************************************************************************/
-static void help_update_improvement(const struct help_item *pitem,
-				    char *title)
-{
-  char buf[8192];
-  struct impr_type *imp = improvement_by_translated_name(title);
-
-  create_help_page(HELP_IMPROVEMENT);
-
-  if (imp  &&  !is_great_wonder(imp)) {
-    const char *req = skip_intl_qualifier_prefix(REQ_LABEL_NONE);
-    char req_buf[512];
-
-    sprintf(buf, "%d", impr_build_shield_cost(imp));
-    gtk_label_set_text(GTK_LABEL(help_ilabel[1]), buf);
-    sprintf(buf, "%d", imp->upkeep);
-    gtk_label_set_text(GTK_LABEL(help_ilabel[3]), buf);
-
-    /* FIXME: this should show ranges, negated reqs, and all the
-     * MAX_NUM_REQS reqs. 
-     * Currently it's limited to 1 req but this code is partially prepared
-     * to be extended.  Remember MAX_NUM_REQS is a compile-time
-     * definition. */
-    requirement_vector_iterate(&imp->reqs, preq) {
-      if (preq->negated) {
-        continue;
-      }
-      req = universal_name_translation(&preq->source, req_buf, sizeof(req_buf));
-      break;
-    } requirement_vector_iterate_end;
-    gtk_label_set_text(GTK_LABEL(help_ilabel[5]), req);
-/*    create_tech_tree(help_improvement_tree, 0, imp->tech_req, 3);*/
-  }
-  else {
-    gtk_label_set_text(GTK_LABEL(help_ilabel[1]), "0");
-    gtk_label_set_text(GTK_LABEL(help_ilabel[3]), "0");
-    gtk_label_set_text(GTK_LABEL(help_ilabel[5]), REQ_LABEL_NEVER);
-/*    create_tech_tree(help_improvement_tree, 0, advance_count(), 3);*/
-  }
-    if (get_building_sprite(tileset, imp)) {
-      struct sprite *sprite = get_building_sprite(tileset, imp);
-
-      gtk_pixcomm_set_from_sprite(GTK_PIXCOMM(help_tile), sprite);
-      gtk_widget_show(help_tile);
-    }
-
-  gtk_widget_show(help_itable);
-
-  helptext_building(buf, sizeof(buf), client.conn.playing, pitem->text, imp);
-  gtk_text_buffer_set_text(help_text, buf, -1);
-  gtk_widget_show(help_text_sw);
-}
-  
-/**************************************************************************
-  Display updated help about wonder
-**************************************************************************/
-static void help_update_wonder(const struct help_item *pitem,
-			       char *title)
-{
-  char buf[8192];
-  struct impr_type *imp = improvement_by_translated_name(title);
-
-  create_help_page(HELP_WONDER);
-
-  if (imp && is_great_wonder(imp)) {
-    int i;
-    char req_buf[512];
-
-    sprintf(buf, "%d", impr_build_shield_cost(imp));
-    gtk_label_set_text(GTK_LABEL(help_wlabel[1]), buf);
-
-    /* FIXME: this should show ranges, negated reqs, and all the
-     * MAX_NUM_REQS reqs. 
-     * Currently it's limited to 1 req but this code is partially prepared
-     * to be extended.  Remember MAX_NUM_REQS is a compile-time
-     * definition. */
-    i = 0;
-    requirement_vector_iterate(&imp->reqs, preq) {
-      if (preq->negated) {
-        continue;
-      }
-      gtk_label_set_text(GTK_LABEL(help_wlabel[3 + i]),
-			 universal_name_translation(&preq->source,
-					     req_buf, sizeof(req_buf)));
-      i++;
-      break;
-    } requirement_vector_iterate_end;
-    if (valid_advance(imp->obsolete_by)) {
-      gtk_label_set_text(GTK_LABEL(help_wlabel[5]),
-			 advance_name_for_player(client.conn.playing, advance_number(imp->obsolete_by)));
-    } else {
-      gtk_label_set_text(GTK_LABEL(help_wlabel[5]), REQ_LABEL_NEVER);
-    }
-/*    create_tech_tree(help_improvement_tree, 0, imp->tech_req, 3);*/
-  } else {
-    /* can't find wonder */
-    gtk_label_set_text(GTK_LABEL(help_wlabel[1]), "0");
-    gtk_label_set_text(GTK_LABEL(help_wlabel[3]), REQ_LABEL_NEVER);
-    gtk_label_set_text(GTK_LABEL(help_wlabel[5]), skip_intl_qualifier_prefix(REQ_LABEL_NONE));
-/*    create_tech_tree(help_improvement_tree, 0, advance_count(), 3); */
-  }
-    if (get_building_sprite(tileset, imp)) {
-      struct sprite *sprite = get_building_sprite(tileset, imp);
-
-      gtk_pixcomm_set_from_sprite(GTK_PIXCOMM(help_tile), sprite);
-      gtk_widget_show(help_tile);
-    }
-
-  gtk_widget_show(help_wtable);
-
-  helptext_building(buf, sizeof(buf), client.conn.playing, pitem->text, imp);
-  gtk_text_buffer_set_text(help_text, buf, -1);
-  gtk_widget_show(help_text_sw);
-}
-
-/**************************************************************************
-  Display updated help about unit type
-**************************************************************************/
-static void help_update_unit_type(const struct help_item *pitem,
-				  char *title)
-{
-  char buf[8192];
-  struct unit_type *utype = unit_type_by_translated_name(title);
-
-  create_help_page(HELP_UNIT);
-
-  if (utype) {
-    struct sprite *sprite;
-
-    sprintf(buf, "%d", utype_build_shield_cost(utype));
-    gtk_label_set_text(GTK_LABEL(help_ulabel[0][1]), buf);
-    sprintf(buf, "%d", utype->attack_strength);
-    gtk_label_set_text(GTK_LABEL(help_ulabel[0][4]), buf);
-    sprintf(buf, "%d", utype->defense_strength);
-    gtk_label_set_text(GTK_LABEL(help_ulabel[1][1]), buf);
-    sprintf(buf, "%s", move_points_text(utype->move_rate, TRUE));
-    gtk_label_set_text(GTK_LABEL(help_ulabel[1][4]), buf);
-    sprintf(buf, "%d", utype->firepower);
-    gtk_label_set_text(GTK_LABEL(help_ulabel[2][1]), buf);
-    sprintf(buf, "%d", utype->hp);
-    gtk_label_set_text(GTK_LABEL(help_ulabel[2][4]), buf);
-    gtk_label_set_text(GTK_LABEL(help_ulabel[3][1]),
-		       helptext_unit_upkeep_str(utype));
-    sprintf(buf, "%d", (int)sqrt((double)utype->vision_radius_sq));
-    gtk_label_set_text(GTK_LABEL(help_ulabel[3][4]), buf);
-    if (A_NEVER == utype->require_advance) {
-      gtk_label_set_text(GTK_LABEL(help_ulabel[4][1]), REQ_LABEL_NEVER);
-    } else {
-      gtk_label_set_text(GTK_LABEL(help_ulabel[4][1]),
-			 advance_name_for_player(client.conn.playing,
-				       advance_number(utype->require_advance)));
-    }
-/*    create_tech_tree(help_improvement_tree, 0, advance_number(utype->require_advance), 3);*/
-    if (U_NOT_OBSOLETED == utype->obsoleted_by) {
-      gtk_label_set_text(GTK_LABEL(help_ulabel[4][4]), skip_intl_qualifier_prefix(REQ_LABEL_NONE));
-    } else {
-      gtk_label_set_text(GTK_LABEL(help_ulabel[4][4]),
-			 utype_name_translation(utype->obsoleted_by));
-    }
-
-    helptext_unit(buf, sizeof(buf), client.conn.playing, pitem->text, utype);
-
-    gtk_text_buffer_set_text(help_text, buf, -1);
-    gtk_widget_show(help_text_sw);
-
-    sprite = get_unittype_sprite(tileset, utype, direction8_invalid(),
-                                 TRUE);
-    if (sprite != NULL) {
-      gtk_pixcomm_set_from_sprite(GTK_PIXCOMM(help_tile), sprite);
-      gtk_widget_show(help_tile);
-    }
-  } else {
-    gtk_label_set_text(GTK_LABEL(help_ulabel[0][1]), "0");
-    gtk_label_set_text(GTK_LABEL(help_ulabel[0][4]), "0");
-    gtk_label_set_text(GTK_LABEL(help_ulabel[1][1]), "0");
-    gtk_label_set_text(GTK_LABEL(help_ulabel[1][4]), "0");
-    gtk_label_set_text(GTK_LABEL(help_ulabel[2][1]), "0");
-    gtk_label_set_text(GTK_LABEL(help_ulabel[2][4]), "0");
-    gtk_label_set_text(GTK_LABEL(help_ulabel[3][1]), "0");
-    gtk_label_set_text(GTK_LABEL(help_ulabel[3][4]), "0");
-
-    gtk_label_set_text(GTK_LABEL(help_ulabel[4][1]), REQ_LABEL_NEVER);
-/*    create_tech_tree(help_improvement_tree, 0, A_LAST, 3);*/
-    gtk_label_set_text(GTK_LABEL(help_ulabel[4][4]), skip_intl_qualifier_prefix(REQ_LABEL_NONE));
-
-    gtk_text_buffer_set_text(help_text, buf, -1);
-    gtk_widget_show(help_text_sw);
-  }
-  gtk_widget_show(help_utable);
-}
-
-/**************************************************************************
-  Cut str to at max len bytes in a utf8 friendly way
-**************************************************************************/
-static char *fc_chomp(char *str, size_t len)
-{
-  gchar *i;
-
-  if (!str || !*str)
-    return str;
-
-  i = str + len;
-  for (i = g_utf8_find_prev_char(str, i);
-       (i && g_unichar_isspace(g_utf8_get_char(i)));
-       i = g_utf8_find_prev_char(str, i)) {
-    *i = '\0';
-  }
-  return str;
-}
-
-/**************************************************************************
-  Display updated help about tech
-**************************************************************************/
-static void help_update_tech(const struct help_item *pitem, char *title)
-{
-  int i, j;
-  GtkWidget *w, *hbox;
-  char buf[8192];
-  struct advance *padvance = advance_by_translated_name(title);
-
-  create_help_page(HELP_TECH);
-
-  if (padvance  &&  !is_future_tech(i = advance_number(padvance))) {
-    GtkTextBuffer *txt;
-    size_t len;
-
-    gtk_container_foreach(GTK_CONTAINER(help_vbox), (GtkCallback)gtk_widget_destroy, NULL);
-
-    for (j = 0; j < ARRAY_SIZE(help_advances); j++) {
-      help_advances[j] = FALSE;
-    }
-    gtk_tree_store_clear(tstore);
-    create_tech_tree(i, TECH_TREE_DEPTH, NULL);
-    gtk_widget_show(help_tree_sw);
-    gtk_widget_show(help_tree_buttons_hbox);
-
-    helptext_advance(buf, sizeof(buf), client.conn.playing, pitem->text, i);
-    len = strlen(buf);
-    fc_chomp(buf, len);
-
-    if (get_tech_sprite(tileset, i)) {
-      struct sprite *sprite = get_tech_sprite(tileset, i);
-
-      gtk_pixcomm_set_from_sprite(GTK_PIXCOMM(help_tile), sprite);
-      gtk_widget_show(help_tile);
-    }
-
-    w = gtk_text_view_new();
-    gtk_widget_set_hexpand(w, TRUE);
-    gtk_widget_set_vexpand(w, TRUE);
-    gtk_text_view_set_cursor_visible(GTK_TEXT_VIEW(w), FALSE);
-    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(w), GTK_WRAP_WORD);
-    gtk_widget_set_name(w, "help_text");
-    gtk_container_set_border_width(GTK_CONTAINER(w), 5);
-    gtk_text_view_set_editable(GTK_TEXT_VIEW(w), FALSE);
-    gtk_container_add(GTK_CONTAINER(help_vbox), w);
-    gtk_widget_show(w);
-
-    txt = gtk_text_view_get_buffer(GTK_TEXT_VIEW(w));
-    if (txt) {
-      gtk_text_buffer_set_text(txt, buf, -1);
-    }
-
-    w = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
-    g_object_set(w, "margin", 5, NULL);
-    gtk_widget_set_hexpand(w, TRUE);
-    gtk_widget_set_vexpand(w, TRUE);
-    gtk_container_add(GTK_CONTAINER(help_vbox), w);
-    gtk_widget_show(w);
-
-    governments_iterate(pgov) {
-      /* FIXME: need a more general mechanism for this, since this
-       * helptext needs to be shown in all possible req source types. */
-      requirement_vector_iterate(&pgov->reqs, preq) {
-	if (VUT_ADVANCE == preq->source.kind
-	    && preq->source.value.advance == padvance) {
-	  hbox = gtk_grid_new();
-	  gtk_container_add(GTK_CONTAINER(help_vbox), hbox);
-	  w = gtk_label_new(_("Allows"));
-	  gtk_container_add(GTK_CONTAINER(hbox), w);
-	  w = help_slink_new(government_name_translation(pgov),
-                             HELP_GOVERNMENT);
-	  gtk_container_add(GTK_CONTAINER(hbox), w);
-	  gtk_widget_show_all(hbox);
-	}
-      } requirement_vector_iterate_end;
-    } governments_iterate_end;
-
-    improvement_iterate(pimprove) {
-      requirement_vector_iterate(&pimprove->reqs, preq) {
-	if (VUT_ADVANCE == preq->source.kind
-	    && preq->source.value.advance == padvance) {
-	  hbox = gtk_grid_new();
-	  gtk_container_add(GTK_CONTAINER(help_vbox), hbox);
-	  w = gtk_label_new(_("Allows"));
-	  gtk_container_add(GTK_CONTAINER(hbox), w);
-	  w = help_slink_new(improvement_name_translation(pimprove),
-			     is_great_wonder(pimprove)
-			     ? HELP_WONDER
-			     : HELP_IMPROVEMENT);
-	  gtk_container_add(GTK_CONTAINER(hbox), w);
-	  gtk_widget_show_all(hbox);
-	}
-      } requirement_vector_iterate_end;
-      if (padvance == pimprove->obsolete_by) {
-        hbox = gtk_grid_new();
-        gtk_container_add(GTK_CONTAINER(help_vbox), hbox);
-        w = gtk_label_new(_("Obsoletes"));
-        gtk_container_add(GTK_CONTAINER(hbox), w);
-        w = help_slink_new(improvement_name_translation(pimprove),
-			   is_great_wonder(pimprove)
-			   ? HELP_WONDER
-			   : HELP_IMPROVEMENT);
-        gtk_container_add(GTK_CONTAINER(hbox), w);
-        gtk_widget_show_all(hbox);
-      }
     } improvement_iterate_end;
 
-    unit_type_iterate(punittype) {
-      if (padvance != punittype->require_advance) {
-	continue;
+    FREESURFACE(pBackgroundTmpl);
+
+    pHelpDlg->pEndActiveWidgetList = pDock->prev;
+    pHelpDlg->pBeginWidgetList = pImprovementButton ? pImprovementButton : pCloseButton;
+    pHelpDlg->pBeginActiveWidgetList = pHelpDlg->pBeginWidgetList;
+
+    if (impr_type_count > 10) {
+      pHelpDlg->pActiveWidgetList = pHelpDlg->pEndActiveWidgetList;
+      scrollbar_width = create_vertical_scrollbar(pHelpDlg, 1, 10, TRUE, TRUE);
+    }
+
+    /* toggle techs list button */
+    pListToggleButton = create_themeicon_button_from_chars(pTheme->UP_Icon,
+                                                           pWindow->dst,
+                                                           _("Improvements"),
+                                                           adj_font(10), 0);
+#if 0
+   pListToggleButton->action = toggle_full_tree_mode_in_help_dlg_callback;
+   if (pStore->show_tree) {
+      set_wstate(pListToggleButton, FC_WS_NORMAL);
+   }
+#endif
+
+    widget_resize(pListToggleButton, adj_size(160), adj_size(15));
+    pListToggleButton->string16->fgcol = *get_theme_color(COLOR_THEME_HELPDLG_TEXT);
+
+    add_to_gui_list(ID_BUTTON, pListToggleButton);
+
+    pDock = pListToggleButton;
+    pStore->pDock = pDock;
+  } else {
+    created = FALSE;
+    scrollbar_width = (pHelpDlg->pScroll ? pHelpDlg->pScroll->pUp_Left_Button->size.w : 0);
+    pWindow = pHelpDlg->pEndWidgetList;
+    pStore = (struct UNITS_BUTTONS *)pWindow->data.ptr;
+    pDock = pStore->pDock;
+
+    area = pWindow->area;
+
+    /* delete any previous list entries */
+    if (pDock != pHelpDlg->pBeginWidgetList) {
+      del_group_of_widgets_from_gui_list(pHelpDlg->pBeginWidgetList,
+                                         pDock->prev);
+      pHelpDlg->pBeginWidgetList = pDock;
+    }
+  }
+
+  pImpr_type = improvement_by_number(impr);
+
+  pSurf = get_building_surface(pImpr_type);
+  pImprNameLabel = create_iconlabel_from_chars(
+                     ResizeSurfaceBox(pSurf, adj_size(64), adj_size(48), 1, TRUE, TRUE),
+                     pWindow->dst, city_improvement_name_translation(NULL, pImpr_type),
+                     adj_font(24), WF_FREE_THEME);
+
+  pImprNameLabel->ID = ID_LABEL;
+  DownAdd(pImprNameLabel, pDock);
+  pDock = pImprNameLabel;
+
+  if (!improvement_has_flag(pImpr_type, IF_GOLD)) {
+    sprintf(buffer, "%s %d", _("Cost:"), impr_build_shield_cost(pImpr_type));
+    pCostLabel = create_iconlabel_from_chars(NULL, pWindow->dst,
+                                             buffer, adj_font(12), 0);
+    pCostLabel->ID = ID_LABEL;
+    DownAdd(pCostLabel, pDock);
+    pDock = pCostLabel;
+    
+    if (!is_wonder(pImpr_type)) {
+      sprintf(buffer, "%s %d", _("Upkeep:"), pImpr_type->upkeep);
+      pUpkeepLabel = create_iconlabel_from_chars(NULL, pWindow->dst,
+                                                 buffer, adj_font(12), 0);
+      pUpkeepLabel->ID = ID_LABEL;
+      DownAdd(pUpkeepLabel, pDock);
+      pDock = pUpkeepLabel;
+    }
+  }
+  
+  /* requirement */
+  pRequirementLabel = create_iconlabel_from_chars(NULL, pWindow->dst,
+                                                  _("Requirement:"),
+                                                  adj_font(12), 0);
+  pRequirementLabel->ID = ID_LABEL;
+  DownAdd(pRequirementLabel, pDock);
+  pDock = pRequirementLabel;
+
+  if (requirement_vector_size(&pImpr_type->reqs) == 0) {
+    pRequirementLabel2 = create_iconlabel_from_chars(NULL, pWindow->dst,
+                                                     Q_("?req:None"),
+                                                     adj_font(12), 0);
+    pRequirementLabel2->ID = ID_LABEL;
+  } else {
+    /* FIXME: this should show ranges, negated reqs, and all the
+     * MAX_NUM_REQS reqs.
+     * Currently it's limited to 1 req. Remember MAX_NUM_REQS is a compile-time
+     * definition. */
+    requirement_vector_iterate(&pImpr_type->reqs, preq) {
+      if (preq->negated) {
+        continue;
       }
-      hbox = gtk_grid_new();
-      gtk_container_add(GTK_CONTAINER(help_vbox), hbox);
-      w = gtk_label_new(_("Allows"));
-      gtk_container_add(GTK_CONTAINER(hbox), w);
-      w = help_slink_new(utype_name_translation(punittype), HELP_UNIT);
-      gtk_container_add(GTK_CONTAINER(hbox), w);
-      gtk_widget_show_all(hbox);
+      pRequirementLabel2 = create_iconlabel_from_chars(NULL, pWindow->dst,
+                             universal_name_translation(&preq->source, buffer, sizeof(buffer)),
+                             adj_font(12), WF_RESTORE_BACKGROUND);
+      if (preq->source.kind != VUT_ADVANCE) {
+        break; /* FIXME */
+      }
+      pRequirementLabel2->ID = MAX_ID - advance_number(preq->source.value.advance);
+      pRequirementLabel2->string16->fgcol = *get_tech_color(advance_number(preq->source.value.advance));
+      pRequirementLabel2->action = change_tech_callback;
+      set_wstate(pRequirementLabel2, FC_WS_NORMAL);
+      break;
+    } requirement_vector_iterate_end;
+  }
+  DownAdd(pRequirementLabel2, pDock);
+  pDock = pRequirementLabel2;
+  pStore->pRequirementButton = pRequirementLabel2;
+
+  /* obsolete by */
+  pObsoleteByLabel = create_iconlabel_from_chars(NULL, pWindow->dst,
+                                                 _("Obsolete by:"),
+                                                 adj_font(12), 0);
+  pObsoleteByLabel->ID = ID_LABEL;
+  DownAdd(pObsoleteByLabel, pDock);
+  pDock = pObsoleteByLabel;
+
+  if (A_NEVER == pImpr_type->obsolete_by) {
+    pObsoleteByLabel2 = create_iconlabel_from_chars(NULL, pWindow->dst,
+                                                    _("Never"), adj_font(12), 0);
+    pObsoleteByLabel2->ID = ID_LABEL;
+  } else {
+    pObsoleteByLabel2 = create_iconlabel_from_chars(NULL, pWindow->dst,
+                          advance_name_translation(pImpr_type->obsolete_by),
+                          adj_font(12), WF_RESTORE_BACKGROUND);
+    pObsoleteByLabel2->ID = MAX_ID - advance_number(pImpr_type->obsolete_by);
+    pObsoleteByLabel2->string16->fgcol = *get_tech_color(advance_number(pImpr_type->obsolete_by));
+    pObsoleteByLabel2->action = change_tech_callback;
+    set_wstate(pObsoleteByLabel2, FC_WS_NORMAL);
+  }
+  DownAdd(pObsoleteByLabel2, pDock);
+  pDock = pObsoleteByLabel2;
+  pStore->pObsoleteByButton = pObsoleteByLabel2;
+
+  /* helptext */
+  start_x = (area.x + 1 + scrollbar_width + pHelpDlg->pEndActiveWidgetList->size.w + adj_size(20));
+
+  buffer[0] = '\0';
+  helptext_building(buffer, sizeof(buffer), client.conn.playing, NULL, pImpr_type);
+  if (buffer[0] != '\0')
+  {
+    SDL_String16 *pStr = create_str16_from_char(buffer, adj_font(12));
+    convert_string_to_const_surface_width(pStr, adj_size(640) - start_x - adj_size(20));
+    pHelptextLabel = create_iconlabel(NULL, pWindow->dst, pStr, 0);
+    pHelptextLabel->ID = ID_LABEL;
+    DownAdd(pHelptextLabel, pDock);
+    pDock = pHelptextLabel;
+    text = TRUE;
+  }
+
+  pHelpDlg->pBeginWidgetList = pHelptextLabel ? pHelptextLabel : pObsoleteByLabel2;
+
+  /* --------------------------------------------------------- */
+  if (created) {
+        
+    pSurf = theme_get_background(theme, BACKGROUND_HELPDLG);
+    if (resize_window(pWindow, pSurf, NULL, adj_size(640), adj_size(480))) {
+      FREESURFACE(pSurf);
+    }
+
+    area = pWindow->area;
+
+    widget_set_position(pWindow,
+                        (Main.screen->w - pWindow->size.w) / 2,
+                        (Main.screen->h - pWindow->size.h) / 2);
+
+    /* exit button */
+    pCloseButton = pWindow->prev;
+    widget_set_position(pCloseButton,
+                        area.x + area.w - pCloseButton->size.w - 1,
+                        pWindow->size.y + adj_size(2));
+
+    /* list toggle button */
+    pListToggleButton = pStore->pDock;
+    widget_set_position(pListToggleButton, area.x, area.y);
+
+    /* list entries */
+    h = setup_vertical_widgets_position(1, area.x + scrollbar_width,
+                                           area.y + pListToggleButton->size.h, 0, 0,
+                                           pHelpDlg->pBeginActiveWidgetList,
+                                           pHelpDlg->pEndActiveWidgetList);
+
+    /* scrollbar */
+    if (pHelpDlg->pScroll) {
+      setup_vertical_scrollbar_area(pHelpDlg->pScroll,
+                                    area.x, area.y + pListToggleButton->size.h,
+                                    h, FALSE);
+    }
+  }
+
+  pImprNameLabel = pStore->pDock->prev;
+  widget_set_position(pImprNameLabel, start_x, area.y + adj_size(16));
+  
+  start_y = pImprNameLabel->size.y + pImprNameLabel->size.h + adj_size(10);
+
+  if (!improvement_has_flag(pImpr_type, IF_GOLD)) {
+    pCostLabel = pImprNameLabel->prev;
+    widget_set_position(pCostLabel, start_x, start_y);
+    if (!is_wonder(pImpr_type)) {
+      pUpkeepLabel = pCostLabel->prev;
+      widget_set_position(pUpkeepLabel,
+                          pCostLabel->size.x + pCostLabel->size.w + adj_size(20),
+                          start_y);
+    }
+    start_y += pCostLabel->size.h;
+  }
+
+  pRequirementLabel = pStore->pRequirementButton->next;
+  widget_set_position(pRequirementLabel, start_x, start_y);
+
+  pRequirementLabel2 = pStore->pRequirementButton;
+  widget_set_position(pRequirementLabel2,
+                      pRequirementLabel->size.x + pRequirementLabel->size.w + adj_size(5),
+                      start_y);
+
+  if (pStore->pObsoleteByButton) {
+    pObsoleteByLabel = pStore->pObsoleteByButton->next;
+    widget_set_position(pObsoleteByLabel,
+                        pRequirementLabel2->size.x + pRequirementLabel2->size.w + adj_size(10),
+                        start_y);
+
+    pObsoleteByLabel2 = pStore->pObsoleteByButton;
+    widget_set_position(pObsoleteByLabel2,
+                        pObsoleteByLabel->size.x + pObsoleteByLabel->size.w + adj_size(5),
+                        start_y);
+                        
+    start_y += pObsoleteByLabel2->size.h;
+  }
+
+  start_y += adj_size(30);
+  
+  if (text) {
+    widget_set_position(pHelptextLabel, start_x, start_y);
+  }
+
+  redraw_impr_info_dlg();
+}
+
+/* ============================================ */
+static int change_unit_callback(struct widget *pWidget)
+{
+  if (Main.event.button.button == SDL_BUTTON_LEFT) {
+    popup_unit_info(MAX_ID - pWidget->ID);
+  }
+  return -1;
+}
+
+static void redraw_unit_info_dlg(void)
+{
+  SDL_Color bg_color = {255, 255, 255, 64};
+
+  struct widget *pWindow = pHelpDlg->pEndWidgetList;
+  struct UNITS_BUTTONS *pStore = (struct UNITS_BUTTONS *)pWindow->data.ptr;
+  SDL_Rect dst;
+
+  redraw_group(pWindow->prev, pWindow, FALSE);
+
+  dst.x = pStore->pDock->prev->size.x - adj_size(10);
+  dst.y = pStore->pDock->prev->size.y - adj_size(10);
+  dst.w = pWindow->size.w - (dst.x - pWindow->size.x) - adj_size(10);
+  dst.h = pWindow->size.h - (dst.y - pWindow->size.y) - adj_size(10);
+
+  SDL_FillRectAlpha(pWindow->dst->surface, &dst, &bg_color);
+  putframe(pWindow->dst->surface,
+           dst.x, dst.y, dst.x + dst.w, dst.y + dst.h,
+           get_theme_color(COLOR_THEME_HELPDLG_FRAME));
+
+  /*------------------------------------- */
+  redraw_group(pHelpDlg->pBeginWidgetList, pWindow->prev->prev, FALSE);
+  widget_flush(pWindow);
+}
+
+
+void popup_unit_info(Unit_type_id type_id)
+{
+  SDL_Color bg_color = {255, 255, 255, 128};
+
+  struct widget *pWindow;
+  struct UNITS_BUTTONS *pStore;
+
+  struct widget *pCloseButton = NULL;
+  struct widget *pListToggleButton = NULL;
+  struct widget *pUnitButton = NULL;
+  struct widget *pUnitNameLabel = NULL;
+  struct widget *pUnitInfoLabel = NULL;
+  struct widget *pRequirementLabel = NULL;
+  struct widget *pRequirementLabel2 = NULL;
+  struct widget *pObsoleteByLabel = NULL;
+  struct widget *pObsoleteByLabel2 = NULL;
+  struct widget *pHelptextLabel = NULL;
+
+  struct widget *pDock;
+  SDL_String16 *pTitle, *pStr;
+  SDL_Surface *pSurf;
+  int h, start_x, start_y, utype_count;
+  bool created, text = FALSE;
+  int scrollbar_width = 0;
+  struct unit_type *pUnitType;
+  char buffer[bufsz];
+  SDL_Rect area;
+
+  if(current_help_dlg != HELP_UNIT) {
+    popdown_help_dialog();
+  }
+
+  /* create new dialog if it doesn't exist yet */
+  if (!pHelpDlg) {
+    SDL_Surface *pBackgroundTmpl, *pBackground, *pText, *pIcon;
+    SDL_Rect dst;
+
+    current_help_dlg = HELP_UNIT;
+    created = TRUE;
+
+    /* create dialog */
+    pHelpDlg = fc_calloc(1, sizeof(struct ADVANCED_DLG));
+    pStore = fc_calloc(1, sizeof(struct UNITS_BUTTONS));
+
+    /* create window */
+    pTitle = create_str16_from_char(_("Help : Units"), adj_font(12));
+    pTitle->style |= TTF_STYLE_BOLD;
+
+    pWindow = create_window_skeleton(NULL, pTitle, WF_FREE_DATA);
+    pWindow->action = help_dlg_window_callback;
+    set_wstate(pWindow , FC_WS_NORMAL);
+    pWindow->data.ptr = (void *)pStore;
+    add_to_gui_list(ID_WINDOW, pWindow);
+
+    pHelpDlg->pEndWidgetList = pWindow;
+
+    area = pWindow->area;
+
+    /* ------------------ */
+
+    /* close button */
+    pCloseButton = create_themeicon(pTheme->Small_CANCEL_Icon, pWindow->dst,
+                                    WF_WIDGET_HAS_INFO_LABEL
+                                    | WF_RESTORE_BACKGROUND);
+    pCloseButton->info_label =
+        create_str16_from_char(_("Close Dialog (Esc)"), adj_font(12));
+    pCloseButton->action = exit_help_dlg_callback;
+    set_wstate(pCloseButton, FC_WS_NORMAL);
+    pCloseButton->key = SDLK_ESCAPE;
+
+    add_to_gui_list(ID_BUTTON, pCloseButton);
+
+    /* ------------------ */
+    pDock = pCloseButton;
+
+    /* --- create scrollable unit list on the left side ---*/
+
+    pStr = create_string16(NULL, 0, adj_font(10));
+    pStr->style |= (TTF_STYLE_BOLD | SF_CENTER);
+
+    /* background template for entries in scroll list */
+    pBackgroundTmpl = create_surf_alpha(adj_size(135), adj_size(40), SDL_SWSURFACE);
+    SDL_FillRect(pBackgroundTmpl, NULL, map_rgba(pBackgroundTmpl->format, bg_color));
+    putframe(pBackgroundTmpl,
+             0, 0, pBackgroundTmpl->w - 1, pBackgroundTmpl->h - 1,
+             get_theme_color(COLOR_THEME_HELPDLG_FRAME));
+
+    utype_count = 0;
+    unit_type_iterate(ut) {
+
+      /* copy background surface */
+      pBackground = SDL_DisplayFormatAlpha(pBackgroundTmpl);
+
+      /* blit unit name */
+      copy_chars_to_string16(pStr, utype_name_translation(ut));
+      pText = create_text_surf_smaller_that_w(pStr, adj_size(100 - 4));
+      dst.x = adj_size(35) + (pBackground->w - pText->w - adj_size(35)) / 2;
+      dst.y = (pBackground->h - pText->h) / 2;
+      alphablit(pText, NULL, pBackground, &dst);
+      FREESURFACE(pText);
+
+      /* blit unit icon */
+      pIcon = ResizeSurfaceBox(get_unittype_surface(ut, direction8_invalid()),
+                               adj_size(36), adj_size(36), 1, TRUE, TRUE);
+      dst.x = (adj_size(35) - pIcon->w) / 2;
+      dst.y = (pBackground->h - pIcon->h) / 2;
+      alphablit(pIcon, NULL, pBackground, &dst);
+      FREESURFACE(pIcon);
+
+      pUnitButton = create_icon2(pBackground, pWindow->dst,
+                                 WF_FREE_THEME | WF_RESTORE_BACKGROUND);
+
+      set_wstate(pUnitButton, FC_WS_NORMAL);
+      pUnitButton->action = change_unit_callback;
+      add_to_gui_list(MAX_ID - utype_number(ut), pUnitButton);
+
+      if (++utype_count > 10) {
+        set_wflag(pUnitButton, WF_HIDDEN);
+      }
+
     } unit_type_iterate_end;
 
-    advance_iterate(A_NONE, ptest) {
-      if (padvance == advance_requires(ptest, AR_ONE)) {
-	if (advance_by_number(A_NONE) == advance_requires(ptest, AR_TWO)) {
-          hbox = gtk_grid_new();
-          gtk_container_add(GTK_CONTAINER(help_vbox), hbox);
-          w = gtk_label_new(_("Allows"));
-          gtk_container_add(GTK_CONTAINER(hbox), w);
-          w = help_slink_new(advance_name_translation(ptest), HELP_TECH);
-          gtk_container_add(GTK_CONTAINER(hbox), w);
-          gtk_widget_show_all(hbox);
-	} else {
-          hbox = gtk_grid_new();
-          gtk_container_add(GTK_CONTAINER(help_vbox), hbox);
-          w = gtk_label_new(_("Allows"));
-          gtk_container_add(GTK_CONTAINER(hbox), w);
-          w = help_slink_new(advance_name_translation(ptest), HELP_TECH);
-          gtk_container_add(GTK_CONTAINER(hbox), w);
-          w = gtk_label_new(_("with"));
-          gtk_container_add(GTK_CONTAINER(hbox), w);
-          w = help_slink_new(advance_name_translation(advance_requires(ptest, AR_TWO)),
-                             HELP_TECH);
-          gtk_container_add(GTK_CONTAINER(hbox), w);
-          w = gtk_label_new(Q_("?techhelp:"));
-          gtk_container_add(GTK_CONTAINER(hbox), w);
-          gtk_widget_show_all(hbox);
-	}
-      }
-      if (padvance == advance_requires(ptest, AR_TWO)) {
-        hbox = gtk_grid_new();
-        gtk_container_add(GTK_CONTAINER(help_vbox), hbox);
-        w = gtk_label_new(_("Allows"));
-        gtk_container_add(GTK_CONTAINER(hbox), w);
-        w = help_slink_new(advance_name_translation(ptest), HELP_TECH);
-        gtk_container_add(GTK_CONTAINER(hbox), w);
-        w = gtk_label_new(_("with"));
-        gtk_container_add(GTK_CONTAINER(hbox), w);
-        w = help_slink_new(advance_name_translation(advance_requires(ptest, AR_ONE)),
-                           HELP_TECH);
-        gtk_container_add(GTK_CONTAINER(hbox), w);
-        w = gtk_label_new(Q_("?techhelp:"));
-        gtk_container_add(GTK_CONTAINER(hbox), w);
-        gtk_widget_show_all(hbox);
-      }
-    } advance_iterate_end;
-    gtk_widget_show(help_vbox);
-  }
-}
+    FREESURFACE(pBackgroundTmpl);
 
-/**************************************************************************
-  Display updated help about terrain
-**************************************************************************/
-static void help_update_terrain(const struct help_item *pitem,
-				char *title)
-{
-  char buf[8192];
-  struct terrain *pterrain = terrain_by_translated_name(title);
+    pHelpDlg->pEndActiveWidgetList = pDock->prev;
+    pHelpDlg->pBeginWidgetList = pUnitButton ? pUnitButton : pCloseButton;
+    pHelpDlg->pBeginActiveWidgetList = pHelpDlg->pBeginWidgetList;
 
-  create_help_page(HELP_TERRAIN);
-
-  if (pterrain) {
-    {
-      /* 25 => "1.25"; 50 => "1.5"; 100 => "2.0" */
-      int defbonus = pterrain->defense_bonus + 100;
-      int frac = defbonus % 100;
-      if ((frac % 10) == 0) {
-        frac /= 10;
-      }
-      sprintf(buf, "%d/%d.%d",
-              pterrain->movement_cost, defbonus / 100, frac);
+    if (utype_count > 10) {
+      pHelpDlg->pActiveWidgetList = pHelpDlg->pEndActiveWidgetList;
+      scrollbar_width = create_vertical_scrollbar(pHelpDlg, 1, 10, TRUE, TRUE);
     }
-    gtk_label_set_text(GTK_LABEL(help_tlabel[0][1]), buf);
 
-    sprintf(buf, "%d/%d/%d",
-	    pterrain->output[O_FOOD],
-	    pterrain->output[O_SHIELD],
-	    pterrain->output[O_TRADE]);
-    gtk_label_set_text(GTK_LABEL(help_tlabel[0][4]), buf);
-
-    buf[0] = '\0';
-    if (*(pterrain->resources)) {
-      struct resource **r;
-
-      for (r = pterrain->resources; *r; r++) {
-        /* TRANS: " Whales (2/1/2)," */
-        sprintf (buf + strlen (buf), " %s (%d/%d/%d),",
-                 resource_name_translation(*r),
-                 pterrain->output[O_FOOD]   + (*r)->output[O_FOOD],
-                 pterrain->output[O_SHIELD] + (*r)->output[O_SHIELD],
-                 pterrain->output[O_TRADE]  + (*r)->output[O_TRADE]);
-      }
-      buf[strlen (buf) - 1] = '.';
-    } else {
-      /* TRANS: "Resources: (none)" */
-      sprintf (buf + strlen (buf), _("(none)"));
+    /* toggle techs list button */
+    pListToggleButton = create_themeicon_button_from_chars(pTheme->UP_Icon,
+                          pWindow->dst,  _("Units"), adj_font(10), 0);
+#if 0
+    pListToggleButton->action = toggle_full_tree_mode_in_help_dlg_callback;
+    if (pStore->show_tree) {
+      set_wstate(pListToggleButton, FC_WS_NORMAL);
     }
-    gtk_label_set_text(GTK_LABEL(help_tlabel[1][1]), buf);
+#endif
 
-    strcpy(buf, _("n/a"));
-    if (pterrain->irrigation_result == pterrain) {
-      if (pterrain->irrigation_food_incr > 0) {
-	sprintf(buf, _("+%d Food / %d"),
-		pterrain->irrigation_food_incr,
-		pterrain->irrigation_time);
-      }
-    } else if (pterrain->irrigation_result != T_NONE) {
-      sprintf(buf, "%s / %d",
-	      terrain_name_translation(pterrain->irrigation_result),
-	      pterrain->irrigation_time);
-    }
-    gtk_label_set_text(GTK_LABEL(help_tlabel[2][1]), buf);
+    widget_resize(pListToggleButton, adj_size(160), adj_size(15));
+    pListToggleButton->string16->fgcol = *get_theme_color(COLOR_THEME_HELPDLG_TEXT);
 
-    strcpy(buf, _("n/a"));
-    if (pterrain->mining_result == pterrain) {
-      if (pterrain->mining_shield_incr > 0) {
-	sprintf(buf, _("+%d Res. / %d"),
-		pterrain->mining_shield_incr,
-		pterrain->mining_time);
-      }
-    } else if (pterrain->mining_result != T_NONE) {
-      sprintf(buf, "%s / %d",
-	      terrain_name_translation(pterrain->mining_result),
-	      pterrain->mining_time);
-    }
-    gtk_label_set_text(GTK_LABEL(help_tlabel[2][4]), buf);
+    add_to_gui_list(ID_BUTTON, pListToggleButton);
 
-    if (pterrain->transform_result != T_NONE) {
-      sprintf(buf, "%s / %d",
-	      terrain_name_translation(pterrain->transform_result),
-	      pterrain->transform_time);
-    } else {
-      strcpy(buf, "n/a");
-    }
-    gtk_label_set_text(GTK_LABEL(help_tlabel[3][1]), buf);
-  }
-
-  helptext_terrain(buf, sizeof(buf), client.conn.playing, pitem->text, pterrain);
-
-  gtk_text_buffer_set_text(help_text, buf, -1);
-  gtk_widget_show(help_text_sw);
-
-  gtk_widget_show(help_ttable);
-}
-
-/**************************************************************************
-  Help page for bases.
-**************************************************************************/
-static void help_update_base(const struct help_item *pitem, char *title)
-{
-  char buf[8192];
-  struct base_type *pbase = base_type_by_translated_name(title);
-
-  create_help_page(HELP_BASE);
-
-  if (!pbase) {
-    strcat(buf, pitem->text);
+    pDock = pListToggleButton;
+    pStore->pDock = pDock;
   } else {
-    /* Cost to build */
-    if (pbase->buildable) {
-      if (pbase->build_time != 0) {
-        /* TRANS: "MP" = movement points */
-        sprintf(buf, _("%d MP"), pbase->build_time);
-      } else {
-        /* TRANS: Build time depends on terrain. */
-        sprintf(buf, _("Terrain specific"));
-      }
-    } else {
-      sprintf(buf, "-");
+    created = FALSE;
+    scrollbar_width = (pHelpDlg->pScroll ? pHelpDlg->pScroll->pUp_Left_Button->size.w : 0);
+    pWindow = pHelpDlg->pEndWidgetList;
+    pStore = (struct UNITS_BUTTONS *)pWindow->data.ptr;
+    pDock = pStore->pDock;
+
+    area = pWindow->area;
+
+    /* delete any previous list entries */
+    if (pDock != pHelpDlg->pBeginWidgetList) {
+      del_group_of_widgets_from_gui_list(pHelpDlg->pBeginWidgetList,
+                                         pDock->prev);
+      pHelpDlg->pBeginWidgetList = pDock;
     }
-    gtk_label_set_text(GTK_LABEL(help_blabel[1]), buf);
-    /* Conflicting bases */
-    buf[0] = '\0';
-    base_type_iterate(pbase2) {
-      if (!can_bases_coexist(pbase, pbase2)) {
-        if (buf[0] != '\0') {
-          strcat(buf, "/");
+  }
+
+  pUnitType = utype_by_number(type_id);
+  pUnitNameLabel= create_iconlabel_from_chars(
+                adj_surf(get_unittype_surface(pUnitType, direction8_invalid())),
+                pWindow->dst, utype_name_translation(pUnitType),
+                adj_font(24), WF_FREE_THEME);
+
+  pUnitNameLabel->ID = ID_LABEL;
+  DownAdd(pUnitNameLabel, pDock);
+  pDock = pUnitNameLabel;
+
+
+  {
+    char buf[2048];
+
+    fc_snprintf(buf, sizeof(buf), "%s %d %s",
+              _("Cost:"), utype_build_shield_cost(pUnitType),
+              PL_("shield", "shields", utype_build_shield_cost(pUnitType)));
+
+    if(pUnitType->pop_cost)
+    {
+      cat_snprintf(buf, sizeof(buf), " %d %s",
+          pUnitType->pop_cost, PL_("citizen", "citizens", pUnitType->pop_cost));
+    }
+
+    cat_snprintf(buf, sizeof(buf), "      %s",  _("Upkeep:"));
+
+    if(pUnitType->upkeep[O_SHIELD])
+    {
+      cat_snprintf(buf, sizeof(buf), " %d %s",
+          pUnitType->upkeep[O_SHIELD], PL_("shield", "shields", pUnitType->upkeep[O_SHIELD]));
+     }
+    if(pUnitType->upkeep[O_FOOD])
+    {
+      cat_snprintf(buf, sizeof(buf), " %d %s",
+          pUnitType->upkeep[O_FOOD], PL_("food", "foods", pUnitType->upkeep[O_FOOD]));
+    }
+    if(pUnitType->upkeep[O_GOLD])
+    {
+      cat_snprintf(buf, sizeof(buf), " %d %s",
+          pUnitType->upkeep[O_GOLD], PL_("gold", "golds", pUnitType->upkeep[O_GOLD]));
+    }
+    if(pUnitType->happy_cost)
+    {
+      cat_snprintf(buf, sizeof(buf), " %d %s",
+          pUnitType->happy_cost, PL_("citizen", "citizens", pUnitType->happy_cost));
+    }
+
+    cat_snprintf(buf, sizeof(buf), "\n%s %d %s %d %s %s\n%s %d %s %d %s %d",
+              _("Attack:"), pUnitType->attack_strength,
+              _("Defense:"), pUnitType->defense_strength,
+              _("Move:"), move_points_text(pUnitType->move_rate, TRUE),
+              _("Vision:"), pUnitType->vision_radius_sq,
+              _("FirePower:"), pUnitType->firepower,
+              _("Hitpoints:"), pUnitType->hp);
+
+    pUnitInfoLabel = create_iconlabel_from_chars(NULL, pWindow->dst, buf,
+                                                 adj_font(12), 0);
+    pUnitInfoLabel->ID = ID_LABEL;
+    DownAdd(pUnitInfoLabel, pDock);
+    pDock = pUnitInfoLabel;
+  }
+
+  /* requirement */
+  pRequirementLabel = create_iconlabel_from_chars(NULL, pWindow->dst,
+                                                  _("Requirement:"),
+                                                  adj_font(12), 0);
+  pRequirementLabel->ID = ID_LABEL;
+  DownAdd(pRequirementLabel, pDock);
+  pDock = pRequirementLabel;
+
+  if (A_NEVER == pUnitType->require_advance
+     || advance_by_number(A_NONE) == pUnitType->require_advance) {
+    pRequirementLabel2 = create_iconlabel_from_chars(NULL, pWindow->dst,
+                                                     Q_("?tech:None"), adj_font(12), 0);
+    pRequirementLabel2->ID = ID_LABEL;
+  } else {
+    pRequirementLabel2 = create_iconlabel_from_chars(NULL, pWindow->dst,
+          advance_name_translation(pUnitType->require_advance),
+          adj_font(12),
+                          WF_RESTORE_BACKGROUND);
+    pRequirementLabel2->ID = MAX_ID - advance_number(pUnitType->require_advance);
+    pRequirementLabel2->string16->fgcol = *get_tech_color(advance_number(pUnitType->require_advance));
+    pRequirementLabel2->action = change_tech_callback;
+    set_wstate(pRequirementLabel2, FC_WS_NORMAL);
+  }
+  DownAdd(pRequirementLabel2, pDock);
+  pDock = pRequirementLabel2;
+  pStore->pRequirementButton = pRequirementLabel2;
+
+  /* obsolete by */
+  pObsoleteByLabel = create_iconlabel_from_chars(NULL, pWindow->dst,
+                                                 _("Obsolete by:"),
+                                                 adj_font(12), 0);
+  pObsoleteByLabel->ID = ID_LABEL;
+  DownAdd(pObsoleteByLabel, pDock);
+  pDock = pObsoleteByLabel;
+
+  if (pUnitType->obsoleted_by == U_NOT_OBSOLETED) {
+    pObsoleteByLabel2 = create_iconlabel_from_chars(NULL, pWindow->dst,
+                                                    Q_("?utype:None"),
+                                                    adj_font(12), 0);
+    pObsoleteByLabel2->ID = ID_LABEL;
+  } else {
+    struct unit_type *utype = pUnitType->obsoleted_by;
+    pObsoleteByLabel2 = create_iconlabel_from_chars(NULL, pWindow->dst,
+                                                    utype_name_translation(utype),
+                                                    adj_font(12),
+                                                    WF_RESTORE_BACKGROUND);
+    pObsoleteByLabel2->string16->fgcol = *get_tech_color(advance_number(utype->require_advance));
+    pObsoleteByLabel2->ID = MAX_ID - utype_number(pUnitType->obsoleted_by);
+    pObsoleteByLabel2->action = change_unit_callback;
+    set_wstate(pObsoleteByLabel2, FC_WS_NORMAL);
+  }
+  DownAdd(pObsoleteByLabel2, pDock);
+  pDock = pObsoleteByLabel2;
+  pStore->pObsoleteByButton = pObsoleteByLabel2;
+
+  /* helptext */
+  start_x = (area.x + 1 + scrollbar_width + pHelpDlg->pActiveWidgetList->size.w + adj_size(20));
+
+  buffer[0] = '\0';
+  helptext_unit(buffer, sizeof(buffer), client.conn.playing, "", utype_by_number(type_id));
+  if (buffer[0] != '\0') {
+    SDL_String16 *pStr = create_str16_from_char(buffer, adj_font(12));
+    convert_string_to_const_surface_width(pStr, adj_size(640) - start_x - adj_size(20));
+    pHelptextLabel = create_iconlabel(NULL, pWindow->dst, pStr, 0);
+    pHelptextLabel->ID = ID_LABEL;
+    DownAdd(pHelptextLabel, pDock);
+    pDock = pHelptextLabel;
+    text = TRUE;
+  }
+
+  pHelpDlg->pBeginWidgetList = pHelptextLabel ? pHelptextLabel : pObsoleteByLabel2;
+
+  /* --------------------------------------------------------- */
+  if (created) {
+
+    pSurf = theme_get_background(theme, BACKGROUND_HELPDLG);
+    if (resize_window(pWindow, pSurf, NULL, adj_size(640), adj_size(480))) {
+      FREESURFACE(pSurf);
+    }
+
+    area = pWindow->area;
+
+    widget_set_position(pWindow,
+                        (Main.screen->w - pWindow->size.w) / 2,
+                        (Main.screen->h - pWindow->size.h) / 2);
+
+    /* exit button */
+    pCloseButton = pWindow->prev;
+    widget_set_position(pCloseButton,
+                        area.x + area.w - pCloseButton->size.w - 1,
+                        pWindow->size.y + adj_size(2));
+
+    /* list toggle button */
+    pListToggleButton = pStore->pDock;
+    widget_set_position(pListToggleButton, area.x, area.y);
+
+    /* list entries */
+    h = setup_vertical_widgets_position(1, area.x + scrollbar_width,
+                                           area.y + pListToggleButton->size.h, 0, 0,
+                                           pHelpDlg->pBeginActiveWidgetList,
+                                           pHelpDlg->pEndActiveWidgetList);
+
+    /* scrollbar */
+    if (pHelpDlg->pScroll) {
+      setup_vertical_scrollbar_area(pHelpDlg->pScroll,
+                                    area.x, area.y + pListToggleButton->size.h,
+                                    h, FALSE);
+    }
+  }
+
+  pUnitNameLabel = pStore->pDock->prev;
+  widget_set_position(pUnitNameLabel, start_x, area.y + adj_size(16));
+
+  start_y = pUnitNameLabel->size.y + pUnitNameLabel->size.h + adj_size(10);
+
+  pUnitInfoLabel = pUnitNameLabel->prev;
+  widget_set_position(pUnitInfoLabel, start_x, start_y);
+
+  start_y += pUnitInfoLabel->size.h;
+
+  pRequirementLabel = pStore->pRequirementButton->next;
+  widget_set_position(pRequirementLabel, start_x, start_y);
+
+  pRequirementLabel2 = pStore->pRequirementButton;
+  widget_set_position(pRequirementLabel2,
+                      pRequirementLabel->size.x + pRequirementLabel->size.w + adj_size(5),
+                      start_y);
+
+  pObsoleteByLabel = pStore->pObsoleteByButton->next;
+  widget_set_position(pObsoleteByLabel,
+                      pRequirementLabel2->size.x + pRequirementLabel2->size.w + adj_size(10),
+                      start_y);
+
+  pObsoleteByLabel2 = pStore->pObsoleteByButton;
+  widget_set_position(pObsoleteByLabel2,
+                      pObsoleteByLabel->size.x + pObsoleteByLabel->size.w + adj_size(5),
+                      start_y);
+
+  start_y += pObsoleteByLabel2->size.h + adj_size(20);
+
+  if (text) {
+    pHelptextLabel = pStore->pObsoleteByButton->prev;
+    widget_set_position(pHelptextLabel, start_x, start_y);
+  }
+
+  redraw_unit_info_dlg();
+}
+
+/* =============================================== */
+/* ==================== Tech Tree ================ */
+/* =============================================== */
+
+
+static int change_tech_callback(struct widget *pWidget)
+{
+  if (Main.event.button.button == SDL_BUTTON_LEFT) {
+    popup_tech_info(MAX_ID - pWidget->ID);
+  }
+  return -1;
+}
+
+static int show_help_callback(struct widget *pWidget)
+{
+  if (Main.event.button.button == SDL_BUTTON_LEFT) {
+    struct TECHS_BUTTONS *pStore = (struct TECHS_BUTTONS *)pHelpDlg->pEndWidgetList->data.ptr;
+    pStore->show_tree = !pStore->show_tree;
+    if (!pStore->show_tree)
+    {
+      pStore->show_full_tree = FALSE;
+      pStore->pDock->theme2 = pTheme->UP_Icon;
+    }
+    popup_tech_info(MAX_ID - pStore->pDock->prev->ID);
+  }
+  return -1;
+}
+
+static void redraw_tech_info_dlg(void)
+{
+  SDL_Color bg_color = {255, 255, 255, 64};
+
+  struct widget *pWindow = pHelpDlg->pEndWidgetList;
+  struct TECHS_BUTTONS *pStore = (struct TECHS_BUTTONS *)pWindow->data.ptr;
+  SDL_Surface *pText0, *pText1 = NULL;
+  SDL_String16 *pStr;
+  SDL_Rect dst;
+
+  redraw_group(pWindow->prev, pWindow, FALSE);
+
+  dst.x = pStore->pDock->prev->prev->size.x - adj_size(10);
+  dst.y = pStore->pDock->prev->prev->size.y - adj_size(10);
+  dst.w = pWindow->size.w - (dst.x - pWindow->size.x) - adj_size(10);
+  dst.h = pWindow->size.h - (dst.y - pWindow->size.y) - adj_size(10);
+
+  SDL_FillRectAlpha(pWindow->dst->surface, &dst, &bg_color);
+  putframe(pWindow->dst->surface,
+           dst.x, dst.y, dst.x + dst.w, dst.y + dst.h,
+           get_theme_color(COLOR_THEME_HELPDLG_FRAME));
+
+  /* -------------------------- */
+  pStr = create_str16_from_char(_("Allows"), adj_font(14));
+  pStr->style |= TTF_STYLE_BOLD;
+
+  pText0 = create_text_surf_from_str16(pStr);
+  dst.x = pStore->pDock->prev->prev->size.x;
+  if (pStore->pTargets[0])
+  {
+    dst.y = pStore->pTargets[0]->size.y - pText0->h;
+  } else {
+    dst.y = pStore->pDock->prev->prev->size.y
+              + pStore->pDock->prev->prev->size.h + adj_size(10);
+  }
+
+  alphablit(pText0, NULL, pWindow->dst->surface, &dst);
+  FREESURFACE(pText0);
+
+  if (pStore->pSub_Targets[0])
+  {
+    int i;
+
+    change_ptsize16(pStr, adj_font(12));
+
+    copy_chars_to_string16(pStr, _("( with "));
+    pText0 = create_text_surf_from_str16(pStr);
+
+    copy_chars_to_string16(pStr, _(" )"));
+    pText1 = create_text_surf_from_str16(pStr);
+    i = 0;
+    while(i < 6 && pStore->pSub_Targets[i])
+    {
+      dst.x = pStore->pSub_Targets[i]->size.x - pText0->w;
+      dst.y = pStore->pSub_Targets[i]->size.y;
+
+      alphablit(pText0, NULL, pWindow->dst->surface, &dst);
+      dst.x = pStore->pSub_Targets[i]->size.x + pStore->pSub_Targets[i]->size.w;
+      dst.y = pStore->pSub_Targets[i]->size.y;
+
+      alphablit(pText1, NULL, pWindow->dst->surface, &dst);
+      i++;
+    }
+
+    FREESURFACE(pText0);
+    FREESURFACE(pText1);
+  }
+  FREESTRING16(pStr);
+
+  redraw_group(pHelpDlg->pBeginWidgetList, pWindow->prev->prev, FALSE);
+  widget_flush(pWindow);
+}
+
+static struct widget * create_tech_info(Tech_type_id tech, int width, struct widget *pWindow, struct TECHS_BUTTONS *pStore)
+{
+  struct widget *pWidget;
+  struct widget *pLast, *pBudynki;
+  struct widget *pDock = pStore->pDock;
+  int i, targets_count,sub_targets_count, max_width = 0;
+  int start_x, start_y, imp_count, unit_count, flags_count, gov_count;
+  char buffer[bufsz];
+  SDL_Surface *pSurf;
+
+  start_x = (pWindow->area.x + adj_size(1) + width + pHelpDlg->pActiveWidgetList->size.w + adj_size(20));
+
+  /* tech tree icon */
+  pWidget = create_icon2(pTheme->Tech_Tree_Icon, pWindow->dst, WF_RESTORE_BACKGROUND);
+
+  set_wstate(pWidget, FC_WS_NORMAL);
+  pWidget->action = show_help_callback;
+  pWidget->ID = MAX_ID - tech;
+  DownAdd(pWidget, pDock);
+  pDock = pWidget;
+
+  /* tech name (heading) */
+  pWidget= create_iconlabel_from_chars(get_tech_icon(tech),
+                    pWindow->dst,
+                    advance_name_translation(advance_by_number(tech)),
+                    adj_font(24),
+                    WF_FREE_THEME);
+
+  pWidget->ID = ID_LABEL;
+  DownAdd(pWidget, pDock);
+  pDock = pWidget;
+
+  /* target techs */
+  targets_count = 0;
+  advance_index_iterate(A_FIRST, i)
+  {
+    if ((targets_count < 6)
+        && (advance_required(i, AR_ONE) == tech
+           || advance_required(i, AR_TWO) == tech))
+    {
+      pWidget= create_iconlabel_from_chars(NULL, pWindow->dst,
+              advance_name_translation(advance_by_number(i)),
+              adj_font(12),
+              WF_RESTORE_BACKGROUND);
+      pWidget->string16->fgcol = *get_tech_color(i);
+      max_width = MAX(max_width, pWidget->size.w);
+      set_wstate(pWidget, FC_WS_NORMAL);
+      pWidget->action = change_tech_callback;
+      pWidget->ID = MAX_ID - i;
+      DownAdd(pWidget, pDock);
+      pDock = pWidget;
+      pStore->pTargets[targets_count++] = pWidget;
+    }
+  } advance_index_iterate_end;
+  if (targets_count < 6) {
+    pStore->pTargets[targets_count] = NULL;
+  }
+
+  sub_targets_count = 0;
+  if (targets_count > 0)
+  {
+    int sub_tech;
+    for(i = 0; i < targets_count; i++)
+    {
+      sub_tech = MAX_ID - pStore->pTargets[i]->ID;
+      if (advance_required(sub_tech, AR_ONE) == tech
+       && advance_required(sub_tech, AR_TWO) != A_NONE)
+      {
+        sub_tech = advance_required(sub_tech, AR_TWO);
+      } else if (advance_required(sub_tech, AR_TWO) == tech
+              && advance_required(sub_tech, AR_ONE) != A_NONE)
+      {
+        sub_tech = advance_required(sub_tech, AR_ONE);
+      } else {
+        continue;
+      }
+      pWidget= create_iconlabel_from_chars(NULL, pWindow->dst,
+              advance_name_translation(advance_by_number(sub_tech)),
+              adj_font(12),
+              WF_RESTORE_BACKGROUND);
+      pWidget->string16->fgcol = *get_tech_color(sub_tech);
+      set_wstate(pWidget, FC_WS_NORMAL);
+      pWidget->action = change_tech_callback;
+      pWidget->ID = MAX_ID - sub_tech;
+      DownAdd(pWidget, pDock);
+      pDock = pWidget;
+      pStore->pSub_Targets[sub_targets_count++] = pWidget;
+    }
+  }
+  if (sub_targets_count < 6)
+  {
+    pStore->pSub_Targets[sub_targets_count] = NULL;
+  }
+
+  /* fill array with iprvm. icons */
+  pBudynki = pWidget;
+
+  /* target governments */
+  gov_count = 0;
+  governments_iterate(gov) {
+    requirement_vector_iterate(&(gov->reqs), preq) {
+      if (VUT_ADVANCE == preq->source.kind
+       && advance_number(preq->source.value.advance) == tech) {
+
+        pWidget = create_iconlabel_from_chars(adj_surf(get_government_surface(gov)),
+                pWindow->dst,
+                government_name_translation(gov),
+                adj_font(14),
+                WF_RESTORE_BACKGROUND|WF_SELLECT_WITHOUT_BAR | WF_FREE_THEME);
+        set_wstate(pWidget, FC_WS_NORMAL);
+        pWidget->action = change_gov_callback;
+        pWidget->ID = MAX_ID - government_index(gov);
+        DownAdd(pWidget, pDock);
+        pDock = pWidget;
+        gov_count++;
+      }
+    } requirement_vector_iterate_end;
+  } governments_iterate_end;
+
+  /* target improvements */
+  imp_count = 0;
+  improvement_iterate(pImprove) {
+    /* FIXME: this should show ranges and all the MAX_NUM_REQS reqs.
+     * Currently it's limited to 1 req. Remember MAX_NUM_REQS is a compile-time
+     * definition. */
+    requirement_vector_iterate(&(pImprove->reqs), preq) {
+      if (VUT_ADVANCE == preq->source.kind
+       && advance_number(preq->source.value.advance) == tech) {
+        pSurf = get_building_surface(pImprove);
+        pWidget = create_iconlabel_from_chars(
+                ResizeSurfaceBox(pSurf, adj_size(48), adj_size(48), 1, TRUE, TRUE),
+                pWindow->dst,
+                improvement_name_translation(pImprove),
+                adj_font(14),
+                WF_RESTORE_BACKGROUND|WF_SELLECT_WITHOUT_BAR);
+        set_wstate(pWidget, FC_WS_NORMAL);
+        if (is_wonder(pImprove))
+        {
+               pWidget->string16->fgcol = *get_theme_color(COLOR_THEME_CITYDLG_LUX);
         }
-        strcat(buf, base_name_translation(pbase2));
+        pWidget->action = change_impr_callback;
+        pWidget->ID = MAX_ID - improvement_number(pImprove);
+        DownAdd(pWidget, pDock);
+        pDock = pWidget;
+        imp_count++;
       }
-    } base_type_iterate_end;
-    /* TRANS: "Conflicts with: (none)" (bases) */
-    gtk_label_set_text(GTK_LABEL(help_blabel[3]), buf[0] ? buf : _("(none)"));
-    helptext_base(buf, sizeof(buf), client.conn.playing, pitem->text, pbase);
-  }
-  gtk_widget_show(help_btable);
 
-  gtk_text_buffer_set_text(help_text, buf, -1);
-  gtk_widget_show(help_text_sw);
+      break;
+    } requirement_vector_iterate_end;
+  } improvement_iterate_end;
+
+  unit_count = 0;
+  unit_type_iterate(un) {
+    struct unit_type *pUnitType = un;
+
+    if (advance_number(pUnitType->require_advance) == tech) {
+      pWidget = create_iconlabel_from_chars(
+                                   ResizeSurfaceBox(get_unittype_surface(un, direction8_invalid()),
+                                   adj_size(48), adj_size(48), 1, TRUE, TRUE),
+                  pWindow->dst, utype_name_translation(pUnitType), adj_font(14),
+                  (WF_FREE_THEME|WF_RESTORE_BACKGROUND|WF_SELLECT_WITHOUT_BAR));
+      set_wstate(pWidget, FC_WS_NORMAL);
+      pWidget->action = change_unit_callback;
+      pWidget->ID = MAX_ID - utype_number(un);
+      DownAdd(pWidget, pDock);
+      pDock = pWidget;
+      unit_count++;
+    }
+  } unit_type_iterate_end;
+
+  buffer[0] = '\0';
+  helptext_advance(buffer, sizeof(buffer), client.conn.playing, "", tech);
+  if (buffer[0] != '\0')
+  {
+    SDL_String16 *pStr = create_str16_from_char(buffer, adj_font(12));
+    convert_string_to_const_surface_width(pStr, adj_size(640) - start_x - adj_size(20));
+    pWidget = create_iconlabel(NULL, pWindow->dst, pStr, 0);
+    pWidget->ID = ID_LABEL;
+    DownAdd(pWidget, pDock);
+    pDock = pWidget;
+    flags_count = 1;
+  } else {
+    flags_count = 0;
+  }
+
+  pLast = pWidget;
+  /* --------------------------------------------- */
+
+  /* tree button */
+  pWidget = pStore->pDock->prev;
+  pWidget->size.x = pWindow->area.x + pWindow->area.w - pWidget->size.w - adj_size(17);
+  pWidget->size.y = pWindow->area.y + adj_size(16);
+
+  /* Tech label */
+  pWidget = pWidget->prev;
+  pWidget->size.x = start_x;
+  pWidget->size.y = pWindow->area.y + adj_size(16);
+  start_y = pWidget->size.y + pWidget->size.h + adj_size(30);
+
+  if (targets_count)
+  {
+    int j, t0, t1;
+
+    i = 0;
+    j = 0;
+    t1 = MAX_ID - pStore->pSub_Targets[j]->ID;
+    while(i < 6 && pStore->pTargets[i])
+    {
+      pStore->pTargets[i]->size.x = pWindow->size.x + start_x;
+      pStore->pTargets[i]->size.y = start_y;
+
+      if(pStore->pSub_Targets[j])
+      {
+        t0 = MAX_ID - pStore->pTargets[i]->ID;
+        t1 = MAX_ID - pStore->pSub_Targets[j]->ID;
+        if (advance_required(t0, AR_ONE) == t1
+         || advance_required(t0, AR_TWO) == t1)
+        {
+          pStore->pSub_Targets[j]->size.x = pWindow->size.x + start_x + max_width + 60;
+          pStore->pSub_Targets[j]->size.y = pStore->pTargets[i]->size.y;
+          j++;
+        }
+      }
+
+      start_y += pStore->pTargets[i]->size.h;
+      i++;
+    }
+
+    start_y += adj_size(10);
+  }
+  pWidget = NULL;
+
+  if (gov_count)
+  {
+    pWidget = pBudynki->prev;
+    while(gov_count-- && pWidget)
+    {
+      pWidget->size.x = pWindow->size.x + start_x;
+      pWidget->size.y = start_y;
+      start_y += pWidget->size.h + adj_size(2);
+      pWidget = pWidget->prev;
+    }
+  }
+
+  if (imp_count)
+  {
+    if(!pWidget)
+    {
+      pWidget = pBudynki->prev;
+    }
+    while(imp_count-- && pWidget)
+    {
+      pWidget->size.x = pWindow->size.x + start_x;
+      pWidget->size.y = start_y;
+      start_y += pWidget->size.h + adj_size(2);
+      pWidget = pWidget->prev;
+    }
+  }
+
+  if (unit_count)
+  {
+    if(!pWidget)
+    {
+      pWidget = pBudynki->prev;
+    }
+    while(unit_count-- && pWidget)
+    {
+      pWidget->size.x = pWindow->size.x + start_x;
+      pWidget->size.y = start_y;
+      start_y += pWidget->size.h + adj_size(2);
+      pWidget = pWidget->prev;
+    }
+  }
+
+  if (flags_count)
+  {
+    if(!pWidget)
+    {
+      pWidget = pBudynki->prev;
+    }
+    while(flags_count-- && pWidget)
+    {
+      pWidget->size.x = pWindow->size.x + start_x;
+      pWidget->size.y = start_y;
+      start_y += pWidget->size.h + adj_size(2);
+      pWidget = pWidget->prev;
+    }
+  }
+
+  return pLast;
 }
 
-/**************************************************************************
-  Help page for roads.
-**************************************************************************/
-static void help_update_road(const struct help_item *pitem, char *title)
+
+static void redraw_tech_tree_dlg(void)
 {
-  char buf[8192];
-  struct road_type *proad = road_type_by_translated_name(title);
+  SDL_Color *line_color = get_theme_color(COLOR_THEME_HELPDLG_LINE);
+  SDL_Color bg_color = {255, 255, 255, 64};
 
-  create_help_page(HELP_ROAD);
+  struct widget *pWindow = pHelpDlg->pEndWidgetList;
+  struct widget *pSub0, *pSub1;
+  struct TECHS_BUTTONS *pStore = (struct TECHS_BUTTONS *)pWindow->data.ptr;
+  struct widget *pTech = pStore->pDock->prev;
+  int i,j, tech, count, step, mod;
+  SDL_Rect dst;
 
-  if (!proad) {
-    strcat(buf, pitem->text);
-  } else {
-    /* Cost to build */
-    if (proad->buildable) {
-      if (proad->build_time != 0) {
-        /* TRANS: "MP" = movement points */
-        sprintf(buf, _("%d MP"), proad->build_time);
-      } else {
-        /* TRANS: Build time depends on terrain. */
-        sprintf(buf, _("Terrain specific"));
-      }
-    } else {
-      sprintf(buf, "-");
-    }
-    gtk_label_set_text(GTK_LABEL(help_rlabel[1]), buf);
-    /* Bonus */
+  /* Redraw Window with exit button */
+  redraw_group(pWindow->prev, pWindow, FALSE);
+
+  dst.x = pWindow->area.x + pWindow->area.w - adj_size(459) - adj_size(7);
+  dst.y = pWindow->area.y + adj_size(6);
+  dst.w = pWindow->area.w - (dst.x - pWindow->area.x) - adj_size(10);
+  dst.h = pWindow->area.h - (dst.y - pWindow->area.y) - adj_size(10);
+
+  SDL_FillRectAlpha(pWindow->dst->surface, &dst, &bg_color);
+  putframe(pWindow->dst->surface,
+           dst.x, dst.y, dst.x + dst.w, dst.y + dst.h,
+           get_theme_color(COLOR_THEME_HELPDLG_FRAME));
+
+  /* Draw Req arrows */
+  i = 0;
+  while(i < 4 && pStore->pSub_Req[i])
+  {
+    i++;
+  }
+  count = i;
+
+  i = 0;
+  while(i < 2 && pStore->pRequirementButton[i])
+  {
+    tech = MAX_ID - pStore->pRequirementButton[i]->ID;
+
+    /*find Sub_Req's */
+    if(i)
     {
-      const char *bonus = NULL;
-      output_type_iterate(o) {
-        if (proad->tile_incr[o] > 0) {
-          /* TRANS: Road bonus depends on terrain. */
-          bonus = _("Terrain specific");
+      pSub0 = NULL;
+      for(j=count - 1; j >= 0; j--)
+      {
+        if (MAX_ID - pStore->pSub_Req[j]->ID == advance_required(tech, AR_ONE))
+        {
+          pSub0 = pStore->pSub_Req[j];
           break;
         }
-      } output_type_iterate_end;
-      if (!bonus) {
-        bonus = helptext_road_bonus_str(NULL, proad);
       }
-      if (!bonus) {
-        /* TRANS: No output bonus from a road */
-        bonus = Q_("?bonus:None");
+
+      pSub1 = NULL;
+      for(j=count - 1; j >= 0; j--)
+      {
+        if (MAX_ID - pStore->pSub_Req[j]->ID == advance_required(tech, AR_TWO))
+        {
+          pSub1 = pStore->pSub_Req[j];
+          break;
+        }
       }
-      gtk_label_set_text(GTK_LABEL(help_rlabel[3]), bonus);
+    } else {
+      pSub0 = NULL;
+      for(j=0; j < 4 && pStore->pSub_Req[j]; j++)
+      {
+        if (MAX_ID - pStore->pSub_Req[j]->ID == advance_required(tech, AR_ONE))
+        {
+          pSub0 = pStore->pSub_Req[j];
+          break;
+        }
+      }
+
+      pSub1 = NULL;
+      for(j=0; j < 4 && pStore->pSub_Req[j]; j++)
+      {
+        if (MAX_ID - pStore->pSub_Req[j]->ID == advance_required(tech, AR_TWO))
+        {
+          pSub1 = pStore->pSub_Req[j];
+          break;
+        }
+      }
     }
-    helptext_road(buf, sizeof(buf), client.conn.playing, pitem->text, proad);
+
+    /* draw main Arrow */
+    putline(pStore->pRequirementButton[i]->dst->surface,
+        pStore->pRequirementButton[i]->size.x + pStore->pRequirementButton[i]->size.w,
+        pStore->pRequirementButton[i]->size.y + pStore->pRequirementButton[i]->size.h / 2,
+        pTech->size.x,
+        pStore->pRequirementButton[i]->size.y + pStore->pRequirementButton[i]->size.h / 2,
+        line_color);
+
+    /* Draw Sub_Req arrows */
+    if (pSub0 || pSub1)
+    {
+      putline(pStore->pRequirementButton[i]->dst->surface,
+        pStore->pRequirementButton[i]->size.x - adj_size(10),
+        pStore->pRequirementButton[i]->size.y + pStore->pRequirementButton[i]->size.h / 2,
+        pStore->pRequirementButton[i]->size.x ,
+        pStore->pRequirementButton[i]->size.y + pStore->pRequirementButton[i]->size.h / 2,
+        line_color);
+    }
+
+    if(pSub0)
+    {
+      putline(pStore->pRequirementButton[i]->dst->surface,
+        pStore->pRequirementButton[i]->size.x - adj_size(10),
+        pSub0->size.y + pSub0->size.h / 2,
+        pStore->pRequirementButton[i]->size.x - adj_size(10),
+        pStore->pRequirementButton[i]->size.y + pStore->pRequirementButton[i]->size.h / 2,
+        line_color);
+      putline(pStore->pRequirementButton[i]->dst->surface,
+        pSub0->size.x + pSub0->size.w,
+        pSub0->size.y + pSub0->size.h / 2,
+        pStore->pRequirementButton[i]->size.x - adj_size(10),
+        pSub0->size.y + pSub0->size.h / 2,
+        line_color);
+    }
+
+    if(pSub1)
+    {
+      putline(pStore->pRequirementButton[i]->dst->surface,
+        pStore->pRequirementButton[i]->size.x - adj_size(10),
+        pSub1->size.y + pSub1->size.h / 2,
+        pStore->pRequirementButton[i]->size.x - adj_size(10),
+        pStore->pRequirementButton[i]->size.y + pStore->pRequirementButton[i]->size.h / 2,
+        line_color);
+      putline(pStore->pRequirementButton[i]->dst->surface,
+        pSub1->size.x + pSub1->size.w,
+        pSub1->size.y + pSub1->size.h / 2,
+        pStore->pRequirementButton[i]->size.x - adj_size(10),
+        pSub1->size.y + pSub1->size.h / 2,
+        line_color);
+    }
+    i++;
   }
-  gtk_widget_show(help_rtable);
 
-  gtk_text_buffer_set_text(help_text, buf, -1);
-  gtk_widget_show(help_text_sw);
-}
+  i = 0;
+  while(i < 6 && pStore->pTargets[i])
+  {
+    i++;
+  }
+  count = i;
 
-/**************************************************************************
-  This is currently just a text page, with special text:
-**************************************************************************/
-static void help_update_specialist(const struct help_item *pitem,
-				   char *title)
-{
-  char buf[8192];
-  struct specialist *pspec = specialist_by_translated_name(title);
-
-  if (!pspec) {
-    strcat(buf, pitem->text);
+  if (count > 4)
+  {
+    mod = 3;
   } else {
-    helptext_specialist(buf, sizeof(buf), client.conn.playing, pitem->text,
-                        pspec);
-  }
-  create_help_page(HELP_TEXT);
-  gtk_text_buffer_set_text(help_text, buf, -1);
-  gtk_widget_show(help_text_sw);
-}
-
-/**************************************************************************
-  This is currently just a text page, with special text:
-**************************************************************************/
-static void help_update_government(const struct help_item *pitem,
-				   char *title)
-{
-  char buf[8192];
-  struct government *gov = government_by_translated_name(title);
-
-  if (!gov) {
-    strcat(buf, pitem->text);
-  } else {
-    helptext_government(buf, sizeof(buf), client.conn.playing, pitem->text, gov);
-  }
-  create_help_page(HELP_TEXT);
-  gtk_text_buffer_set_text(help_text, buf, -1);
-  gtk_widget_show(help_text_sw);
-}
-
-/**************************************************************************
-  This is currently just a text page, with special text
-**************************************************************************/
-static void help_update_nation(const struct help_item *pitem, char *title,
-			       struct nation_type *pnation)
-{
-  char buf[4096];
-
-  if (!pnation) {
-    strcat(buf, pitem->text);
-  } else {
-    helptext_nation(buf, sizeof(buf), pnation, pitem->text);
-  }
-  create_help_page(HELP_TEXT);
-  gtk_text_buffer_set_text(help_text, buf, -1);
-  gtk_widget_show(help_text_sw);
-}
-
-/**************************************************************************
-  Display updated help dialog
-**************************************************************************/
-static void help_update_dialog(const struct help_item *pitem)
-{
-  char *top;
-
-  /* figure out what kind of item is required for pitem ingo */
-
-  for (top = pitem->topic; *top == ' '; top++) {
-    /* nothing */
+    mod = 2;
   }
 
-  help_box_hide();
-  gtk_text_buffer_set_text(help_text, "", -1);
+  for(i=0; i< count; i++)
+  {
+    tech = MAX_ID - pStore->pTargets[i]->ID;
+    step = pTech->size.h / (count + 1);
 
-  switch(pitem->type) {
-  case HELP_IMPROVEMENT:
-    help_update_improvement(pitem, top);
-    break;
-  case HELP_WONDER:
-    help_update_wonder(pitem, top);
-    break;
-  case HELP_UNIT:
-    help_update_unit_type(pitem, top);
-    break;
-  case HELP_TECH:
-    help_update_tech(pitem, top);
-    break;
-  case HELP_TERRAIN:
-    help_update_terrain(pitem, top);
-    break;
-  case HELP_BASE:
-    help_update_base(pitem, top);
-    break;
-  case HELP_ROAD:
-    help_update_road(pitem, top);
-    break;
-  case HELP_SPECIALIST:
-    help_update_specialist(pitem, top);
-    break;
-  case HELP_GOVERNMENT:
-    help_update_government(pitem, top);
-    break;
-  case HELP_NATIONS:
-    help_update_nation(pitem, top, nation_by_translated_plural(top));
-    break;
-  case HELP_TEXT:
-  default:
-    /* it was a pure text item */ 
-    create_help_page(HELP_TEXT);
-
-    gtk_text_buffer_set_text(help_text, pitem->text, -1);
-    gtk_widget_show(help_text_sw);
-    break;
-  }
-  set_title_topic(pitem->topic);
-
-  gtk_widget_show(help_box);
-}
-
-/**************************************************************************
-  Add item at path to selection and scroll to its cell
-**************************************************************************/
-static void help_item_zoom(GtkTreePath *path)
-{
-  GtkTreeModel *model;
-  GtkTreeIter   it, child, item;
-  GtkTreeSelection *selection;
-
-  model = gtk_tree_view_get_model(GTK_TREE_VIEW(help_view));
-  gtk_tree_model_get_iter(model, &item, path);
-
-  for (child=item; gtk_tree_model_iter_parent(model, &it, &child); child=it) {
-    GtkTreePath *it_path;
-
-    it_path = gtk_tree_model_get_path(model, &it);
-    gtk_tree_view_expand_row(GTK_TREE_VIEW(help_view), it_path, TRUE);
-    gtk_tree_path_free(it_path);
-  }
-
-  selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(help_view));
-  gtk_tree_selection_select_iter(selection, &item);
-  gtk_tree_view_scroll_to_cell(GTK_TREE_VIEW(help_view), path, NULL,
-			       TRUE, 0.0, 0.0);
-}
-
-/****************************************************************
-  Return path to help item.
-*****************************************************************/
-static GtkTreePath *help_item_path(const struct help_item *pitem)
-{
-  GtkTreePath *path;
-  bool next;
-
-  path = gtk_tree_path_new_first();
-  next = FALSE;
-  help_items_iterate(pitem2) {
-    const char *s;
-    int depth;
-
-    for (s = pitem2->topic; *s == ' '; s++) {
-      /* nothing */
-    }
-    depth = s - pitem2->topic + 1;
-
-    while (depth < gtk_tree_path_get_depth(path)) {
-      gtk_tree_path_up(path);
-      gtk_tree_path_next(path);
-      next = FALSE;
-    }
-    while (depth > gtk_tree_path_get_depth(path)) {
-      gtk_tree_path_down(path);
-      next = FALSE;
-    }
-
-    if (next) {
-      gtk_tree_path_next(path);
-    }
-
-    if (pitem == pitem2)
+    switch((i % mod))
+    {
+      case 2:
+        line_color = get_theme_color(COLOR_THEME_HELPDLG_LINE2);
       break;
+      case 1:
+        line_color = get_theme_color(COLOR_THEME_HELPDLG_LINE3);
+      break;
+      default:
+        line_color = get_theme_color(COLOR_THEME_HELPDLG_LINE);
+      break;
+    }
 
-    next = TRUE;
-  } help_items_iterate_end;
+    /*find Sub_Req's */
+    if (advance_required(tech, AR_ONE) == MAX_ID - pTech->ID)
+    {
+      pSub0 = pTech;
+    } else {
+      pSub0 = NULL;
+      for(j=0; j < 6 && pStore->pSub_Targets[j]; j++)
+      {
+        if (MAX_ID - pStore->pSub_Targets[j]->ID == advance_required(tech, AR_ONE))
+        {
+          pSub0 = pStore->pSub_Targets[j];
+          break;
+        }
+      }
+    }
 
-  return path;
-}
+    if (advance_required(tech, AR_TWO) == MAX_ID - pTech->ID)
+    {
+      pSub1 = pTech;
+    } else {
+      pSub1 = NULL;
+      for(j=0; j < 6 && pStore->pSub_Targets[j]; j++)
+      {
+        if (MAX_ID - pStore->pSub_Targets[j]->ID == advance_required(tech, AR_TWO))
+        {
+          pSub1 = pStore->pSub_Targets[j];
+          break;
+        }
+      }
+    }
 
-/****************************************************************
-  Add item to selection
-*****************************************************************/
-static void select_help_item_string(const char *item, enum help_page_type htype)
-{
-  const struct help_item *pitem;
-  int idx;
-  GtkTreePath *path;
-  GtkTreeViewColumn *col;
+    /* Draw Sub_Targets arrows */
+    if (pSub0 || pSub1)
+    {
+      putline(pStore->pTargets[i]->dst->surface,
+        pStore->pTargets[i]->size.x - ((i % mod) + 1) * 6,
+        pStore->pTargets[i]->size.y + pStore->pTargets[i]->size.h / 2,
+        pStore->pTargets[i]->size.x ,
+        pStore->pTargets[i]->size.y + pStore->pTargets[i]->size.h / 2,
+        line_color);
+    }
 
-  if (!(pitem = get_help_item_spec(item, htype, &idx))) {
-    return;
+    if(pSub0)
+    {
+      int y;
+      if (pSub0 == pTech)
+      {
+        y = pSub0->size.y + step * (i + 1);
+      } else {
+        y = pSub0->size.y + pSub0->size.h / 2;
+      }
+
+      putline(pStore->pTargets[i]->dst->surface,
+        pStore->pTargets[i]->size.x - ((i % mod) + 1) * 6,
+        y,
+        pStore->pTargets[i]->size.x - ((i % mod) + 1) * 6,
+        pStore->pTargets[i]->size.y + pStore->pTargets[i]->size.h / 2,
+        line_color);
+      putline(pStore->pTargets[i]->dst->surface,
+        pSub0->size.x + pSub0->size.w,
+        y,
+        pStore->pTargets[i]->size.x - ((i % mod) + 1) * 6,
+        y,
+        line_color);
+    }
+
+    if(pSub1)
+    {
+      int y;
+      if (pSub1 == pTech)
+      {
+        y = pSub1->size.y + step * (i + 1);
+      } else {
+        y = pSub1->size.y + pSub1->size.h / 2;
+      }
+      putline(pStore->pTargets[i]->dst->surface,
+        pStore->pTargets[i]->size.x - ((i % mod) + 1) * 6,
+        y,
+        pStore->pTargets[i]->size.x - ((i % mod) + 1) * 6,
+        pStore->pTargets[i]->size.y + pStore->pTargets[i]->size.h / 2,
+        line_color);
+      putline(pStore->pTargets[i]->dst->surface,
+        pSub1->size.x + pSub1->size.w,
+        y,
+        pStore->pTargets[i]->size.x - ((i % mod) + 1) * 6,
+        y,
+        line_color);
+    }
   }
 
-  path = help_item_path(pitem);
-  help_item_zoom(path);
+  /* Redraw rest */
+  redraw_group(pHelpDlg->pBeginWidgetList, pWindow->prev->prev, FALSE);
 
-  col = gtk_tree_view_get_column(GTK_TREE_VIEW(help_view), 0);
-  gtk_tree_view_set_cursor(GTK_TREE_VIEW(help_view), path, col, FALSE);
-  gtk_tree_path_free(path);
+  widget_flush(pWindow);
 }
 
-/**************************************************************************
-  Set sensitivity of help dialog response buttons.
-**************************************************************************/
-static void help_command_update(void)
+static int toggle_full_tree_mode_in_help_dlg_callback(struct widget *pWidget)
 {
-  GtkDialog *dialog = GTK_DIALOG(help_dialog_shell);
-
-  if (help_history_pos < 0) {
-    gtk_dialog_set_response_sensitive(dialog, 1, FALSE);
-    gtk_dialog_set_response_sensitive(dialog, 2, FALSE);
-  } else {
-    gtk_dialog_set_response_sensitive(dialog, 1, TRUE);
-    gtk_dialog_set_response_sensitive(dialog, 2, TRUE);
-
-    if (help_history_pos == 0) {
-      gtk_dialog_set_response_sensitive(dialog, 1, FALSE);
+  if (Main.event.button.button == SDL_BUTTON_LEFT) {
+    struct TECHS_BUTTONS *pStore = (struct TECHS_BUTTONS *)pHelpDlg->pEndWidgetList->data.ptr;
+    if (pStore->show_full_tree)
+    {
+      pWidget->theme2 = pTheme->UP_Icon;
+    } else {
+      pWidget->theme2 = pTheme->DOWN_Icon;
     }
-    if (help_history_pos >= help_history->len - 1) {
-      gtk_dialog_set_response_sensitive(dialog, 2, FALSE);
+    pStore->show_full_tree = !pStore->show_full_tree;
+    popup_tech_info(MAX_ID - pStore->pDock->prev->ID);
+  }
+  return -1;
+}
+
+
+static struct widget * create_tech_tree(Tech_type_id tech, int width, struct widget *pWindow, struct TECHS_BUTTONS *pStore)
+{
+  int i, w, h, req_count , targets_count, sub_req_count, sub_targets_count;
+  struct widget *pWidget;
+  struct widget *pTech;
+  SDL_String16 *pStr;
+  SDL_Surface *pSurf;
+  struct widget *pDock = pStore->pDock;
+
+  pStr = create_string16(NULL, 0, adj_font(10));
+  pStr->style |= (TTF_STYLE_BOLD | SF_CENTER);
+
+  copy_chars_to_string16(pStr, advance_name_translation(advance_by_number(tech)));
+  pSurf = create_sellect_tech_icon(pStr, tech, FULL_MODE);
+  pWidget = create_icon2(pSurf, pWindow->dst,
+                WF_FREE_THEME | WF_RESTORE_BACKGROUND);
+
+  set_wstate(pWidget, FC_WS_NORMAL);
+  pWidget->action = show_help_callback;
+  pWidget->ID = MAX_ID - tech;
+  DownAdd(pWidget, pDock);
+  pTech = pWidget;
+  pDock = pWidget;
+
+  req_count  = 0;
+  for(i = AR_ONE; i <= AR_TWO; i++)
+  {
+    Tech_type_id ar = advance_required(tech, i);
+    struct advance *vap = valid_advance_by_number(ar);
+
+    if (NULL != vap && A_NONE != ar)
+    {
+      copy_chars_to_string16(pStr, advance_name_translation(vap));
+      pSurf = create_sellect_tech_icon(pStr, ar, SMALL_MODE);
+      pWidget = create_icon2(pSurf, pWindow->dst,
+                WF_FREE_THEME | WF_RESTORE_BACKGROUND);
+      set_wstate(pWidget, FC_WS_NORMAL);
+      pWidget->action = change_tech_callback;
+      pWidget->ID = MAX_ID - ar;
+      DownAdd(pWidget, pDock);
+      pDock = pWidget;
+      pStore->pRequirementButton[i] = pWidget;
+      req_count++;
+    } else {
+      pStore->pRequirementButton[i] = NULL;
     }
   }
+
+  sub_req_count = 0;
+
+  if (pStore->show_full_tree && req_count)
+  {
+    int j, sub_tech;
+    for(j = 0; j < req_count; j++)
+    {
+      sub_tech = MAX_ID - pStore->pRequirementButton[j]->ID;
+      for(i = AR_ONE; i <= AR_TWO; i++)
+      {
+        Tech_type_id ar = advance_required(sub_tech, i);
+        struct advance *vap = valid_advance_by_number(ar);
+
+        if (NULL != vap && A_NONE != ar)
+        {
+          copy_chars_to_string16(pStr, advance_name_translation(vap));
+          pSurf = create_sellect_tech_icon(pStr, ar, SMALL_MODE);
+          pWidget = create_icon2(pSurf, pWindow->dst,
+                WF_FREE_THEME | WF_RESTORE_BACKGROUND);
+          set_wstate(pWidget, FC_WS_NORMAL);
+          pWidget->action = change_tech_callback;
+          pWidget->ID = MAX_ID - ar;
+          DownAdd(pWidget, pDock);
+          pDock = pWidget;
+          pStore->pSub_Req[sub_req_count++] = pWidget;
+        }
+      }
+    }
+  }
+
+  if (sub_req_count < 4)
+  {
+    pStore->pSub_Req[sub_req_count] = NULL;
+  }
+
+  targets_count = 0;
+  advance_index_iterate(A_FIRST, i)
+  {
+    if ((targets_count<6)
+      && (advance_required(i, AR_ONE) == tech
+       || advance_required(i, AR_TWO) == tech))
+    {
+      copy_chars_to_string16(pStr, advance_name_translation(advance_by_number(i)));
+      pSurf = create_sellect_tech_icon(pStr, i, SMALL_MODE);
+      pWidget = create_icon2(pSurf, pWindow->dst,
+                WF_FREE_THEME | WF_RESTORE_BACKGROUND);
+
+      set_wstate(pWidget, FC_WS_NORMAL);
+      pWidget->action = change_tech_callback;
+      pWidget->ID = MAX_ID - i;
+      DownAdd(pWidget, pDock);
+      pDock = pWidget;
+      pStore->pTargets[targets_count++] = pWidget;
+    }
+  } advance_index_iterate_end;
+  if (targets_count<6)
+  {
+    pStore->pTargets[targets_count] = NULL;
+  }
+
+  sub_targets_count = 0;
+  if (targets_count)
+  {
+    int sub_tech;
+    for(i = 0; i < targets_count; i++)
+    {
+      sub_tech = MAX_ID - pStore->pTargets[i]->ID;
+      if (advance_required(sub_tech, AR_ONE) == tech
+       && advance_required(sub_tech, AR_TWO) != A_NONE)
+      {
+        sub_tech = advance_required(sub_tech, AR_TWO);
+      } else if (advance_required(sub_tech, AR_TWO) == tech
+              && advance_required(sub_tech, AR_ONE) != A_NONE)
+      {
+        sub_tech = advance_required(sub_tech, AR_ONE);
+      } else {
+        continue;
+      }
+
+      copy_chars_to_string16(pStr, advance_name_translation(advance_by_number(sub_tech)));
+      pSurf = create_sellect_tech_icon(pStr, sub_tech, SMALL_MODE);
+      pWidget = create_icon2(pSurf, pWindow->dst,
+        WF_FREE_THEME | WF_RESTORE_BACKGROUND);
+      set_wstate(pWidget, FC_WS_NORMAL);
+      pWidget->action = change_tech_callback;
+      pWidget->ID = MAX_ID - sub_tech;
+      DownAdd(pWidget, pDock);
+      pDock = pWidget;
+      pStore->pSub_Targets[sub_targets_count++] = pWidget;
+    }
+  }
+  if (sub_targets_count<6)
+  {
+    pStore->pSub_Targets[sub_targets_count] = NULL;
+  }
+
+  FREESTRING16(pStr);
+
+  /* ------------------------------------------ */
+  if (sub_req_count)
+  {
+    w = (adj_size(20) + pStore->pSub_Req[0]->size.w) * 2;
+    w += (pWindow->size.w - (20 + pStore->pSub_Req[0]->size.w + w + pTech->size.w)) / 2;
+  } else {
+    if (req_count)
+    {
+      w = (pWindow->area.x + 1 + width + pStore->pRequirementButton[0]->size.w * 2 + adj_size(20));
+      w += (pWindow->size.w - ((adj_size(20) + pStore->pRequirementButton[0]->size.w) + w + pTech->size.w)) / 2;
+    } else {
+      w = (pWindow->size.w - pTech->size.w) / 2;
+    }
+  }
+
+  pTech->size.x = pWindow->size.x + w;
+  pTech->size.y = pWindow->area.y + (pWindow->area.h - pTech->size.h) / 2;
+
+  if(req_count)
+  {
+    h = (req_count == 1 ? pStore->pRequirementButton[0]->size.h :
+        req_count * (pStore->pRequirementButton[0]->size.h + adj_size(80)) - adj_size(80));
+    h = pTech->size.y + (pTech->size.h - h) / 2;
+    for(i =0; i <req_count; i++)
+    {
+      pStore->pRequirementButton[i]->size.x = pTech->size.x - adj_size(20) - pStore->pRequirementButton[i]->size.w;
+      pStore->pRequirementButton[i]->size.y = h;
+      h += (pStore->pRequirementButton[i]->size.h + adj_size(80));
+    }
+  }
+
+  if(sub_req_count)
+  {
+    h = (sub_req_count == 1 ? pStore->pSub_Req[0]->size.h :
+     sub_req_count * (pStore->pSub_Req[0]->size.h + adj_size(20)) - adj_size(20));
+    h = pTech->size.y + (pTech->size.h - h) / 2;
+    for(i =0; i <sub_req_count; i++)
+    {
+      pStore->pSub_Req[i]->size.x = pTech->size.x - (adj_size(20) + pStore->pSub_Req[i]->size.w) * 2;
+      pStore->pSub_Req[i]->size.y = h;
+      h += (pStore->pSub_Req[i]->size.h + adj_size(20));
+    }
+  }
+
+  if(targets_count)
+  {
+    h = (targets_count == 1 ? pStore->pTargets[0]->size.h :
+     targets_count * (pStore->pTargets[0]->size.h + adj_size(20)) - adj_size(20));
+    h = pTech->size.y + (pTech->size.h - h) / 2;
+    for(i =0; i <targets_count; i++)
+    {
+      pStore->pTargets[i]->size.x = pTech->size.x + pTech->size.w + adj_size(20);
+      pStore->pTargets[i]->size.y = h;
+      h += (pStore->pTargets[i]->size.h + adj_size(20));
+    }
+  }
+
+  if(sub_targets_count)
+  {
+    if(sub_targets_count < 3)
+    {
+      pStore->pSub_Targets[0]->size.x = pTech->size.x + pTech->size.w - pStore->pSub_Targets[0]->size.w;
+      pStore->pSub_Targets[0]->size.y = pTech->size.y - pStore->pSub_Targets[0]->size.h - adj_size(10);
+      if (pStore->pSub_Targets[1])
+      {
+        pStore->pSub_Targets[1]->size.x = pTech->size.x + pTech->size.w - pStore->pSub_Targets[1]->size.w;
+        pStore->pSub_Targets[1]->size.y = pTech->size.y + pTech->size.h + adj_size(10);
+      }
+    }
+    else
+    {
+      if(sub_targets_count < 5)
+      {
+        for(i =0; i <MIN(sub_targets_count, 4); i++)
+        {
+          pStore->pSub_Targets[i]->size.x = pTech->size.x + pTech->size.w - pStore->pSub_Targets[i]->size.w;
+          if (i < 2)
+          {
+            pStore->pSub_Targets[i]->size.y = pTech->size.y - (pStore->pSub_Targets[i]->size.h + adj_size(5)) * ( 2 - i );
+          } else {
+            pStore->pSub_Targets[i]->size.y = pTech->size.y + pTech->size.h + adj_size(5)  + (pStore->pSub_Targets[i]->size.h + adj_size(5)) * ( i - 2 );
+          }
+        }
+      } else {
+        h = (pStore->pSub_Targets[0]->size.h + adj_size(6));
+        for(i =0; i <MIN(sub_targets_count, 6); i++)
+        {
+          switch(i)
+          {
+            case 0:
+              pStore->pSub_Targets[i]->size.x = pTech->size.x + pTech->size.w - pStore->pSub_Targets[i]->size.w;
+              pStore->pSub_Targets[i]->size.y = pTech->size.y - h * 2;
+            break;
+            case 1:
+              pStore->pSub_Targets[i]->size.x = pTech->size.x + pTech->size.w - pStore->pSub_Targets[i]->size.w * 2 - adj_size(10);
+              pStore->pSub_Targets[i]->size.y = pTech->size.y - h - h / 2;
+            break;
+            case 2:
+              pStore->pSub_Targets[i]->size.x = pTech->size.x + pTech->size.w - pStore->pSub_Targets[i]->size.w;
+              pStore->pSub_Targets[i]->size.y = pTech->size.y - h;
+            break;
+            case 3:
+              pStore->pSub_Targets[i]->size.x = pTech->size.x + pTech->size.w - pStore->pSub_Targets[i]->size.w;
+              pStore->pSub_Targets[i]->size.y = pTech->size.y + pTech->size.h + adj_size(6);
+            break;
+            case 4:
+              pStore->pSub_Targets[i]->size.x = pTech->size.x + pTech->size.w - pStore->pSub_Targets[i]->size.w;
+              pStore->pSub_Targets[i]->size.y = pTech->size.y + pTech->size.h + adj_size(6) + h;
+            break;
+            default:
+              pStore->pSub_Targets[i]->size.x = pTech->size.x + pTech->size.w - pStore->pSub_Targets[i]->size.w * 2 - adj_size(10);
+              pStore->pSub_Targets[i]->size.y = pTech->size.y + pTech->size.h + adj_size(6) + h / 2 ;
+            break;
+          };
+        }
+      }
+    }
+  }
+
+  return pWidget;
 }
 
-/**************************************************************************
-  User gave response to help dialog
-**************************************************************************/
-static void help_command_callback(GtkWidget *w, gint response_id)
+void popup_tech_info(Tech_type_id tech)
 {
-  GtkTreePath *path;
-  const struct help_item *pitem;
+  struct widget *pWindow;
+  struct TECHS_BUTTONS *pStore;
+  
+  struct widget *pCloseButton = NULL;
+  struct widget *pAdvanceLabel = NULL;
+  struct widget *pListToggleButton = NULL;
+  
+  struct widget *pDock;
+  SDL_String16 *pTitle, *pStr;
+  SDL_Surface *pSurf;
+  int h, tech_count;
+  bool created;
+  int scrollbar_width = 0;
+  SDL_Rect area;
 
-  if (response_id == 1) {
-    if (help_history_pos > 0) {
-      help_history_pos--;
+  if(current_help_dlg != HELP_TECH) {
+    popdown_help_dialog();
+  }
 
-      pitem = g_ptr_array_index(help_history, help_history_pos);
-      path = help_item_path(pitem);
-      help_item_zoom(path);
-      help_update_dialog(pitem);
-      help_command_update();
+  /* create new dialog if it doesn't exist yet */
+  if (!pHelpDlg) {
+    current_help_dlg = HELP_TECH;
+    created = TRUE;
+    
+    /* create dialog */
+    pHelpDlg = fc_calloc(1, sizeof(struct ADVANCED_DLG));
+    pStore = fc_calloc(1, sizeof(struct TECHS_BUTTONS));
+
+    pStore->show_tree = FALSE;
+    pStore->show_full_tree = FALSE;
+
+    /* create window */
+    pTitle = create_str16_from_char(_("Help : Advances Tree"), adj_font(12));
+    pTitle->style |= TTF_STYLE_BOLD;
+
+    pWindow = create_window_skeleton(NULL, pTitle, WF_FREE_DATA);
+    pWindow->data.ptr = (void *)pStore;
+    pWindow->action = help_dlg_window_callback;
+    set_wstate(pWindow , FC_WS_NORMAL);
+
+    add_to_gui_list(ID_WINDOW, pWindow);
+    
+    pHelpDlg->pEndWidgetList = pWindow;
+
+    area = pWindow->area;
+
+    /* ------------------ */
+
+    /* close button */
+    pCloseButton = create_themeicon(pTheme->Small_CANCEL_Icon, pWindow->dst,
+                                    WF_WIDGET_HAS_INFO_LABEL
+                                    | WF_RESTORE_BACKGROUND);
+    pCloseButton->info_label =
+        create_str16_from_char(_("Close Dialog (Esc)"), adj_font(12));
+    pCloseButton->action = exit_help_dlg_callback;
+    set_wstate(pCloseButton, FC_WS_NORMAL);
+    pCloseButton->key = SDLK_ESCAPE;
+
+    add_to_gui_list(ID_BUTTON, pCloseButton);
+
+    /* ------------------ */
+    pDock = pCloseButton;
+    
+    /* --- create scrollable advance list on the left side ---*/
+    pStr = create_string16(NULL, 0, adj_font(10));
+    pStr->style |= (TTF_STYLE_BOLD | SF_CENTER);
+
+    tech_count = 0;
+    advance_index_iterate(A_FIRST, i) {
+      struct advance *vap = valid_advance_by_number(i);;
+      if (vap) {
+        copy_chars_to_string16(pStr, advance_name_translation(vap));
+        pSurf = create_sellect_tech_icon(pStr, i, SMALL_MODE);
+        pAdvanceLabel = create_icon2(pSurf, pWindow->dst,
+                                     WF_FREE_THEME | WF_RESTORE_BACKGROUND);
+
+        set_wstate(pAdvanceLabel, FC_WS_NORMAL);
+        pAdvanceLabel->action = change_tech_callback;
+        add_to_gui_list(MAX_ID - i, pAdvanceLabel);
+
+        if (++tech_count > 10) {
+          set_wflag(pAdvanceLabel, WF_HIDDEN);
+        }
+      }
+    } advance_index_iterate_end;
+
+    FREESTRING16(pStr);
+
+    pHelpDlg->pEndActiveWidgetList = pDock->prev;
+    pHelpDlg->pBeginWidgetList = pAdvanceLabel ? pAdvanceLabel : pCloseButton;
+    pHelpDlg->pBeginActiveWidgetList = pHelpDlg->pBeginWidgetList;
+
+    if (tech_count > 10) {
+      pHelpDlg->pActiveWidgetList = pHelpDlg->pEndActiveWidgetList;
+      scrollbar_width = create_vertical_scrollbar(pHelpDlg, 1, 10, TRUE, TRUE);
     }
-  } else if (response_id == 2) {
-    if (help_history_pos < help_history->len - 1) {
-      help_history_pos++;
 
-      pitem = g_ptr_array_index(help_history, help_history_pos);
-      path = help_item_path(pitem);
-      help_item_zoom(path);
-      help_update_dialog(pitem);
-      help_command_update();
+    /* toggle techs list button */
+    pListToggleButton = create_themeicon_button_from_chars(pTheme->UP_Icon,
+                                                           pWindow->dst,
+                                                           _("Advances"),
+                                                           adj_font(10), 0);
+    pListToggleButton->action = toggle_full_tree_mode_in_help_dlg_callback;
+    if (pStore->show_tree) {
+      set_wstate(pListToggleButton, FC_WS_NORMAL);
     }
+    widget_resize(pListToggleButton, adj_size(160), adj_size(15));
+    pListToggleButton->string16->fgcol = *get_theme_color(COLOR_THEME_HELPDLG_TEXT);
+
+    add_to_gui_list(ID_BUTTON, pListToggleButton);
+
+    pDock = pListToggleButton;
+    pStore->pDock = pDock;
   } else {
-    gtk_widget_destroy(help_dialog_shell);
+    created = FALSE;
+    scrollbar_width = (pHelpDlg->pScroll ? pHelpDlg->pScroll->pUp_Left_Button->size.w: 0);
+    pWindow = pHelpDlg->pEndWidgetList;
+    pStore = (struct TECHS_BUTTONS *)pWindow->data.ptr;
+    pDock = pStore->pDock;
+
+    area = pWindow->area;
+
+    /* delete any previous list entries */
+    if (pDock != pHelpDlg->pBeginWidgetList) {
+      del_group_of_widgets_from_gui_list(pHelpDlg->pBeginWidgetList, pDock->prev);
+      pHelpDlg->pBeginWidgetList = pDock;
+    }
+
+    /* show/hide techs list */
+    pListToggleButton = pDock;
+    
+    if (pStore->show_tree) {
+      set_wstate(pListToggleButton, FC_WS_NORMAL);
+    } else {
+      set_wstate(pListToggleButton, FC_WS_DISABLED);
+    }
+
+    if (pStore->show_full_tree) {
+      /* all entries are visible without scrolling */
+      hide_group(pHelpDlg->pBeginActiveWidgetList,
+                 pHelpDlg->pEndActiveWidgetList);
+      hide_scrollbar(pHelpDlg->pScroll);
+    } else {
+      int count = pHelpDlg->pScroll->active;
+      pAdvanceLabel = pHelpDlg->pActiveWidgetList;
+      while(pAdvanceLabel && count--) {
+        pAdvanceLabel = pAdvanceLabel->prev;
+      }
+      pAdvanceLabel = pAdvanceLabel->next;
+      show_group(pAdvanceLabel, pHelpDlg->pActiveWidgetList);
+      show_scrollbar(pHelpDlg->pScroll);
+    }
+  }
+
+  /* --------------------------------------------------------- */
+  if (created) {
+
+    pSurf = theme_get_background(theme, BACKGROUND_HELPDLG);
+    if (resize_window(pWindow, pSurf, NULL, adj_size(640), adj_size(480))) {
+      FREESURFACE(pSurf);
+    }
+
+    area = pWindow->area;
+
+    widget_set_position(pWindow,
+                        (Main.screen->w - pWindow->size.w) / 2,
+                        (Main.screen->h - pWindow->size.h) / 2);
+
+    /* exit button */
+    pCloseButton = pWindow->prev;
+    widget_set_position(pCloseButton,
+                        area.x + area.w - pCloseButton->size.w - 1,
+                        pWindow->size.y + adj_size(2));
+
+    /* list toggle button */
+    pListToggleButton = pStore->pDock;
+    widget_set_position(pListToggleButton, area.x, area.y);
+
+    /* list entries */
+    h = setup_vertical_widgets_position(1, area.x + scrollbar_width,
+                                        area.y + pListToggleButton->size.h, 0, 0,
+                                        pHelpDlg->pBeginActiveWidgetList,
+                                        pHelpDlg->pEndActiveWidgetList);
+    /* scrollbar */
+    if (pHelpDlg->pScroll) {
+      setup_vertical_scrollbar_area(pHelpDlg->pScroll,
+                                    area.x, area.y + pListToggleButton->size.h,
+                                    h, FALSE);
+    }
+  }
+
+  if (pStore->show_tree) {
+    pHelpDlg->pBeginWidgetList = create_tech_tree(tech, scrollbar_width, pWindow, pStore);
+    redraw_tech_tree_dlg();
+  } else {
+    pHelpDlg->pBeginWidgetList = create_tech_info(tech, scrollbar_width, pWindow, pStore);
+    redraw_tech_info_dlg();
   }
 }

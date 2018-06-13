@@ -13,8 +13,8 @@
 #ifndef FC__FINDDLG_H
 #define FC__FINDDLG_H
 
-extern "C" {
 #include "finddlg_g.h"
-}
+
+void popdown_find_dialog(void);
 
 #endif  /* FC__FINDDLG_H */

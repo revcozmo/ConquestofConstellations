@@ -11,11 +11,20 @@
    GNU General Public License for more details.
 ***********************************************************************/
 
+/***************************************************************************
+                          connectdlg.h  -  description
+                             -------------------
+    begin                : Mon Jul 1 2002
+    copyright            : (C) 2002 by Rafał Bursig
+    email                : Rafał Bursig <bursig@poczta.fm>
+***************************************************************************/
+
 #ifndef FC__CONNECTDLG_H
 #define FC__CONNECTDLG_H
 
-extern "C" {
 #include "connectdlg_g.h"
-}
 
-#endif /* FC__CONNECTDLG_H */
+void popup_connection_dialog(bool lan_scan);
+void popup_join_game_dialog(void);
+
+#endif				/* FC__CONNECTDLG_H */

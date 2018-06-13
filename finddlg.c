@@ -15,11 +15,9 @@
 #include <fc_config.h>
 #endif
 
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
-#include <gtk/gtk.h>
+#include "SDL/SDL.h"
 
 /* utility */
 #include "fcintl.h"
@@ -27,189 +25,270 @@
 
 /* common */
 #include "game.h"
-#include "player.h"
 
-/* client */
-#include "options.h"
-
-/* client/gui-gtk-3.0 */
-#include "dialogs.h"
+/* gui-sdl */
+#include "colors.h"
+#include "graphics.h"
+#include "gui_id.h"
 #include "gui_main.h"
-#include "gui_stuff.h"
+#include "gui_tilespec.h"
+#include "mapctrl.h"
 #include "mapview.h"
+#include "sprite.h"
+#include "widget.h"
 
 #include "finddlg.h"
 
-static struct gui_dialog *find_dialog_shell;
-static GtkWidget *find_view;
+/* ====================================================================== */
+/* ============================= FIND CITY MENU ========================= */
+/* ====================================================================== */
+static struct ADVANCED_DLG  *pFind_City_Dlg = NULL;
 
-static void update_find_dialog(GtkListStore *store);
-
-static void find_response(struct gui_dialog *dlg, int response, gpointer data);
-static void find_destroy_callback(GtkWidget *w, gpointer data);
-static void find_selection_callback(GtkTreeSelection *selection,
-				    GtkTreeModel *model);
-
-static struct tile *pos;
-
-/****************************************************************
-popup the dialog 10% inside the main-window 
-*****************************************************************/
-void popup_find_dialog(void)
+/**************************************************************************
+  User interacted with find city dialog window.
+**************************************************************************/
+static int find_city_window_dlg_callback(struct widget *pWindow)
 {
-  if (!find_dialog_shell) {
-    GtkWidget         *label;
-    GtkWidget         *sw;
-    GtkListStore      *store;
-    GtkTreeSelection  *selection;
-    GtkCellRenderer   *renderer;
-    GtkTreeViewColumn *column;
-
-    pos = get_center_tile_mapcanvas();
-
-    gui_dialog_new(&find_dialog_shell, GTK_NOTEBOOK(bottom_notebook), NULL,
-                   TRUE);
-    gui_dialog_set_title(find_dialog_shell, _("Find City"));
-    gui_dialog_set_default_size(find_dialog_shell, -1, 240);
-
-    gui_dialog_add_button(find_dialog_shell,
-	GTK_STOCK_FIND, GTK_RESPONSE_ACCEPT);
-    gui_dialog_add_button(find_dialog_shell,
-	GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL);
-
-    gui_dialog_set_default_response(find_dialog_shell, GTK_RESPONSE_ACCEPT);
-
-    gui_dialog_response_set_callback(find_dialog_shell, find_response);
-
-    g_signal_connect(find_dialog_shell->vbox, "destroy",
-	G_CALLBACK(find_destroy_callback), NULL);
-
-    store = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_POINTER);
-    gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(store),
-	0, GTK_SORT_ASCENDING);
-
-    find_view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store));
-    selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(find_view));
-    g_object_unref(store);
-    gtk_tree_view_columns_autosize(GTK_TREE_VIEW(find_view));
-    gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(find_view), FALSE);
-
-    renderer = gtk_cell_renderer_text_new();
-    column = gtk_tree_view_column_new_with_attributes(NULL, renderer,
-	"text", 0, NULL);
-    gtk_tree_view_column_set_sort_order(column, GTK_SORT_ASCENDING);
-    gtk_tree_view_append_column(GTK_TREE_VIEW(find_view), column);
-
-    sw = gtk_scrolled_window_new(NULL, NULL);
-    g_object_set(sw, "margin", 2, NULL);
-    gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(sw),
-	GTK_SHADOW_ETCHED_IN);
-    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(sw),
-	GTK_POLICY_AUTOMATIC, GTK_POLICY_ALWAYS);
-    gtk_container_add(GTK_CONTAINER(sw), find_view);
-
-    gtk_widget_set_hexpand(GTK_WIDGET(find_view), TRUE);
-    gtk_widget_set_vexpand(GTK_WIDGET(find_view), TRUE);
-
-    label = g_object_new(GTK_TYPE_LABEL,
-	"use-underline", TRUE,
-	"mnemonic-widget", find_view,
-	"label", _("Ci_ties:"),
-	"xalign", 0.0, "yalign", 0.5, NULL);
-    gtk_container_add(GTK_CONTAINER(find_dialog_shell->vbox), label);
-    gtk_container_add(GTK_CONTAINER(find_dialog_shell->vbox), sw);
-
-    g_signal_connect(selection, "changed",
-	G_CALLBACK(find_selection_callback), store);
-
-    update_find_dialog(store);
-    gtk_tree_view_focus(GTK_TREE_VIEW(find_view));
-
-    gui_dialog_show_all(find_dialog_shell);
+  if (Main.event.button.button == SDL_BUTTON_LEFT) {
+    move_window_group(pFind_City_Dlg->pBeginWidgetList, pWindow);
   }
-
-  gui_dialog_raise(find_dialog_shell);
-}
-
-
-
-/**************************************************************************
-  Update find dialog with current cities
-**************************************************************************/
-static void update_find_dialog(GtkListStore *store)
-{
-  GtkTreeIter it;
-
-  gtk_list_store_clear(store);
-
-  players_iterate(pplayer) {
-    city_list_iterate(pplayer->cities, pcity) {
-	GValue value = { 0, };
-
-	gtk_list_store_append(store, &it);
-
-	g_value_init(&value, G_TYPE_STRING);
-	g_value_set_static_string(&value, city_name(pcity));
-	gtk_list_store_set_value(store, &it, 0, &value);
-	g_value_unset(&value);
-
-	gtk_list_store_set(store, &it, 1, pcity, -1);
-    } city_list_iterate_end;
-  } players_iterate_end;
+  return -1;
 }
 
 /**************************************************************************
-  User responded to find dialog
+  Close find city dialog.
 **************************************************************************/
-static void find_response(struct gui_dialog *dlg, int response, gpointer data)
+static int exit_find_city_dlg_callback(struct widget *pWidget)
 {
-  if (response == GTK_RESPONSE_ACCEPT) {
-    GtkTreeSelection *selection;
-    GtkTreeModel *model;
-    GtkTreeIter it;
+  if (Main.event.button.button == SDL_BUTTON_LEFT) {
+    int orginal_x = pWidget->data.cont->id0;
+    int orginal_y = pWidget->data.cont->id1;
 
-    selection = gtk_tree_view_get_selection(GTK_TREE_VIEW(find_view));
+    popdown_find_dialog();
 
-    if (gtk_tree_selection_get_selected(selection, &model, &it)) {
-      struct city *pcity;
+    center_tile_mapcanvas(map_pos_to_tile(orginal_x, orginal_y));
 
-      gtk_tree_model_get(model, &it, 1, &pcity, -1);
+    flush_dirty();
+  }
+  return -1;
+}
 
-      if (pcity) {
-	pos = pcity->tile;
+/**************************************************************************
+  User has selected city to find.
+**************************************************************************/
+static int find_city_callback(struct widget *pWidget)
+{
+  if (Main.event.button.button == SDL_BUTTON_LEFT) {
+    struct city *pCity = pWidget->data.city;
+    if(pCity) {
+      center_tile_mapcanvas(pCity->tile);
+      if(Main.event.button.button == SDL_BUTTON_RIGHT) {
+        popdown_find_dialog();
       }
+      flush_dirty();
     }
   }
-  gui_dialog_destroy(dlg);
+  return -1;
 }
 
 /**************************************************************************
-  Find dialog destroyed
+  Popdown a dialog to ask for a city to find.
 **************************************************************************/
-static void find_destroy_callback(GtkWidget *w, gpointer data)
+void popdown_find_dialog(void)
 {
-  can_slide = FALSE;
-  center_tile_mapcanvas(pos);
-  can_slide = TRUE;
-}
-
-/**************************************************************************
-  User selected city from find dialog
-**************************************************************************/
-static void find_selection_callback(GtkTreeSelection *selection,
-				    GtkTreeModel *model)
-{
-  GtkTreeIter it;
-  struct city *pcity;
-
-  if (!gtk_tree_selection_get_selected(selection, NULL, &it))
-    return;
-
-  gtk_tree_model_get(model, &it, 1, &pcity, -1);
-
-  if (pcity) {
-    can_slide = FALSE;
-    center_tile_mapcanvas(pcity->tile);
-    can_slide = TRUE;
+  if (pFind_City_Dlg) {
+    popdown_window_group_dialog(pFind_City_Dlg->pBeginWidgetList,
+			pFind_City_Dlg->pEndWidgetList);
+    FC_FREE(pFind_City_Dlg->pScroll);
+    FC_FREE(pFind_City_Dlg);
+    enable_and_redraw_find_city_button();
   }
+}
+
+/**************************************************************************
+  Popup a dialog to ask for a city to find.
+**************************************************************************/
+void popup_find_dialog(void)
+{
+  struct widget *pWindow = NULL, *pBuf = NULL;
+  SDL_Surface *pLogo = NULL;
+  SDL_String16 *pStr;
+  char cBuf[128];
+  int h = 0, n = 0, w = 0, units_h = 0;
+  struct player *owner = NULL;
+  struct tile *original;
+  int window_x = 0, window_y = 0;
+  bool mouse = (Main.event.type == SDL_MOUSEBUTTONDOWN);
+  SDL_Rect area;
+
+  /* check that there are any cities to find */
+  players_iterate(pplayer) {
+    h = city_list_size(pplayer->cities);
+    if (h > 0) {
+      break;
+    }
+  } players_iterate_end;
+
+  if (pFind_City_Dlg && !h) {
+    return;
+  }
+
+  original = canvas_pos_to_tile(Main.map->w/2, Main.map->h/2);
+
+  pFind_City_Dlg = fc_calloc(1, sizeof(struct ADVANCED_DLG));
+
+  pStr = create_str16_from_char(_("Find City") , adj_font(12));
+  pStr->style |= TTF_STYLE_BOLD;
+
+  pWindow = create_window_skeleton(NULL, pStr, 0);
+
+  pWindow->action = find_city_window_dlg_callback;
+  set_wstate(pWindow , FC_WS_NORMAL);
+
+  add_to_gui_list(ID_TERRAIN_ADV_DLG_WINDOW, pWindow);
+  pFind_City_Dlg->pEndWidgetList = pWindow;
+
+  area = pWindow->area;
+
+  /* ---------- */
+  /* exit button */
+  pBuf = create_themeicon(pTheme->Small_CANCEL_Icon, pWindow->dst,
+                          WF_WIDGET_HAS_INFO_LABEL | WF_RESTORE_BACKGROUND
+                          | WF_FREE_DATA);
+  pBuf->info_label = create_str16_from_char(_("Close Dialog (Esc)"),
+                                            adj_font(12));
+  area.w = MAX(area.w, pBuf->size.w + adj_size(10));
+  pBuf->action = exit_find_city_dlg_callback;
+  set_wstate(pBuf, FC_WS_NORMAL);
+  pBuf->key = SDLK_ESCAPE;
+  pBuf->data.cont = fc_calloc(1, sizeof(struct CONTAINER));
+  pBuf->data.cont->id0 = index_to_map_pos_x(tile_index(original));
+  pBuf->data.cont->id1 = index_to_map_pos_y(tile_index(original));
+
+  add_to_gui_list(ID_TERRAIN_ADV_DLG_EXIT_BUTTON, pBuf);
+  /* ---------- */
+
+  players_iterate(pPlayer) {
+    city_list_iterate(pPlayer->cities, pCity) {
+
+      fc_snprintf(cBuf , sizeof(cBuf), "%s (%d)", city_name(pCity),
+                  city_size_get(pCity));
+
+      pStr = create_str16_from_char(cBuf, adj_font(10));
+      pStr->style |= (TTF_STYLE_BOLD|SF_CENTER);
+
+      if (!player_owns_city(owner, pCity)) {
+        pLogo = get_nation_flag_surface(nation_of_player(city_owner(pCity)));
+        pLogo = crop_visible_part_from_surface(pLogo);
+      }
+
+      pBuf = create_iconlabel(pLogo, pWindow->dst, pStr,
+    	(WF_RESTORE_BACKGROUND|WF_DRAW_TEXT_LABEL_WITH_SPACE));
+
+      if (!player_owns_city(owner, pCity)) {
+        set_wflag(pBuf, WF_FREE_THEME);
+        owner = city_owner(pCity);
+      }
+
+      pBuf->string16->style &= ~SF_CENTER;
+      pBuf->string16->fgcol = *(get_player_color(tileset, city_owner(pCity))->color);
+      pBuf->string16->bgcol = (SDL_Color) {0, 0, 0, 0};
+
+      pBuf->data.city = pCity;
+
+      pBuf->action = find_city_callback;
+      set_wstate(pBuf, FC_WS_NORMAL);
+
+      add_to_gui_list(ID_LABEL , pBuf);
+
+      area.w = MAX(area.w, pBuf->size.w);
+      area.h += pBuf->size.h;
+
+      if (n > 19)
+      {
+        set_wflag(pBuf , WF_HIDDEN);
+      }
+
+      n++;
+    } city_list_iterate_end;
+  } players_iterate_end;
+  pFind_City_Dlg->pBeginWidgetList = pBuf;
+  pFind_City_Dlg->pBeginActiveWidgetList = pFind_City_Dlg->pBeginWidgetList;
+  pFind_City_Dlg->pEndActiveWidgetList = pWindow->prev->prev;
+  pFind_City_Dlg->pActiveWidgetList = pFind_City_Dlg->pEndActiveWidgetList;
+
+
+  /* ---------- */
+  if (n > 20)
+  {
+
+    units_h = create_vertical_scrollbar(pFind_City_Dlg, 1, 20, TRUE, TRUE);
+    pFind_City_Dlg->pScroll->count = n;
+
+    n = units_h;
+    area.w += n;
+
+    units_h = 20 * pBuf->size.h + adj_size(2);
+
+  } else {
+    units_h = area.h;
+  }
+
+  /* ---------- */
+
+  area.h = units_h;
+
+  resize_window(pWindow , NULL, NULL,
+                (pWindow->size.w - pWindow->area.w) + area.w,
+                (pWindow->size.h - pWindow->area.h) + area.h);
+
+  area = pWindow->area;
+
+  if(!mouse) {  
+    window_x = adj_size(10);
+    window_y = (Main.screen->h - pWindow->size.h) / 2;
+  } else {
+    window_x = (Main.event.motion.x + pWindow->size.w + adj_size(10) < Main.screen->w) ?
+                (Main.event.motion.x + adj_size(10)) :
+                (Main.screen->w - pWindow->size.w - adj_size(10));
+    window_y = (Main.event.motion.y - adj_size(2) + pWindow->size.h < Main.screen->h) ?
+             (Main.event.motion.y - adj_size(2)) :
+             (Main.screen->h - pWindow->size.h - adj_size(10));
+    
+  }
+
+  widget_set_position(pWindow, window_x, window_y);
+
+  w = area.w;
+
+  if (pFind_City_Dlg->pScroll)
+  {
+    w -= n;
+  }
+
+  /* exit button */
+  pBuf = pWindow->prev;
+
+  pBuf->size.x = area.x + area.w - pBuf->size.w - 1;
+  pBuf->size.y = pWindow->size.y + adj_size(2);
+
+  /* cities */
+  pBuf = pBuf->prev;
+  setup_vertical_widgets_position(1,
+	area.x, area.y,
+	w, 0, pFind_City_Dlg->pBeginActiveWidgetList, pBuf);
+
+  if (pFind_City_Dlg->pScroll)
+  {
+    setup_vertical_scrollbar_area(pFind_City_Dlg->pScroll,
+	area.x + area.w, area.y,
+    	area.h, TRUE);
+  }
+
+  /* -------------------- */
+  /* redraw */
+  redraw_group(pFind_City_Dlg->pBeginWidgetList, pWindow, 0);
+  widget_mark_dirty(pWindow);
+
+  flush_dirty();
 }
